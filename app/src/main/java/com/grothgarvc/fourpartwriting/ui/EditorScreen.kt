@@ -3,6 +3,27 @@ package com.grothgarvc.fourpartwriting.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.key
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -89,8 +110,15 @@ fun EditorScreen(vm: EditorViewModel) {
     val snack = remember { SnackbarHostState() }
     var settings by remember { mutableStateOf(false) }
     var tempoDialog by remember { mutableStateOf(false) }
+    // Score-wide actions (clear, example) run at once and offer Undo instead of asking first
+    var undoable by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(st.message) {
         st.message?.let { snack.showSnackbar(it); vm.clearMessage() }
+    }
+    LaunchedEffect(undoable) {
+        val m = undoable ?: return@LaunchedEffect
+        if (snack.showSnackbar(m, actionLabel = "Undo", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) vm.undo()
+        undoable = null
     }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         // The score runs edge to edge (under the camera cutout); only the controls keep clear of it
@@ -106,10 +134,11 @@ fun EditorScreen(vm: EditorViewModel) {
                 if (!wide) Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).height(48.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     ActionButtons(st, vm, onSettings = { settings = true }, leading = true)
-                    Spacer(Modifier.weight(1f))
+                    Gap()
                     ActionButtons(st, vm, onSettings = { settings = true }, leading = false, below = true)
                 }
-                Box(Modifier.weight(1f).fillMaxWidth().background(Color.White)
+                if (!wide) HorizontalDivider()
+                Box(Modifier.weight(1f).fillMaxWidth()
                     .then(if (wide) Modifier.windowInsetsPadding(safe.only(WindowInsetsSides.Top)) else Modifier)) {
                     ScoreCanvas(
                         st, vm::tap, vm::nudge, vm::dragPitch,
@@ -133,13 +162,13 @@ fun EditorScreen(vm: EditorViewModel) {
             SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(safe).padding(bottom = 64.dp))
         }
     }
-    if (settings) SettingsDialog(st, vm) { settings = false }
+    if (settings) SettingsDialog(st, vm, onUndoable = { undoable = it }) { settings = false }
     if (tempoDialog) Dialog(onDismissRequest = { tempoDialog = false }) {
-        Surface(shape = RoundedCornerShape(20.dp), tonalElevation = 6.dp) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Tempo", style = MaterialTheme.typography.titleMedium)
+        Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("Tempo", style = MaterialTheme.typography.titleLarge)
                 TempoEditor(st.score.tempo, vm)
-                TextButton(onClick = { tempoDialog = false }, modifier = Modifier.align(Alignment.End)) { Text("Done") }
+                FilledTonalButton(onClick = { tempoDialog = false }, shape = SHAPE, modifier = Modifier.align(Alignment.End)) { Text("Done") }
             }
         }
     }
@@ -150,12 +179,12 @@ fun EditorScreen(vm: EditorViewModel) {
 private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
     var text by remember(tempo) { mutableStateOf(tempo.toString()) }
     fun commit(v: Int) { vm.setTempo(v); vm.commitTempo() }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("♩ =", style = MaterialTheme.typography.titleMedium)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GlyphIcon(Smufl.MET_NOTES[2], 36, MaterialTheme.colorScheme.onSurface)
+            Text("=", style = MaterialTheme.typography.titleMedium)
             // Steps of 5, snapping to the 5-grid (83 -> 80 / 85); any value can still be typed
-            OutlinedButton(onClick = { commit((tempo - 1) / 5 * 5) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                modifier = Modifier.size(40.dp)) { Text("−") }
+            Small("−") { commit((tempo - 1) / 5 * 5) }
             androidx.compose.material3.OutlinedTextField(
                 value = text,
                 onValueChange = { s ->
@@ -163,14 +192,16 @@ private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
                     text.toIntOrNull()?.takeIf { it in 20..300 }?.let(::commit)
                 },
                 singleLine = true,
+                shape = SHAPE,
+                textStyle = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                 modifier = Modifier.width(84.dp),
             )
-            OutlinedButton(onClick = { commit((tempo / 5 + 1) * 5) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                modifier = Modifier.size(40.dp)) { Text("+") }
+            Small("+") { commit((tempo / 5 + 1) * 5) }
         }
         Slider(value = tempo.toFloat(), onValueChange = { vm.setTempo((it / 5).roundToInt() * 5) }, onValueChangeFinished = vm::commitTempo,
-            valueRange = 30f..240f, steps = (240 - 30) / 5 - 1, modifier = Modifier.width(260.dp))
+            valueRange = 30f..240f, steps = (240 - 30) / 5 - 1, modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent))
     }
 }
 
@@ -191,16 +222,22 @@ private fun ReorderPrompt(st: UiState, vm: EditorViewModel, modifier: Modifier) 
     }
 }
 
+/** Shared corner shape for buttons, toggles and fields. */
+private val SHAPE = RoundedCornerShape(12.dp)
+
 /**
  * A square-ish toolbar button that grows to share the row. With [hold], holding it shows a drop
  * target ([hold].label) above it, or below when [below]; sliding onto it and letting go runs [hold].onDrop.
+ * A small dot marks buttons that can be held; [menu] adds a ▾ corner mark for buttons that open a menu.
  */
 @Composable
 private fun RowScope.Tool(
     selected: Boolean = false,
     onClick: () -> Unit,
+    label: String,
     color: Color = MaterialTheme.colorScheme.primaryContainer,
     hold: HoldTarget? = null,
+    menu: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     var shown by remember { mutableStateOf(false) }
@@ -208,10 +245,16 @@ private fun RowScope.Tool(
     val click by rememberUpdatedState(onClick)
     val drop by rememberUpdatedState(hold?.onDrop)
     val below = hold?.below == true
+    val hint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
     Box(
-        Modifier.weight(1f).height(46.dp).padding(2.dp).clip(RoundedCornerShape(10.dp))
+        Modifier.weight(1f).height(46.dp).padding(2.dp).clip(SHAPE)
             .background(if (selected) color else Color.Transparent)
-            .then(if (hold == null) Modifier.clickable(onClick = onClick) else Modifier.pointerInput(below) {
+            .semantics { contentDescription = label }
+            .then(if (hold == null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier.semantics {
+                role = Role.Button
+                onClick(label) { click(); true }
+                onLongClick(hold.label) { drop?.invoke(); true }
+            }.pointerInput(below) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     var released = false
@@ -234,6 +277,9 @@ private fun RowScope.Tool(
         contentAlignment = Alignment.Center,
     ) {
         content()
+        if (hold != null) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 3.dp).size(4.dp).clip(CircleShape)
+            .background(if (selected) Color.White.copy(alpha = 0.7f) else hint))
+        if (menu) Text("▾", fontSize = 10.sp, color = hint, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 5.dp, bottom = 1.dp))
         if (shown && hold != null) {
             val gap = with(LocalDensity.current) { 52.dp.roundToPx() }
             Popup(alignment = if (below) Alignment.BottomCenter else Alignment.TopCenter, offset = IntOffset(0, if (below) gap else -gap)) {
@@ -249,6 +295,11 @@ private fun RowScope.Tool(
     }
 }
 
+/** Two related toolbar buttons sharing one rounded tray. */
+@Composable
+private fun RowScope.Pill(content: @Composable RowScope.() -> Unit) =
+    Row(Modifier.weight(2f).height(46.dp).padding(2.dp).clip(SHAPE).background(MaterialTheme.colorScheme.surfaceVariant), content = content)
+
 /** What a held toolbar button offers: slide onto [label] and let go to run [onDrop]. */
 private class HoldTarget(val label: String, val below: Boolean, val danger: Boolean = false, val onDrop: () -> Unit)
 
@@ -256,18 +307,22 @@ private class HoldTarget(val label: String, val below: Boolean, val danger: Bool
 private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings: () -> Unit, leading: Boolean, below: Boolean = false) {
     val ink = MaterialTheme.colorScheme.onSurface
     if (leading) {
-        Tool(st.playing, vm::togglePlay) { Text(if (st.playing) "■" else "▶", fontSize = 20.sp, color = ink) }
-        Tool(st.analysis != null, vm::check) { Text("✓", fontSize = 22.sp, color = ink, fontWeight = FontWeight.Bold) }
-        Tool(onClick = { vm.step(-1) }) { Text("‹", fontSize = 30.sp, color = ink) }
-        Tool(onClick = { vm.step(1) }) { Text("›", fontSize = 30.sp, color = ink) }
+        Tool(st.playing, vm::togglePlay, if (st.playing) "Stop" else "Play") { Text(if (st.playing) "■" else "▶", fontSize = 20.sp, color = ink) }
+        Tool(st.analysis != null, vm::check, "Check") { Text("✓", fontSize = 22.sp, color = ink, fontWeight = FontWeight.Bold) }
+        Pill {
+            Tool(onClick = { vm.step(-1) }, label = "Previous note") { Text("‹", fontSize = 30.sp, color = ink) }
+            Tool(onClick = { vm.step(1) }, label = "Next note") { Text("›", fontSize = 30.sp, color = ink) }
+        }
     } else {
-        Tool(onClick = vm::undo) { Text("↶", fontSize = 22.sp, color = ink) }
-        Tool(onClick = vm::redo) { Text("↷", fontSize = 22.sp, color = ink) }
+        Pill {
+            Tool(onClick = vm::undo, label = "Undo") { Text("↶", fontSize = 22.sp, color = ink) }
+            Tool(onClick = vm::redo, label = "Redo") { Text("↷", fontSize = 22.sp, color = ink) }
+        }
         val bar = st.selected?.let { r -> st.score.onsets(r.voice).getOrNull(r.index) }?.let { (it / st.score.time.measure).let { f -> f.num / f.den + 1 } }
-        Tool(onClick = vm::delete, hold = HoldTarget(if (bar != null) "🗑  Delete bar $bar" else "🗑  Select a note first", below, danger = true, onDrop = vm::deleteMeasure)) {
+        Tool(onClick = vm::delete, label = "Delete", hold = HoldTarget(if (bar != null) "🗑  Delete bar $bar" else "🗑  Select a note first", below, danger = true, onDrop = vm::deleteMeasure)) {
             Text("⌫", fontSize = 20.sp, color = ink)
         }
-        Tool(onClick = onSettings) { Text("⚙", fontSize = 20.sp, color = ink) }
+        Tool(onClick = onSettings, label = "Settings") { Text("⚙", fontSize = 20.sp, color = ink) }
     }
 }
 
@@ -275,7 +330,7 @@ private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings:
 private fun RowScope.VoiceButtons(st: UiState, vm: EditorViewModel) {
     for (v in Voice.entries) {
         val col = VOICE_COLORS[v.ordinal]
-        Tool(st.shownVoice == v, { vm.selectVoice(v) }, color = col, hold = HoldTarget("🔒  ${v.label} only", below = false) { vm.lockVoice(v) }) {
+        Tool(st.shownVoice == v, { vm.selectVoice(v) }, "Voice ${v.label}", color = col, hold = HoldTarget("🔒  ${v.label} only", below = false) { vm.lockVoice(v) }) {
             Text(v.label + if (st.locked == v) "🔒" else "", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (st.shownVoice == v) Color.White else col)
         }
     }
@@ -291,11 +346,11 @@ private fun RowScope.NoteTools(st: UiState, vm: EditorViewModel) {
     val sel = st.selectedEvent
 
     Box(Modifier.weight(1f)) {
-        Row { Tool(true, { durOpen = true }) { GlyphIcon(Smufl.MET_NOTES[idx], 40, ink) } }
-        DropdownMenu(durOpen, { durOpen = false }) {
+        Row { Tool(onClick = { durOpen = true }, label = "Note length", menu = true) { GlyphIcon(Smufl.MET_NOTES[idx], 40, ink) } }
+        DropdownMenu(durOpen, { durOpen = false }, shape = SHAPE) {
             Row {
                 BASES.forEachIndexed { i, b ->
-                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                    Box(Modifier.size(48.dp).clip(SHAPE)
                         .background(if (b == d.base) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                         .clickable { vm.setDuration(b); durOpen = false }, contentAlignment = Alignment.Center) {
                         GlyphIcon(Smufl.MET_NOTES[i], 42, ink)
@@ -304,19 +359,19 @@ private fun RowScope.NoteTools(st: UiState, vm: EditorViewModel) {
             }
         }
     }
-    Tool(d.dots > 0, vm::toggleDot) { Text(if (d.dots == 2) "··" else "·", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ink) }
-    Tool(sel != null && sel.pitch == null, vm::rest) { GlyphIcon(Smufl.RESTS[idx], 40, ink) }
+    Tool(d.dots > 0, vm::toggleDot, "Dot") { Text(if (d.dots == 2) "··" else "·", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ink) }
+    Tool(sel != null && sel.pitch == null, vm::rest, "Rest") { GlyphIcon(Smufl.RESTS[idx], 40, ink) }
     val p = sel?.pitch
     val shownAlter = if (p != null) p.alter.takeIf { it != st.score.key.sigAlter(p.step) } else st.accidental
     Box(Modifier.weight(1f)) {
         Row {
-            Tool(shownAlter != null, { accOpen = true }) {
-                GlyphIcon(Smufl.accidental(shownAlter ?: 0), 40, if (shownAlter == null) ink.copy(alpha = 0.35f) else ink)
+            Tool(shownAlter != null, { accOpen = true }, "Accidental", menu = true) {
+                GlyphIcon(Smufl.accidental(shownAlter ?: 0), 40, if (shownAlter == null) ink.copy(alpha = 0.5f) else ink)
             }
         }
-        DropdownMenu(accOpen, { accOpen = false }) {
+        DropdownMenu(accOpen, { accOpen = false }, shape = SHAPE) {
             Row {
-                for (a in listOf(-2, -1, 0, 1, 2)) Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                for (a in listOf(-2, -1, 0, 1, 2)) Box(Modifier.size(48.dp).clip(SHAPE)
                     .background(if (a == shownAlter) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                     .clickable { vm.setAccidental(a); accOpen = false }, contentAlignment = Alignment.Center) {
                     GlyphIcon(Smufl.accidental(a), 42, ink)
@@ -324,45 +379,51 @@ private fun RowScope.NoteTools(st: UiState, vm: EditorViewModel) {
             }
         }
     }
-    Tool(onClick = vm::tie) { Text("⁀", fontSize = 30.sp, color = ink) }
+    // "⁀" sits high in the font; nudge it to the button's middle
+    Tool(onClick = vm::tie, label = "Tie") { Text("⁀", fontSize = 30.sp, color = ink, modifier = Modifier.offset(y = 7.dp)) }
 }
 
 @Composable
 private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, maxList: Dp, oneLine: Boolean) {
     val a = st.analysis ?: return
-    var open by remember { mutableStateOf(true) }
+    // Landscape has little height: start with just the summary line
+    var open by remember { mutableStateOf(!oneLine) }
     val errors = a.issues.count { it.severity == Severity.ERROR }
     val warnings = a.issues.size - errors
-    Surface(tonalElevation = 3.dp) {
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(Modifier.fillMaxWidth().windowInsetsPadding(insets)) {
-            Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    if (a.issues.isEmpty()) "No problems found ✓"
-                    else "$errors error${if (errors == 1) "" else "s"} · $warnings warning${if (warnings == 1) "" else "s"}  ${if (open) "▾" else "▴"}",
-                    fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = vm::closeAnalysis) { Text("✕") }
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth().height(44.dp).clickable { open = !open }.padding(start = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (a.issues.isEmpty()) Text("No problems found ✓", style = MaterialTheme.typography.titleSmall, color = OK_GREEN)
+                else {
+                    if (errors > 0) Badge("$errors error${if (errors == 1) "" else "s"}", ERROR_RED)
+                    if (warnings > 0) Badge("$warnings warning${if (warnings == 1) "" else "s"}", WARN_AMBER)
+                    Text(if (open) "▾" else "▴", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.size(44.dp).clickable(onClick = vm::closeAnalysis).semantics { contentDescription = "Close check" },
+                    contentAlignment = Alignment.Center) { Text("✕", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             if (open && a.issues.isNotEmpty()) LazyColumn(Modifier.heightIn(max = maxList)) {
                 itemsIndexed(a.issues) { i, issue ->
                     val t = a.slices.getOrNull(issue.slice)?.time ?: Fraction.ZERO
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(
-                        Modifier.fillMaxWidth()
-                            .background(if (st.focusedIssue == i) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                            .clickable { vm.focusIssue(i) }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        Modifier.fillMaxWidth().height(IntrinsicSize.Min)
+                            .background(if (st.focusedIssue == i) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                            .clickable { vm.focusIssue(i) },
                     ) {
-                        Text("●", color = if (issue.severity == Severity.ERROR) Color(0xFFD32F2F) else Color(0xFFE67700))
-                        Spacer(Modifier.width(8.dp))
+                        Box(Modifier.width(4.dp).fillMaxHeight().background(if (issue.severity == Severity.ERROR) ERROR_RED else WARN_AMBER))
                         val head = "${where(t, st.score.time)} · ${issue.rule.label}"
-                        if (oneLine) Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(head, style = MaterialTheme.typography.labelMedium)
+                        val pad = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        if (oneLine) Row(pad, verticalAlignment = Alignment.CenterVertically) {
+                            Text(head, style = MaterialTheme.typography.labelLarge)
                             Spacer(Modifier.width(10.dp))
                             Text(issue.message, style = MaterialTheme.typography.bodySmall)
-                        } else Column {
-                            Text(head, style = MaterialTheme.typography.labelMedium)
-                            Text(issue.message, style = MaterialTheme.typography.bodySmall)
+                        } else Column(pad) {
+                            Text(head, style = MaterialTheme.typography.labelLarge)
+                            Text(issue.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -370,6 +431,16 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
         }
     }
 }
+
+private val ERROR_RED = Color(0xFFC62828)
+private val WARN_AMBER = Color(0xFFB85C00)
+private val OK_GREEN = Color(0xFF2E7D32)
+
+/** Small tinted count label, e.g. "2 warnings". */
+@Composable
+private fun Badge(text: String, color: Color) =
+    Text(text, style = MaterialTheme.typography.labelLarge, color = color, fontWeight = FontWeight.Bold,
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(color.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 3.dp))
 
 private fun where(t: Fraction, time: TimeSig): String {
     val ml = time.measure
@@ -386,7 +457,7 @@ private fun keyLabel(k: Key) = k.name + when {
 }
 
 @Composable
-private fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
+private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String) -> Unit, onDismiss: () -> Unit) {
     val sf2Picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importSf2) }
     val xmlSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.recordare.musicxml+xml")) { uri ->
         uri?.let(vm::exportMusicXml)
@@ -394,157 +465,174 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Un
     val score = st.score
     var rulesOpen by remember { mutableStateOf(false) }
     if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-            Column {
-                Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = onDismiss) { Text("←", fontSize = 22.sp) }
-                    Text("Score settings", style = MaterialTheme.typography.titleMedium)
+    FullScreenPage("Score settings", onDismiss) {
+        item {
+            Group("Notation") {
+                Label("Key")
+                val k = score.key
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Small("♭", glyph = Smufl.FLAT, enabled = k.fifths > -7) { vm.setKey(k.copy(fifths = k.fifths - 1)) }
+                    Text(keyLabel(k), Modifier.weight(1f), fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+                    Small("♯", glyph = Smufl.SHARP, enabled = k.fifths < 7) { vm.setKey(k.copy(fifths = k.fifths + 1)) }
+                    Segmented(listOf("maj", "min"), if (k.mode == Mode.MAJOR) 0 else 1) { vm.setKey(k.copy(mode = Mode.entries[it])) }
                 }
-                HorizontalDivider()
-                LazyColumn(
-                    Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    item { Section("Key") }
-                    item {
-                        val k = score.key
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Small("♭", enabled = k.fifths > -7) { vm.setKey(k.copy(fifths = k.fifths - 1)) }
-                            Text(keyLabel(k), Modifier.width(150.dp), fontWeight = FontWeight.Medium)
-                            Small("♯", enabled = k.fifths < 7) { vm.setKey(k.copy(fifths = k.fifths + 1)) }
-                            Spacer(Modifier.width(8.dp))
-                            Segmented(listOf("maj", "min"), if (k.mode == Mode.MAJOR) 0 else 1) { vm.setKey(k.copy(mode = Mode.entries[it])) }
-                        }
-                    }
-                    item { Section("Time signature") }
-                    item {
-                        val t = score.time
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Small("−", enabled = t.beats > 1) { vm.setTime(TimeSig(t.beats - 1, t.beatUnit)) }
-                            Text("${t.beats}", Modifier.width(24.dp), fontWeight = FontWeight.Bold)
-                            Small("+", enabled = t.beats < 16) { vm.setTime(TimeSig(t.beats + 1, t.beatUnit)) }
-                            Text("/", style = MaterialTheme.typography.titleMedium)
-                            Segmented(listOf("2", "4", "8", "16"), listOf(2, 4, 8, 16).indexOf(t.beatUnit)) { vm.setTime(TimeSig(t.beats, listOf(2, 4, 8, 16)[it])) }
-                        }
-                    }
-                    item { Section("Tempo") }
-                    item { TempoEditor(score.tempo, vm) }
-                    item { Section("Staves") }
-                    item {
-                        // "/" = staff break; SAT/B is keyboard style
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            for (a in StaffArrangement.entries) Choice(score.arrangement == a, a.label) { vm.setArrangement(a) }
-                        }
-                    }
-                    item {
-                        val names = score.arrangement.label.split("/")
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            for (i in score.clefs.indices) Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Staff ${i + 1} (${names[i]})", Modifier.weight(1f))
-                                Picker(score.clefs[i].label, Clef.entries, { it.label }) { vm.setClef(i, it) }
-                            }
-                        }
-                    }
-                    item { Section("Entry") }
-                    item { SwitchRow("After each note, move to the next voice (S→A→T→B)", st.autoVoice, vm::toggleAutoVoice) }
-                    item { Section("Check") }
-                    item {
-                        Row(Modifier.fillMaxWidth().clickable { rulesOpen = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Rules to check", Modifier.weight(1f))
-                            Text("${st.rules.size} of ${Rule.entries.size} on  ›", color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    item { Section("Sound") }
-                    item {
-                        Text(if (st.soundLoaded) "Piano SoundFont loaded." else "No SoundFont loaded. Pick a piano .sf2 file.",
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                    item { FilledTonalButton(onClick = { sf2Picker.launch(arrayOf("*/*")) }) { Text("Load .sf2 file…") } }
-                    item { Section("Score") }
-                    item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { xmlSaver.launch("satb.musicxml") }) { Text("Export MusicXML…") }
-                        }
-                    }
-                    item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { vm.clearScore(); onDismiss() }) { Text("Clear") }
-                            OutlinedButton(onClick = { vm.loadExample(); onDismiss() }) { Text("Example") }
-                        }
-                    }
-                    item {
-                        Text("Music font: Bravura © Steinberg Media Technologies, SIL Open Font License.",
-                            style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 12.dp))
-                    }
+                Label("Time signature")
+                val t = score.time
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Small("−", enabled = t.beats > 1) { vm.setTime(TimeSig(t.beats - 1, t.beatUnit)) }
+                    Text("${t.beats}", Modifier.width(28.dp), fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.titleMedium)
+                    Small("+", enabled = t.beats < 16) { vm.setTime(TimeSig(t.beats + 1, t.beatUnit)) }
+                    Text("/", style = MaterialTheme.typography.titleMedium)
+                    Segmented(listOf("2", "4", "8", "16"), listOf(2, 4, 8, 16).indexOf(t.beatUnit)) { vm.setTime(TimeSig(t.beats, listOf(2, 4, 8, 16)[it])) }
+                }
+                Label("Staves")
+                // "/" = staff break; SAT/B is keyboard style
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (a in StaffArrangement.entries) Choice(score.arrangement == a, a.label) { vm.setArrangement(a) }
+                }
+                val names = score.arrangement.label.split("/")
+                for (i in score.clefs.indices) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Staff ${i + 1} (${names[i]})", Modifier.weight(1f))
+                    Picker(score.clefs[i].label, Clef.entries, { it.label }) { vm.setClef(i, it) }
                 }
             }
+        }
+        item {
+            Group("Playback") {
+                Label("Tempo")
+                TempoEditor(score.tempo, vm)
+                Label("Sound")
+                Text(if (st.soundLoaded) "Piano SoundFont loaded." else "No SoundFont loaded. Pick a piano .sf2 file.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FilledTonalButton(onClick = { sf2Picker.launch(arrayOf("*/*")) }, shape = SHAPE) { Text("Load .sf2 file…") }
+            }
+        }
+        item {
+            Group("Writing") {
+                SwitchRow("After each note, move to the next voice (S→A→T→B)", st.autoVoice, vm::toggleAutoVoice)
+                Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { rulesOpen = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Rules to check", Modifier.weight(1f))
+                    Text("${st.rules.size} of ${Rule.entries.size} on  ›", color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+        item {
+            Group("Score") {
+                OutlinedButton(onClick = { xmlSaver.launch("satb.musicxml") }, shape = SHAPE) { Text("Export MusicXML…") }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = { vm.loadExample(); onDismiss(); onUndoable("Example loaded") }, shape = SHAPE) { Text("Load example") }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { vm.clearScore(); onDismiss(); onUndoable("Score cleared") }, shape = SHAPE,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Clear score") }
+                }
+            }
+        }
+        item {
+            Text("Music font: Bravura © Steinberg Media Technologies, SIL Open Font License.",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.widthIn(max = 640.dp).padding(horizontal = 4.dp, vertical = 8.dp))
         }
     }
 }
 
 @Composable
 private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-            Column {
-                Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = onDismiss) { Text("←", fontSize = 22.sp) }
-                    Text("Rules to check", style = MaterialTheme.typography.titleMedium)
+    FullScreenPage("Rules to check", onDismiss) {
+        item {
+            Group(null) { for (r in Rule.entries) key(r.name) { SwitchRow(r.label, r in st.rules) { vm.toggleRule(r) } } }
+        }
+    }
+}
+
+/** Full-screen page with a back arrow, drawn under the status bar like the editor. */
+@Composable
+private fun FullScreenPage(title: String, onDismiss: () -> Unit, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        // The dialog has its own window: give it dark status bar icons on the light page too
+        val view = LocalView.current
+        SideEffect {
+            (view.parent as? DialogWindowProvider)?.window?.let { WindowCompat.getInsetsController(it, view).isAppearanceLightStatusBars = true }
+        }
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+            Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
+                Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(56.dp).clickable(onClick = onDismiss).semantics { contentDescription = "Back" },
+                        contentAlignment = Alignment.Center) { Text("←", fontSize = 22.sp) }
+                    Text(title, style = MaterialTheme.typography.titleLarge)
                 }
-                HorizontalDivider()
-                LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
-                    for (r in Rule.entries) item(key = r.name) { SwitchRow(r.label, r in st.rules) { vm.toggleRule(r) } }
-                }
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    content = content,
+                )
             }
         }
     }
 }
 
-/** Small square button for steppers. */
+/** A titled card holding one group of settings. */
 @Composable
-private fun Small(label: String, enabled: Boolean = true, onClick: () -> Unit) =
-    OutlinedButton(onClick = onClick, enabled = enabled, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-        modifier = Modifier.size(40.dp)) { Text(label, fontSize = 18.sp) }
+private fun Group(title: String?, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    // Readable width on tablets and in landscape
+    Column(Modifier.widthIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (title != null) Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 4.dp))
+        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+        }
+    }
+}
+
+@Composable
+private fun Label(text: String) =
+    Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+/** Square stepper button; [glyph] draws a music symbol (e.g. ♭) in the Bravura font instead of [label]. */
+@Composable
+private fun Small(label: String, glyph: Char? = null, enabled: Boolean = true, onClick: () -> Unit) =
+    OutlinedButton(onClick = onClick, enabled = enabled, shape = SHAPE, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+        modifier = Modifier.size(48.dp).semantics { contentDescription = label }) {
+        if (glyph != null) GlyphIcon(glyph, 46, MaterialTheme.colorScheme.onSurface) else Text(label, fontSize = 20.sp)
+    }
 
 /** Compact connected toggle buttons. */
 @Composable
 private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
-    Row(Modifier.clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+    Row(Modifier.clip(SHAPE).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
         options.forEachIndexed { i, o ->
-            Box(Modifier.height(40.dp).width(46.dp)
-                .background(if (i == selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+            Box(Modifier.height(48.dp).width(48.dp).padding(3.dp).clip(RoundedCornerShape(9.dp))
+                .background(if (i == selected) MaterialTheme.colorScheme.surface else Color.Transparent)
                 .clickable { onSelect(i) }, contentAlignment = Alignment.Center) {
-                Text(o, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Normal)
+                Text(o, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (i == selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-private fun Section(title: String) =
-    Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
-
-@Composable
 private fun SwitchRow(label: String, checked: Boolean, onToggle: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onToggle), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f))
+    Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(onClick = onToggle).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f).padding(end = 12.dp))
         Switch(checked = checked, onCheckedChange = { onToggle() })
     }
 }
 
 @Composable
 private fun Choice(selected: Boolean, label: String, onClick: () -> Unit) {
-    if (selected) FilledTonalButton(onClick = onClick) { Text(label) } else OutlinedButton(onClick = onClick) { Text(label) }
+    if (selected) FilledTonalButton(onClick = onClick, shape = SHAPE) { Text(label, fontWeight = FontWeight.Bold) }
+    else OutlinedButton(onClick = onClick, shape = SHAPE) { Text(label) }
 }
 
 @Composable
 private fun <T> Picker(current: String, options: List<T>, label: (T) -> String, onPick: (T) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { open = true }) { Text("$current  ▾") }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        OutlinedButton(onClick = { open = true }, shape = SHAPE) { Text("$current  ▾") }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = SHAPE) {
             for (o in options) DropdownMenuItem(text = { Text(label(o)) }, onClick = { onPick(o); open = false })
         }
     }

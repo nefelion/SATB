@@ -14,6 +14,7 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -57,6 +58,7 @@ private const val INK = 0xFF161616.toInt()
 private const val ERROR = 0xFFD32F2F.toInt()
 private const val WARN = 0xFFE67700.toInt()
 private const val PLAY = 0xFF2E7D32.toInt()
+private const val TEMPO_CHIP = 0x1A34558B
 
 /** Voice colours, used on the voice buttons and the insertion caret. */
 val VOICE_COLORS = listOf(Color(0xFFC62828), Color(0xFFEF6C00), Color(0xFF2E7D32), Color(0xFF1565C0))
@@ -88,6 +90,7 @@ fun ScoreCanvas(
 ) {
     val bravura = rememberBravura()
     val density = LocalDensity.current
+    val paper = MaterialTheme.colorScheme.surface
     BoxWithConstraints(modifier.fillMaxSize()) {
         val viewW = constraints.maxWidth.toFloat()
         val viewH = constraints.maxHeight.toFloat()
@@ -107,7 +110,8 @@ fun ScoreCanvas(
         var sp by remember(viewKey) {
             val saved = savedViewport?.takeIf { !usedSaved[0] }
             mutableFloatStateOf(saved?.first?.coerceIn(minSp, maxSp)
-                ?: (viewH * 0.92f / layout.height).coerceIn(with(density) { 6.dp.toPx() }, with(density) { 19.dp.toPx() }))
+                // Fit the height, but keep ~40 staff spaces across so a tall portrait view still shows a bar or two
+                ?: min(viewH * 0.92f / layout.height, viewW / 40f).coerceIn(with(density) { 6.dp.toPx() }, with(density) { 19.dp.toPx() }))
         }
         var offX by remember(viewKey) {
             mutableFloatStateOf(savedViewport?.takeIf { !usedSaved[0] }?.second ?: edges.first).also { usedSaved[0] = true }
@@ -251,11 +255,16 @@ fun ScoreCanvas(
                     }
                 }
         ) {
-            drawRect(Color.White)
+            drawRect(paper)
             drawIntoCanvas { c ->
                 val nc = c.nativeCanvas
                 nc.save()
                 nc.translate(offX, offY)
+                // Faint chip behind the tempo mark: it opens the tempo dialog when tapped
+                layout.tempoBox.let { b ->
+                    paints.fill.color = TEMPO_CHIP
+                    nc.drawRoundRect(b[0] * sp, b[1] * sp, b[2] * sp, b[3] * sp, 0.8f * sp, 0.8f * sp, paints.fill)
+                }
                 // Playback cursor
                 state.playTime?.let { t ->
                     layout.locate(t)?.let { x ->
