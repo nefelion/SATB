@@ -160,10 +160,24 @@ fun ScoreCanvas(
             val t = state.focusedIssue?.let { i -> analysis?.issues?.getOrNull(i)?.let { analysis.slices.getOrNull(it.slice)?.time } }
             t?.let { currentLayout.locate(it) }?.let { follow(it) }
         }
-        // When Check opens (labels added, less height), zoom out just enough to show the whole system
+        // When Check opens (labels added, less height), zoom out just enough to show the whole system;
+        // when it closes, go back to the zoom and position from before (sp, offX, offY; sp < 0 = none saved)
+        val beforeCheck = remember(viewKey) { floatArrayOf(-1f, 0f, 0f) }
         LaunchedEffect(analysis != null, vh, viewKey) {
+            if (analysis == null) return@LaunchedEffect
+            if (beforeCheck[0] < 0) { beforeCheck[0] = sp; beforeCheck[1] = offX; beforeCheck[2] = offY }
             val fit = vh * 0.96f / currentLayout.height
-            if (analysis != null && sp > fit) animate(sp, fit.coerceAtLeast(minSp)) { v, _ -> sp = v; clampOffsets() }
+            if (sp > fit) animate(sp, fit.coerceAtLeast(minSp)) { v, _ -> sp = v; clampOffsets() }
+        }
+        // Not keyed on vh: the issues strip closing changes the height and must not cancel this
+        LaunchedEffect(analysis == null, viewKey) {
+            if (analysis != null || beforeCheck[0] < 0) return@LaunchedEffect
+            val (s0, x0, y0) = beforeCheck.copyOf().also { beforeCheck[0] = -1f }
+            val s1 = sp; val x1 = offX; val y1 = offY
+            animate(0f, 1f) { t, _ ->
+                sp = s1 + (s0 - s1) * t; offX = x1 + (x0 - x1) * t; offY = y1 + (y0 - y1) * t
+                clampOffsets()
+            }
         }
         LaunchedEffect(state.playTime) { state.playTime?.let { currentLayout.locate(it) }?.let { follow(it) } }
 
