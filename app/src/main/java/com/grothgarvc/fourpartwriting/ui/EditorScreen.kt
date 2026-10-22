@@ -3,6 +3,9 @@ package com.grothgarvc.fourpartwriting.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.unit.IntOffset
@@ -88,25 +91,34 @@ fun EditorScreen(vm: EditorViewModel) {
         st.message?.let { snack.showSnackbar(it); vm.clearMessage() }
     }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        // The score runs edge to edge (under the camera cutout); only the controls keep clear of it
+        val safe = WindowInsets.safeDrawing
+        BoxWithConstraints(Modifier.fillMaxSize()) {
             val wide = maxWidth >= 600.dp
+            val dir = LocalLayoutDirection.current
+            val density = LocalDensity.current
+            val edges = safe.getLeft(density, dir).toFloat() to safe.getRight(density, dir).toFloat()
             Column(Modifier.fillMaxSize()) {
-                if (!wide) Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (!wide) Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).height(48.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
                     ActionButtons(st, vm, onSettings = { settings = true }, leading = true)
                     Spacer(Modifier.weight(1f))
                     ActionButtons(st, vm, onSettings = { settings = true }, leading = false, below = true)
                 }
-                Box(Modifier.weight(1f).fillMaxWidth().background(Color.White)) {
+                Box(Modifier.weight(1f).fillMaxWidth().background(Color.White)
+                    .then(if (wide) Modifier.windowInsetsPadding(safe.only(WindowInsetsSides.Top)) else Modifier)) {
                     ScoreCanvas(
                         st, vm::tap, vm::nudge, vm::dragPitch,
                         onTempoTap = { tempoDialog = true },
                         savedViewport = vm.viewport, onViewport = vm::rememberViewport,
+                        edges = edges,
                     )
                     if (st.reorder.isNotEmpty()) ReorderPrompt(st, vm, Modifier.align(Alignment.TopCenter).padding(8.dp))
                 }
-                st.analysis?.let { IssuesStrip(st, vm) }
+                st.analysis?.let { Box(Modifier.windowInsetsPadding(safe.only(WindowInsetsSides.Horizontal))) { IssuesStrip(st, vm) } }
                 HorizontalDivider()
-                Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                    .height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (wide) { ActionButtons(st, vm, onSettings = { settings = true }, leading = true); Gap() }
                     VoiceButtons(st, vm)
                     Gap()
@@ -114,7 +126,7 @@ fun EditorScreen(vm: EditorViewModel) {
                     if (wide) { Gap(); ActionButtons(st, vm, onSettings = { settings = true }, leading = false) }
                 }
             }
-            SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp))
+            SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(safe).padding(bottom = 64.dp))
         }
     }
     if (settings) SettingsDialog(st, vm) { settings = false }

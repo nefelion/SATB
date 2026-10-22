@@ -1,6 +1,8 @@
 package com.grothgarvc.fourpartwriting
 
 import android.os.Bundle
+import android.view.WindowManager
+import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,6 +17,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Also draw beside the camera cutout on Android 9–14 (15+ always does for this targetSdk)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES }
         setContent {
             MyApplicationTheme {
                 EditorScreen(vm)

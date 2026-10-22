@@ -82,6 +82,8 @@ fun ScoreCanvas(
     onTempoTap: () -> Unit,
     savedViewport: Pair<Float, Float>?,
     onViewport: (Float, Float) -> Unit,
+    /** Left/right px hidden by a camera cutout or side bars: the score can scroll clear of them. */
+    edges: Pair<Float, Float> = 0f to 0f,
     modifier: Modifier = Modifier,
 ) {
     val bravura = rememberBravura()
@@ -108,16 +110,18 @@ fun ScoreCanvas(
                 ?: (viewH * 0.92f / layout.height).coerceIn(with(density) { 6.dp.toPx() }, with(density) { 19.dp.toPx() }))
         }
         var offX by remember(viewKey) {
-            mutableFloatStateOf(savedViewport?.takeIf { !usedSaved[0] }?.second ?: 0f).also { usedSaved[0] = true }
+            mutableFloatStateOf(savedViewport?.takeIf { !usedSaved[0] }?.second ?: edges.first).also { usedSaved[0] = true }
         }
         var offY by remember(viewKey) { mutableFloatStateOf(0f) }
         val currentLayout by rememberUpdatedState(layout)
         val vw by rememberUpdatedState(viewW)
         val vh by rememberUpdatedState(viewH)
+        val edge by rememberUpdatedState(edges)
         fun clampOffsets() {
             val l = currentLayout
+            val (el, er) = edge
             val cw = l.width * sp; val ch = l.height * sp
-            offX = if (cw <= vw) 0f else offX.coerceIn(vw - cw, 0f)
+            offX = if (cw <= vw - el - er) el else offX.coerceIn(vw - er - cw, el)
             offY = if (ch <= vh) (vh - ch) / 2 else offY.coerceIn(vh - ch, 0f)
         }
         SideEffect { clampOffsets() }
