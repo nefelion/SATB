@@ -454,6 +454,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 analysis = it.analysis?.let { _ -> VoiceLeading.check(prev, it.rules) })
         }
         checkOrder()
+        Synth.setTempo(s.score.tempo) // undoing a tempo change applies to playback too
     }
 
     fun redo() {
@@ -463,6 +464,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 analysis = it.analysis?.let { _ -> VoiceLeading.check(next, it.rules) })
         }
         checkOrder()
+        Synth.setTempo(s.score.tempo) // undoing a tempo change applies to playback too
     }
 
     // ---------- score settings ----------
@@ -473,6 +475,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setTempo(t: Int) {
         if (tempoBase == null) tempoBase = s.score
         _state.update { it.copy(score = it.score.copy(tempo = t.coerceIn(20, 300))) }
+        Synth.setTempo(s.score.tempo) // a playing score follows at once
     }
 
     fun commitTempo() {
@@ -533,8 +536,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         playJob = viewModelScope.launch {
             delay(50)
             while (true) {
-                val sec = Synth.position() ?: break
-                val whole = sec * score.tempo / 240.0
+                val whole = Synth.position() ?: break
                 _state.update { st -> st.copy(playTime = onsets.lastOrNull { it.toDouble() <= whole + 1e-9 }) }
                 delay(30)
             }

@@ -17,36 +17,37 @@ object Synth {
     fun noteOn(midi: Int, vel: Int = 90) = nativeNote(midi, vel)
     fun noteOff(midi: Int) = nativeNote(midi, 0)
     fun stop() = nativeStop()
-    /** Seconds since playback started, or null when idle. */
-    fun position(): Double? = nativePosition().takeIf { it >= 0 }?.let { it.toDouble() / nativeSampleRate() }
+    /** Whole notes played since playback started, or null when idle. */
+    fun position(): Double? = nativePosition().takeIf { it >= 0 }
 
-    /** Schedules the whole score; tempo is in quarter notes per minute. */
+    /** Quarter notes per minute; applies at once, also to a score that is playing. */
+    fun setTempo(qpm: Int) = nativeSetTempo(qpm.toDouble())
+
+    /** Schedules the whole score in musical time; the native side applies the current tempo. */
     fun play(score: Score) {
-        val rate = nativeSampleRate()
-        val ev = ArrayList<Int>()
+        val ev = ArrayList<Double>()
         for (v in Voice.entries) {
             var t = Fraction.ZERO
             for (e in score.voice(v)) {
                 val end = t + e.length
                 e.pitch?.let { p ->
-                    ev += frames(t, score.tempo, rate); ev += p.midi; ev += 90
-                    ev += frames(end, score.tempo, rate) - rate / 100; ev += p.midi; ev += 0 // release 10 ms early
+                    ev += t.toDouble(); ev += p.midi.toDouble(); ev += 90.0
+                    ev += end.toDouble(); ev += p.midi.toDouble(); ev += 0.0
                 }
                 t = end
             }
         }
-        nativePlay(ev.toIntArray())
+        setTempo(score.tempo)
+        nativePlay(ev.toDoubleArray())
     }
-
-    fun seconds(t: Fraction, tempo: Int) = t.toDouble() * 4 * 60.0 / tempo
-    private fun frames(t: Fraction, tempo: Int, rate: Int) = (seconds(t, tempo) * rate).toInt()
 
     private external fun nativeStart(): Boolean
     private external fun nativeClose()
     private external fun nativeLoad(path: String): Boolean
     private external fun nativeNote(key: Int, vel: Int)
-    private external fun nativePlay(events: IntArray)
+    private external fun nativePlay(events: DoubleArray)
+    private external fun nativeSetTempo(qpm: Double)
     private external fun nativeStop()
-    private external fun nativePosition(): Long
+    private external fun nativePosition(): Double
     private external fun nativeSampleRate(): Int
 }

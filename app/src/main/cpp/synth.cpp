@@ -1,5 +1,6 @@
 // SoundFont playback: TinySoundFont renders into an AAudio stream.
-// Scheduled events are applied inside the audio callback at sample-exact times.
+// Scheduled events are applied inside the audio callback at sample-exact times. Event times are
+// musical (whole notes) and turned into frames with the current tempo, so tempo changes apply live.
 #define TSF_IMPLEMENTATION
 #include "tsf.h"
 
@@ -14,7 +15,7 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "satb", __VA_ARGS__)
 
 namespace {
-struct Ev { int64_t t; int key; int on; };
+struct Ev { double t; int key; int on; };
 
 std::mutex mx;
 tsf* sf = nullptr;
@@ -22,7 +23,8 @@ AAudioStream* stream = nullptr;
 int sampleRate = 48000;
 std::vector<Ev> events;
 size_t nextEv = 0;
-int64_t pos = 0;     // frames since play() started
+double mpos = 0;      // whole notes since play() started
+double tempo = 80;    // quarter notes per minute
 bool playing = false;
 
 void render(float* out, int frames) {
@@ -34,16 +36,21 @@ aaudio_data_callback_result_t onAudio(AAudioStream*, void*, void* data, int32_t 
     auto* out = static_cast<float*>(data);
     std::lock_guard<std::mutex> lock(mx);
     int done = 0;
-    while (playing && sf && nextEv < events.size() && events[nextEv].t < pos + frames) {
-        int at = static_cast<int>(std::max<int64_t>(events[nextEv].t - pos, done));
+    const double wholePerFrame = tempo / (240.0 * sampleRate);
+    while (playing && sf && nextEv < events.size()) {
+        const Ev& e = events[nextEv];
+        // Note-offs 10 ms early, so repeated notes are re-attacked
+        double f = (e.t - mpos) / wholePerFrame - (e.on ? 0.0 : sampleRate / 100.0);
+        if (f >= frames) break;
+        int at = std::max(static_cast<int>(f), done);
         if (at > done) { render(out + done * 2, at - done); done = at; }
-        const Ev& e = events[nextEv++];
         if (e.on) tsf_note_on(sf, 0, e.key, e.on / 127.0f);
         else tsf_note_off(sf, 0, e.key);
+        nextEv++;
     }
     if (frames > done) render(out + done * 2, frames - done);
     if (playing) {
-        pos += frames;
+        mpos += frames * wholePerFrame;
         if (nextEv >= events.size()) playing = false;
     }
     return AAUDIO_CALLBACK_RESULT_CONTINUE;
@@ -126,20 +133,27 @@ Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeNote(JNIEnv*, jobject, jin
     else tsf_note_off(sf, 0, key);
 }
 
-// events: flat [frameTime, key, velocity(0 = off)] triples, sorted by time.
+// events: flat [time in whole notes, key, velocity(0 = off)] triples.
 JNIEXPORT void JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativePlay(JNIEnv* env, jobject, jintArray arr) {
+Java_com_grothgarvc_fourpartwriting_audio_Synth_nativePlay(JNIEnv* env, jobject, jdoubleArray arr) {
     jsize n = env->GetArrayLength(arr);
-    std::vector<jint> a(n);
-    env->GetIntArrayRegion(arr, 0, n, a.data());
+    std::vector<jdouble> a(n);
+    env->GetDoubleArrayRegion(arr, 0, n, a.data());
     std::lock_guard<std::mutex> lock(mx);
     events.clear();
-    for (jsize i = 0; i + 2 < n; i += 3) events.push_back({a[i], a[i + 1], a[i + 2]});
+    for (jsize i = 0; i + 2 < n; i += 3) events.push_back({a[i], static_cast<int>(a[i + 1]), static_cast<int>(a[i + 2])});
     std::stable_sort(events.begin(), events.end(), [](const Ev& x, const Ev& y) {
         return x.t < y.t || (x.t == y.t && x.on < y.on);  // note-offs first at equal times
     });
     if (sf) tsf_note_off_all(sf);
-    nextEv = 0; pos = 0; playing = sf && !events.empty();
+    nextEv = 0; mpos = 0; playing = sf && !events.empty();
+}
+
+/** Quarter notes per minute; takes effect at once, also during playback. */
+JNIEXPORT void JNICALL
+Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeSetTempo(JNIEnv*, jobject, jdouble qpm) {
+    std::lock_guard<std::mutex> lock(mx);
+    if (qpm > 0) tempo = qpm;
 }
 
 JNIEXPORT void JNICALL
@@ -149,11 +163,11 @@ Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeStop(JNIEnv*, jobject) {
     if (sf) tsf_note_off_all(sf);
 }
 
-/** Frames played since play(), or -1 when idle. */
-JNIEXPORT jlong JNICALL
+/** Whole notes played since play(), or -1 when idle. */
+JNIEXPORT jdouble JNICALL
 Java_com_grothgarvc_fourpartwriting_audio_Synth_nativePosition(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(mx);
-    return playing ? pos : -1;
+    return playing ? mpos : -1.0;
 }
 
 JNIEXPORT jint JNICALL
