@@ -13,6 +13,24 @@ object Edit {
         return s.withVoice(v, mergeRests(list))
     }
 
+    /**
+     * Puts a note at [at] inside a rest of [v]. It takes [length] but at most what is left of the rest,
+     * so later notes never move; the rest's other parts stay rests. Returns the score and the note's
+     * index, or null when [at] is not in a rest.
+     */
+    fun fillRest(s: Score, v: Voice, at: Fraction, length: Fraction, pitch: Pitch): Pair<Score, Int>? {
+        val i = s.eventAt(v, at).takeIf { it >= 0 } ?: return null
+        val rest = s.voice(v)[i]
+        if (rest.pitch != null) return null
+        val start = s.onsets(v)[i]
+        val end = start + rest.length
+        val len = minOf(length, end - at)
+        val before = Event(at - start, null).takeIf { it.length > Fraction.ZERO }
+        val after = Event(end - at - len, null).takeIf { it.length > Fraction.ZERO }
+        val list = s.voice(v).subList(0, i) + listOfNotNull(before, Event(len, pitch), after) + s.voice(v).subList(i + 1, s.voice(v).size)
+        return s.withVoice(v, list) to i + (if (before != null) 1 else 0)
+    }
+
     fun setPitch(s: Score, v: Voice, i: Int, pitch: Pitch?): Score {
         val list = s.voice(v).toMutableList()
         list[i] = list[i].copy(pitch = pitch)

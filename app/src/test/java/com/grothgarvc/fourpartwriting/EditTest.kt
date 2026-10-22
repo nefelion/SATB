@@ -73,6 +73,20 @@ class EditTest {
         assertEquals("C4:1/2 r:1/2", str(Edit.dropEmptyLastBars(s("C4:2", "r:2", "r:1"))))
     }
 
+    @Test fun notesFillARest() {
+        // half rest + half note: a half note fills the rest; or two quarters, one after another
+        val sc = s("r:2", "G4:2")
+        assertEquals("C4:1/2 G4:1/2", str(Edit.fillRest(sc, S, Fraction.ZERO, h, Pitch.parse("C4"))!!.first))
+        val (one, i) = Edit.fillRest(sc, S, Fraction.ZERO, q, Pitch.parse("C4"))!!
+        assertEquals("C4:1/4 r:1/4 G4:1/2" to 0, str(one) to i)
+        val (two, j) = Edit.fillRest(one, S, q, q, Pitch.parse("D4"))!!
+        assertEquals("C4:1/4 D4:1/4 G4:1/2" to 1, str(two) to j)
+        // longer than what is left of the rest: shortened, G4 does not move
+        assertEquals("r:1/4 C4:1/4 G4:1/2", str(Edit.fillRest(sc, S, q, h, Pitch.parse("C4"))!!.first))
+        // not in a rest
+        assertEquals(null, Edit.fillRest(sc, S, h, q, Pitch.parse("C4")))
+    }
+
     @Test fun lengtheningTakesTimeFromFollowingNotes() {
         val sc = s("C4:4", "D4:4", "E4:4", "F4:4")
         assertEquals("C4:1/2 E4:1/4 F4:1/4", str(Edit.setLength(sc, S, 0, h)))

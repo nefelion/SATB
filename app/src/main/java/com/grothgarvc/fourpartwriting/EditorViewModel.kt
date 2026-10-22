@@ -240,10 +240,24 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(accidental = null) }
                 preview(pitch)
             }
+            // A tap in a rest of the input voice (not on a note) puts a note there
+            hit.exact == null && hit.near == null && fillRest(hit, v) -> {}
             // Tapping the selected note again, or empty space, clears the selection
             hit.near == null || hit.near == s.selected -> deselect()
             else -> select(hit.near)
         }
+    }
+
+    private fun fillRest(hit: Hit, v: Voice): Boolean {
+        val score = s.score
+        val base = score.clefs[hit.staff].pitchAt(hit.position)
+        val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave))
+        val (new, i) = Edit.fillRest(score, v, hit.time, s.duration.value, pitch) ?: return false
+        edit(new, NoteRef(v, i), nextVoice(v))
+        resumeVoice = null
+        _state.update { it.copy(accidental = null) }
+        preview(pitch)
+        return true
     }
 
     /** Voice for the next new note: the locked one, else the next voice in auto mode. */
