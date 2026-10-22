@@ -170,6 +170,8 @@ class TheoryTest {
     @Test fun doublingPreferences() {
         assertTrue(messages(score(C, "E4 G3 E3 C3")).any { it.startsWith("Doubled third") })
         assertTrue(messages(score(C, "E4 C4 G3 C3")).none { it.startsWith("Doubled third") })
+        // Incomplete triad (no fifth): triple the root, not double the third
+        assertTrue(messages(score(C, "E4 E4 C4 C3")).any { it.startsWith("Doubled third") })
     }
 
     @Test fun innerLeadingTone() {

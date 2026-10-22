@@ -260,7 +260,7 @@ object VoiceLeading {
                 voicesWith(s, c.root).map { i to it }.toTypedArray())
         // Root-position major triad: double the root, not the third (N and the deceptive V–vi excepted)
         val third = c.third
-        if (q == Quality.MAJOR && c.inversion == 0 && third != null && third != c.leadingTone && !c.roman.startsWith("N") &&
+        if ((q == Quality.MAJOR || q == Quality.MAJOR_NO5) && c.inversion == 0 && third != null && third != c.leadingTone && !c.roman.startsWith("N") &&
             !(prev?.degree == 4 && c.degree == 5)
         ) {
             val vs = voicesWith(s, third)
