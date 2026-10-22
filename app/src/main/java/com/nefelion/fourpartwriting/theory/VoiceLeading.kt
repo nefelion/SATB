@@ -8,6 +8,7 @@ import com.nefelion.fourpartwriting.model.Pitch
 import com.nefelion.fourpartwriting.model.PitchClass
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.Slice
+import com.nefelion.fourpartwriting.model.TimeSig
 import com.nefelion.fourpartwriting.model.Voice
 import kotlin.math.abs
 import kotlin.math.sign
@@ -30,6 +31,8 @@ enum class Rule(val label: String) {
     SIMILAR_MOTION("All voices in one direction"),
     TENDENCY("Tendency tones"),
     SIX_FOUR("Six-four chords"),
+    PROGRESSION("Chord progression"),
+    CADENCE("Final cadence"),
     HARMONIC_RHYTHM("Harmonic rhythm"),
     LEADING_TONE("Leading tone"),
     SEVENTH("Seventh"),
@@ -148,11 +151,40 @@ object VoiceLeading {
                 if (!passing && !pedal && !same(prev) && !same(nextI?.let { chords[it] }))
                     add(Severity.WARNING, i, Rule.SIX_FOUR, "${chord.roman}: use a ⁶₄ chord only as a cadential, passing, pedal or arpeggiated ⁶₄.", i to Voice.BASS)
             }
+            // The cadential ⁶₄ (from where it starts sounding) falls on a stronger beat than its V
+            if (chord.roman == "Cad⁶₄" && nextI != null) {
+                var start = k
+                while (start > 0 && chords[points[start - 1]].let { it.root == chord.root && it.quality == q && it.bass == chord.bass }) start--
+                if (weight(slices[points[start]].time, score.time) <= weight(slices[nextI].time, score.time))
+                    add(Severity.WARNING, i, Rule.SIX_FOUR, "The cadential ⁶₄ should fall on a stronger beat than the V it resolves to.", i to Voice.BASS)
+            }
+            // Retrogressions: a dominant back to a predominant, ii back to I or IV
+            if (prev != null && prev.root != chord.root && !prev.roman.contains("/") && !chord.roman.contains("/")) {
+                val fromDominant = prev.target == score.key.tonic && prev.leadingTone != null
+                val retro = (fromDominant && chord.degree in setOf(1, 3)) ||
+                    (prev.degree == 1 && chord.degree == 3) ||
+                    (prev.degree == 1 && chord.degree == 0 && chord.roman != "Cad⁶₄")
+                if (retro) add(Severity.WARNING, i, Rule.PROGRESSION, "${prev.roman} → ${chord.roman} is a retrogression; move from predominant to dominant to tonic.")
+            }
             // The same chord from a weak beat to the downbeat blurs the bar line
             val ml = score.time.measure
             if (prevI != null && prev != null && prev.root == chord.root && prev.quality == q && prev.bass == chord.bass &&
                 (s.time / ml).den == 1L && (slices[prevI].time / ml).den != 1L
             ) add(Severity.WARNING, i, Rule.HARMONIC_RHYTHM, "${chord.roman} is repeated from a weak beat to the downbeat.")
+        }
+
+        // Final cadence: the tonic in root position, after V/vii° (authentic) or IV (plagal)
+        val lastP = points.lastOrNull()
+        val last = lastP?.let { chords[it] }
+        if (lastP != null && last != null && last.recognized && points.size >= 2) {
+            if (last.degree != 0 || last.root != score.key.tonic)
+                add(Severity.WARNING, lastP, Rule.CADENCE, "The piece does not end on the tonic (${last.roman}).")
+            else {
+                if (last.inversion != 0) add(Severity.WARNING, lastP, Rule.CADENCE, "End on the tonic in root position.", lastP to Voice.BASS)
+                val pen = points.asReversed().map { chords[it] }.firstOrNull { it.root != last.root }
+                if (pen != null && pen.recognized && !(pen.target == score.key.tonic && pen.leadingTone != null) && pen.degree != 3)
+                    add(Severity.WARNING, lastP, Rule.CADENCE, "End with an authentic (V–I) or plagal (IV–I) cadence, not ${pen.roman}–${last.roman}.")
+            }
         }
 
         for ((i, s) in slices.withIndex()) {
@@ -232,6 +264,18 @@ object VoiceLeading {
 
     private fun String.cap() = replaceFirstChar { it.uppercase() }
 
+    /** Metric weight: 3 downbeat, 2 middle beat of an even meter, 1 other beat, 0 off the beat. */
+    private fun weight(t: Fraction, ts: TimeSig): Int {
+        val m = ts.measure
+        val bar = t / m
+        val pos = t - m * Fraction.of(bar.num / bar.den, 1)
+        if (pos == Fraction.ZERO) return 3
+        val b = pos / ts.beatLength
+        if (b.den != 1L) return 0
+        val n = (m / ts.beatLength).let { it.num / it.den }
+        return if (n % 2 == 0L && b.num == n / 2) 2 else 1
+    }
+
     private fun voicesWith(s: Slice, pc: PitchClass) =
         V.filter { s.notes[it.ordinal]?.pc == pc }
 
@@ -255,7 +299,8 @@ object VoiceLeading {
         }
         if (!q.seventh && c.inversion == 2 && voicesWith(s, c.bass!!).size < 2)
             add(Severity.WARNING, i, Rule.DOUBLING, "In a ⁶₄ chord, double the bass (${c.bass.name}).", emptyArray())
-        if (q == Quality.DIM && c.inversion in 0..1 && voicesWith(s, c.root!!).size > 1)
+        // A leading-tone root is already reported as a doubled leading tone
+        if (q == Quality.DIM && c.inversion in 0..1 && c.root != c.leadingTone && voicesWith(s, c.root!!).size > 1)
             add(Severity.WARNING, i, Rule.DOUBLING, "Do not double the root of a diminished triad; double the third.",
                 voicesWith(s, c.root).map { i to it }.toTypedArray())
         // Root-position major triad: double the root, not the third (N and the deceptive V–vi excepted)
@@ -287,7 +332,8 @@ object VoiceLeading {
         for (v in V) {
             if (!moved(v)) continue
             val iv = Interval.between(a.notes[v.ordinal]!!, b.notes[v.ordinal]!!)
-            if (iv.quality == IntervalQuality.A || iv.quality == IntervalQuality.AA)
+            // A chromatic semitone (A1) in one voice is the correct way to write a chromatic change
+            if ((iv.quality == IntervalQuality.A && iv.number != 1) || iv.quality == IntervalQuality.AA)
                 add(Severity.ERROR, i, Rule.MELODIC, "${v.label}: augmented melodic interval (${iv.name}).", both(v))
             else if (iv.number > 8 || (iv.number == 8 && iv.quality != IntervalQuality.PERFECT))
                 add(Severity.ERROR, i, Rule.MELODIC, "${v.label}: leap larger than an octave (${iv.name}).", both(v))
@@ -376,7 +422,7 @@ object VoiceLeading {
                 if (v == Voice.SOPRANO || v == Voice.BASS)
                     add(Severity.ERROR, i, Rule.LEADING_TONE, "${v.label}: leading tone ${lt.name} should resolve up to ${target.name}.", both(v))
                 // An inner voice may drop a third to the fifth of the chord (frustrated leading tone)
-                else if (q.diatonic != p.diatonic - 2)
+                else if (q.diatonic != p.diatonic - 2 || cb.member(q.pc) != 4)
                     add(Severity.WARNING, i, Rule.LEADING_TONE, "${v.label}: leading tone ${lt.name} should resolve up to ${target.name} or drop to the fifth.", both(v))
             }
         }

@@ -174,6 +174,38 @@ class TheoryTest {
         assertTrue(messages(score(C, "E4 E4 C4 C3")).any { it.startsWith("Doubled third") })
     }
 
+    @Test fun chromaticSemitoneIsNotAnAugmentedLeap() {
+        assertTrue("Melodic interval" !in rules(score(C, "C5 E4 G3 C3", "C#5 E4 A3 A2")))
+    }
+
+    @Test fun diminishedLeadingToneRootReportedOnce() {
+        val m = messages(score(C, "D4 B3 F3 B2", "C4 C4 E3 C3"))
+        assertTrue(m.any { it.startsWith("Doubled leading tone") })
+        assertTrue(m.none { it.startsWith("Do not double the root") })
+    }
+
+    @Test fun frustratedLeadingToneMustLandOnTheFifth() {
+        // V–VI in C minor: tenor B3 → G3, but G is not the fifth of VI
+        assertTrue("Leading tone" in warnings(score(Key(-3, Mode.MINOR), "D5 G4 B3 G2", "C5 Ab4 G3 Ab2")))
+    }
+
+    @Test fun retrogression() {
+        assertTrue("Chord progression" in warnings(score(C, "E4 C4 G3 C3", "D4 B3 G3 G2", "C4 A3 F3 F2", "C4 G3 E3 C3")))
+        assertTrue("Chord progression" !in warnings(score(C, "E4 C4 G3 C3", "F4 C4 A3 F2", "D4 B3 G3 G2", "E4 C4 G3 C3")))
+    }
+
+    @Test fun finalCadence() {
+        assertTrue("Final cadence" in warnings(score(C, "E4 C4 G3 C3", "D4 B3 G3 G2")))
+        assertTrue("Final cadence" !in warnings(score(C, "E4 C4 G3 C3", "F4 C4 A3 F2", "D4 B3 G3 G2", "E4 C4 G3 C3")))
+    }
+
+    @Test fun cadentialSixFourOnStrongBeat() {
+        // Cad⁶₄ on beat 2, V on the stronger beat 3
+        assertTrue("Six-four chords" in warnings(score(C, "E4 C4 G3 C3", "E4 C4 G3 G2", "D4 B3 G3 G2", "C4 C4 E3 C3")))
+        // Cad⁶₄ on beat 3, V on beat 4
+        assertTrue("Six-four chords" !in warnings(score(C, "E4 C4 G3 C3", "F4 C4 A3 F2", "E4 C4 G3 G2", "D4 B3 G3 G2")))
+    }
+
     @Test fun innerLeadingTone() {
         // T: B3 → E3 (neither up nor a third down)
         val bad = score(C, "G4 D4 B3 G2", "G4 C4 E3 C3")
