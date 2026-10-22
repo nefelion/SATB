@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import com.grothgarvc.fourpartwriting.ui.theme.LocalScoreColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -54,13 +55,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-private const val INK = 0xFF161616.toInt()
-private const val ERROR = 0xFFD32F2F.toInt()
-private const val WARN = 0xFFE67700.toInt()
-private const val PLAY = 0xFF2E7D32.toInt()
 
-/** Voice colours, used on the voice buttons and the insertion caret. */
-val VOICE_COLORS = listOf(Color(0xFFC62828), Color(0xFFEF6C00), Color(0xFF2E7D32), Color(0xFF1565C0))
 
 /** Bravura typeface, loaded once. */
 @Composable
@@ -90,6 +85,8 @@ fun ScoreCanvas(
     val bravura = rememberBravura()
     val density = LocalDensity.current
     val paper = MaterialTheme.colorScheme.surface
+    val sc = LocalScoreColors.current
+    val ink = sc.ink.toArgb()
     BoxWithConstraints(modifier.fillMaxSize()) {
         val viewW = constraints.maxWidth.toFloat()
         val viewH = constraints.maxHeight.toFloat()
@@ -131,19 +128,20 @@ fun ScoreCanvas(
         LaunchedEffect(viewKey) { snapshotFlow { sp to offX }.collect { (a, b) -> onViewport(a, b) } }
 
         // Highlight colours per note
-        val colors = remember(analysis, state.focusedIssue, state.selected, state.playTime, state.score) {
+        val colors = remember(analysis, state.focusedIssue, state.selected, state.playTime, state.score, sc) {
+            val error = sc.errorNote.toArgb(); val warn = sc.warnNote.toArgb(); val play = sc.play.toArgb()
             val m = HashMap<NoteRef, Int>()
             if (analysis != null) {
                 fun refs(i: Int) = analysis.issues[i].notes.mapNotNull { (si, v) ->
                     analysis.slices.getOrNull(si)?.eventIndex?.get(v.ordinal)?.takeIf { it >= 0 }?.let { NoteRef(v, it) }
                 }
                 val shown = state.focusedIssue?.let { listOf(it) } ?: analysis.issues.indices.sortedBy { analysis.issues[it].severity == Severity.ERROR }
-                for (i in shown) for (r in refs(i)) m[r] = if (analysis.issues[i].severity == Severity.ERROR) ERROR else WARN
+                for (i in shown) for (r in refs(i)) m[r] = if (analysis.issues[i].severity == Severity.ERROR) error else warn
             }
             state.playTime?.let { t ->
-                for (v in Voice.entries) state.score.eventAt(v, t).takeIf { it >= 0 }?.let { m[NoteRef(v, it)] = PLAY }
+                for (v in Voice.entries) state.score.eventAt(v, t).takeIf { it >= 0 }?.let { m[NoteRef(v, it)] = play }
             }
-            state.selected?.let { m[it] = VOICE_COLORS[it.voice.ordinal].toArgb() }
+            state.selected?.let { m[it] = sc.voices[it.voice.ordinal].toArgb() }
             m
         }
 
@@ -262,14 +260,14 @@ fun ScoreCanvas(
                 // Playback cursor
                 state.playTime?.let { t ->
                     layout.locate(t)?.let { x ->
-                        paints.fill.color = 0x302E7D32
+                        paints.fill.color = sc.play.copy(alpha = 0.19f).toArgb()
                         nc.drawRect((x - 0.5f) * sp, (layout.noteTop - 1.5f) * sp, (x + 1.7f) * sp, (layout.noteBottom + 1.5f) * sp, paints.fill)
                     }
                 }
                 // Insertion caret for the active voice
                 if (!state.playing) {
-                    val col = VOICE_COLORS[state.shownVoice.ordinal]
-                    paints.fill.color = col.copy(alpha = 0.22f).toArgb()
+                    val col = sc.voices[state.shownVoice.ordinal]
+                    paints.fill.color = col.copy(alpha = sc.caretAlpha).toArgb()
                     // From above the highest note to below the lowest, so the voice letter never sits under a note
                     val cTop = min(layout.top - 2f, layout.noteTop - 1f)
                     nc.drawRect((caretX - 0.3f) * sp, cTop * sp, (caretX + 1.5f) * sp, max(layout.bottom + 2f, layout.noteBottom + 1f) * sp, paints.fill)
@@ -282,6 +280,7 @@ fun ScoreCanvas(
                 val visL = -offX / sp - 6f
                 val visR = (-offX + vw) / sp + 6f
                 // Two passes: plain marks, then coloured ones on top (a selected unison stays visible)
+                paints.ink = ink; paints.nct = sc.nct.toArgb()
                 for (pass in 0..1) for (mk in layout.marks) {
                     val color = mk.ref?.let { colors[it] }
                     if ((pass == 0) != (color == null)) continue
@@ -289,20 +288,20 @@ fun ScoreCanvas(
                     if (mk is LineMark && max(mk.x1, mk.x2) < visL) continue
                     if (mk is TieMark && mk.x2 < visL) continue
                     if (mk !is LineMark && mk !is TieMark && mk.x < visL - 6f) continue
-                    val ink = color ?: INK
+                    val markInk = color ?: ink
                     when (mk) {
                         is LineMark -> {
-                            paints.line.color = ink
+                            paints.line.color = markInk
                             paints.line.strokeWidth = mk.width * sp
                             nc.drawLine(mk.x1 * sp, mk.y1 * sp, mk.x2 * sp, mk.y2 * sp, paints.line)
                         }
                         is GlyphMark -> {
-                            paints.glyph.color = ink
+                            paints.glyph.color = markInk
                             paints.glyph.textSize = 4f * sp * mk.scale
                             nc.drawText(mk.c.toString(), mk.x * sp, mk.y * sp, paints.glyph)
                         }
                         is BeamMark -> {
-                            paints.fill.color = ink
+                            paints.fill.color = markInk
                             val p = paints.path
                             p.reset()
                             p.moveTo(mk.x1 * sp, mk.y1 * sp); p.lineTo(mk.x2 * sp, mk.y2 * sp)
@@ -311,7 +310,7 @@ fun ScoreCanvas(
                             nc.drawPath(p, paints.fill)
                         }
                         is TieMark -> {
-                            paints.fill.color = ink
+                            paints.fill.color = markInk
                             nc.drawPath(tiePath(mk, sp, paints.path), paints.fill)
                         }
                         is TextMark -> drawText(nc, mk, sp, paints)
@@ -342,7 +341,10 @@ private class Paints(bravura: Typeface) {
     val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.BUTT }
     val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     val path = Path()
-    val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = INK }
+    val text = Paint(Paint.ANTI_ALIAS_FLAG)
+    /** Plain text and non-chord-tone label colours for the current theme, set before each draw. */
+    var ink = 0
+    var nct = 0
     val roman: Typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL)
     val italic: Typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC)
     val bold: Typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
@@ -353,13 +355,13 @@ private const val SUBS = "₀₁₂₃₄₅₆₇₈₉"
 
 private fun drawText(nc: android.graphics.Canvas, t: TextMark, sp: Float, p: Paints) {
     val paint = p.text
-    paint.color = INK
+    paint.color = p.ink
     paint.textSize = t.size * sp
     when (t.style) {
         TextStyle.TEMPO -> { paint.typeface = p.bold; paint.textAlign = Paint.Align.LEFT; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.MEASURE_NO -> { paint.typeface = p.italic; paint.textAlign = Paint.Align.LEFT; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.SYMBOL -> { paint.typeface = p.bold; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
-        TextStyle.NCT -> { paint.typeface = p.italic; paint.textAlign = Paint.Align.LEFT; paint.color = 0xFF5E35B1.toInt(); nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
+        TextStyle.NCT -> { paint.typeface = p.italic; paint.textAlign = Paint.Align.LEFT; paint.color = p.nct; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.ROMAN -> drawRoman(nc, t, sp, p)
     }
 }

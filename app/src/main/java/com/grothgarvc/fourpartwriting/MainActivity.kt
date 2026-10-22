@@ -12,8 +12,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import com.grothgarvc.fourpartwriting.audio.Synth
 import com.grothgarvc.fourpartwriting.ui.EditorScreen
+import com.grothgarvc.fourpartwriting.ui.ThemePicker
 import com.grothgarvc.fourpartwriting.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -21,9 +27,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Light bars always: the app has one light palette
-        val bars = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
-        enableEdgeToEdge(bars, bars)
+        barsFor(vm.state.value.dark)
         // Landscape is full screen: no status or navigation bar cutting into the score.
         // A swipe from the edge shows them for a moment. (Rotation recreates the activity, so this runs again.)
         WindowCompat.getInsetsController(window, window.decorView).apply {
@@ -35,10 +39,26 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES }
         setContent {
-            MyApplicationTheme {
+            val st = vm.state.collectAsState()
+            val dark by remember { derivedStateOf { st.value.dark } }
+            val chosen by remember { derivedStateOf { st.value.themeChosen } }
+            LaunchedEffect(dark, chosen) {
+                // Picker: light half on top / left, dark half below / right; bar icons suit each
+                if (chosen) barsFor(dark) else enableEdgeToEdge(barStyle(false), barStyle(true))
+            }
+            if (!chosen) ThemePicker(st.value, vm::setDark)
+            else MyApplicationTheme(dark) {
                 EditorScreen(vm)
             }
         }
+    }
+
+    /** Transparent system bars with icons that suit the chosen theme. */
+    private fun barsFor(dark: Boolean) = enableEdgeToEdge(barStyle(dark), barStyle(dark))
+
+    private fun barStyle(dark: Boolean): SystemBarStyle {
+        val t = android.graphics.Color.TRANSPARENT
+        return if (dark) SystemBarStyle.dark(t) else SystemBarStyle.light(t, t)
     }
 
     // The audio stream only runs while the app is visible.

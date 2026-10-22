@@ -3,6 +3,8 @@ package com.grothgarvc.fourpartwriting.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.luminance
+import com.grothgarvc.fourpartwriting.ui.theme.LocalScoreColors
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
@@ -310,7 +312,7 @@ private fun RowScope.Tool(
     ) {
         content()
         if (hold != null) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 3.dp).size(4.dp).clip(CircleShape)
-            .background(if (selected) Color.White.copy(alpha = 0.7f) else hint))
+            .background(if (selected) MaterialTheme.colorScheme.surface.copy(alpha = 0.7f) else hint))
         if (menu) Text("▾", fontSize = 10.sp, color = hint, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 5.dp, bottom = 1.dp))
         if (shown && hold != null) {
             val gap = with(LocalDensity.current) { 52.dp.roundToPx() }
@@ -370,9 +372,9 @@ private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings:
 @Composable
 private fun RowScope.VoiceButtons(st: UiState, vm: EditorViewModel) {
     for (v in Voice.entries) {
-        val col = VOICE_COLORS[v.ordinal]
+        val col = LocalScoreColors.current.voices[v.ordinal]
         Tool(st.shownVoice == v, { vm.selectVoice(v) }, "Voice ${v.label}", color = col, hold = HoldTarget("🔒  ${v.label} only", below = false) { vm.lockVoice(v) }) {
-            Text(v.label + if (st.locked == v) "🔒" else "", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (st.shownVoice == v) Color.White else col)
+            Text(v.label + if (st.locked == v) "🔒" else "", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (st.shownVoice == v) MaterialTheme.colorScheme.surface else col)
         }
     }
 }
@@ -458,15 +460,16 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
     var open by remember { mutableStateOf(!oneLine) }
     val errors = a.issues.count { it.severity == Severity.ERROR }
     val warnings = a.issues.size - errors
+    val sc = LocalScoreColors.current
     Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(Modifier.fillMaxWidth().windowInsetsPadding(insets)) {
             HorizontalDivider()
             Row(Modifier.fillMaxWidth().height(44.dp).clickable { open = !open }.padding(start = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (a.issues.isEmpty()) Text("No problems found ✓", style = MaterialTheme.typography.titleSmall, color = OK_GREEN)
+                if (a.issues.isEmpty()) Text("No problems found ✓", style = MaterialTheme.typography.titleSmall, color = sc.ok)
                 else {
-                    if (errors > 0) Badge("$errors error${if (errors == 1) "" else "s"}", ERROR_RED)
-                    if (warnings > 0) Badge("$warnings warning${if (warnings == 1) "" else "s"}", WARN_AMBER)
+                    if (errors > 0) Badge("$errors error${if (errors == 1) "" else "s"}", sc.errorText)
+                    if (warnings > 0) Badge("$warnings warning${if (warnings == 1) "" else "s"}", sc.warnText)
                     Text(if (open) "▾" else "▴", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.weight(1f))
@@ -482,7 +485,7 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
                             .background(if (st.focusedIssue == i) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                             .clickable { vm.focusIssue(i) },
                     ) {
-                        Box(Modifier.width(4.dp).fillMaxHeight().background(if (issue.severity == Severity.ERROR) ERROR_RED else WARN_AMBER))
+                        Box(Modifier.width(4.dp).fillMaxHeight().background(if (issue.severity == Severity.ERROR) sc.errorText else sc.warnText))
                         val head = "${where(t, st.score.time)} · ${issue.rule.label}"
                         val pad = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                         if (oneLine) Row(pad, verticalAlignment = Alignment.CenterVertically) {
@@ -500,9 +503,6 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
     }
 }
 
-private val ERROR_RED = Color(0xFFC62828)
-private val WARN_AMBER = Color(0xFFB85C00)
-private val OK_GREEN = Color(0xFF2E7D32)
 
 /** Small tinted count label, e.g. "2 warnings". */
 @Composable
@@ -534,6 +534,14 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
     var rulesOpen by remember { mutableStateOf(false) }
     if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
     FullScreenPage("Score settings", onDismiss) {
+        item {
+            Group("Appearance") {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Theme", Modifier.weight(1f))
+                    Segmented(listOf("Light", "Dark"), if (st.dark) 1 else 0, itemWidth = 84.dp) { vm.setDark(it == 1) }
+                }
+            }
+        }
         item {
             Group("Notation") {
                 Label("Key")
@@ -617,13 +625,14 @@ private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
 @Composable
 private fun FullScreenPage(title: String, onDismiss: () -> Unit, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        // The dialog has its own window: dark status bar icons on the light page, and full screen in landscape like the editor
+        // The dialog has its own window: status bar icons that suit the page, and full screen in landscape like the editor
         val view = LocalView.current
         val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
         SideEffect {
             (view.parent as? DialogWindowProvider)?.window?.let {
                 WindowCompat.getInsetsController(it, view).apply {
-                    isAppearanceLightStatusBars = true
+                    isAppearanceLightStatusBars = !dark
                     if (landscape) {
                         systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                         hide(WindowInsetsCompat.Type.systemBars())
@@ -677,11 +686,11 @@ private fun Small(label: String, glyph: Char? = null, enabled: Boolean = true, o
 
 /** Compact connected toggle buttons. */
 @Composable
-private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+private fun Segmented(options: List<String>, selected: Int, itemWidth: Dp = 48.dp, onSelect: (Int) -> Unit) {
     Row(Modifier.clip(SHAPE).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
         options.forEachIndexed { i, o ->
-            Box(Modifier.height(48.dp).width(48.dp).padding(3.dp).clip(RoundedCornerShape(9.dp))
-                .background(if (i == selected) MaterialTheme.colorScheme.surface else Color.Transparent)
+            Box(Modifier.height(48.dp).width(itemWidth).padding(3.dp).clip(RoundedCornerShape(9.dp))
+                .background(if (i == selected) MaterialTheme.colorScheme.surfaceContainerLowest else Color.Transparent)
                 .clickable { onSelect(i) }, contentAlignment = Alignment.Center) {
                 Text(o, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Normal,
                     color = if (i == selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)

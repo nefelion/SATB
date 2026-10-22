@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.content.res.Configuration
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -43,6 +44,10 @@ data class UiState(
     val score: Score = EXAMPLE,
     val voice: Voice = Voice.SOPRANO,
     val autoVoice: Boolean = true,
+    /** Dark theme on; chosen in Settings. */
+    val dark: Boolean = false,
+    /** False until the user has picked Light or Dark (the first-run picker shows until then). */
+    val themeChosen: Boolean = true,
     val duration: Duration = Duration(4),
     /** Accidental armed for the next placed note (null = follow key signature). */
     val accidental: Int? = null,
@@ -109,6 +114,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             // Stored as the rules switched OFF, so rules added in later versions start on
             rules = Rule.entries.toSet() - prefs.getStringSet("rulesOff", emptySet())!!.mapNotNull { n -> Rule.entries.firstOrNull { it.name == n } }.toSet(),
             autoVoice = prefs.getBoolean("autoVoice", true),
+            // Until the user picks, start in the phone's current mode
+            themeChosen = prefs.contains("dark"),
+            dark = prefs.getBoolean("dark", app.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES),
             soundName = prefs.getString("sf2Name", null),
             voice = Voice.entries.getOrElse(prefs.getInt("voice", 0)) { Voice.SOPRANO },
             duration = runCatching { Duration(prefs.getInt("durBase", 4), prefs.getInt("durDots", 0)) }.getOrDefault(Duration(4)),
@@ -327,6 +335,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun lockVoice(v: Voice) {
         resumeVoice = null
         _state.update { it.copy(locked = v, voice = v, selected = null) }
+    }
+
+    fun setDark(dark: Boolean) {
+        _state.update { it.copy(dark = dark, themeChosen = true) }
+        prefs.edit().putBoolean("dark", dark).apply()
     }
 
     fun toggleAutoVoice() {
