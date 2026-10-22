@@ -97,6 +97,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<UiState> = _state
     private val sf2 = File(app.filesDir, "piano.sf2")
     private var playJob: Job? = null
+    /** SoundFont load started on app start, and a Play tap waiting for it. */
+    private var loadJob: Job? = null
+    private var waitJob: Job? = null
     private var saveJob: Job? = null
     private var tempoBase: Score? = null
 
@@ -105,7 +108,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     init {
-        if (sf2.exists()) viewModelScope.launch(Dispatchers.IO) {
+        if (sf2.exists()) loadJob = viewModelScope.launch(Dispatchers.IO) {
             val ok = Synth.load(sf2.path)
             _state.update { it.copy(soundLoaded = ok) }
         }
@@ -382,6 +385,15 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun togglePlay() {
         if (s.playing) { stop(); return }
+        // A second tap while waiting cancels the wait
+        if (waitJob?.isActive == true) { waitJob?.cancel(); return }
+        val loading = loadJob
+        if (!s.soundLoaded && loading?.isActive == true) {
+            msg("Loading the piano sound… playback starts when it is ready.")
+            // Clear waitJob first, or togglePlay sees an active wait and cancels it
+            waitJob = viewModelScope.launch { loading.join(); waitJob = null; togglePlay() }
+            return
+        }
         if (!s.soundLoaded) { msg("Load a piano SoundFont (.sf2) in Settings to play."); return }
         val score = s.score
         val onsets = score.slices().map { it.time }
