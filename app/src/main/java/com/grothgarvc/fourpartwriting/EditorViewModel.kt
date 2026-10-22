@@ -414,8 +414,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteMeasure() {
         val r = s.selected
         if (r == null || s.selectedEvent == null) { msg("Select a note in the bar you want to delete."); return }
-        val bar = (onsetOf(r) / s.score.time.measure).let { (it.num / it.den).toInt() }
-        edit(Edit.dropEmptyLastBars(Edit.deleteMeasure(s.score, bar)), null)
+        val ml = s.score.time.measure
+        val bar = (onsetOf(r) / ml).let { (it.num / it.den).toInt() }
+        val new = Edit.dropEmptyLastBars(Edit.deleteMeasure(s.score, bar))
+        // Stay in place so the next bar can go at once: the first event of the bar that moved into this
+        // position, or the last event of the previous bar when the last bar was deleted. Same voice if it has one.
+        val later = new.length > ml * Fraction.of(bar.toLong(), 1)
+        val b0 = ml * Fraction.of((if (later) bar else maxOf(bar - 1, 0)).toLong(), 1)
+        fun inBar(v: Voice) = new.onsets(v).withIndex().filter { (_, t) -> t >= b0 && t < b0 + ml }
+            .let { if (later) it.firstOrNull() else it.lastOrNull() }?.let { NoteRef(v, it.index) }
+        val sel = inBar(r.voice) ?: Voice.entries.firstNotNullOfOrNull(::inBar)
+        edit(new, sel, sel?.voice ?: s.voice)
         msg("Bar ${bar + 1} deleted.")
     }
 
