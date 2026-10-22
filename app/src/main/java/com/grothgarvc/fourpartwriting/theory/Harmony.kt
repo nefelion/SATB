@@ -73,9 +73,13 @@ object HarmonyAnalyzer {
                 val held = !s.attacked[v.ordinal] || prev == cur
                 val dIn = prev?.let { cur.diatonic - it.diatonic }
                 val dOut = next?.let { it.diatonic - cur.diatonic }
+                // A suspension resolves over the same bass; resolving only when the bass moves on is not one
+                val resAt = score.onsets(v).getOrNull(i + 1)
+                val sameBass = v == Voice.BASS || resAt == null ||
+                    score.eventAt(Voice.BASS, resAt).let { b -> b >= 0 && score.voice(Voice.BASS)[b].pitch == bass }
                 when {
-                    held && dOut == -1 -> cands += Cand(v, Nct(NctType.SUS, susFigure(v, cur, next!!, bass)), next, 0)
-                    held && dOut == 1 -> cands += Cand(v, Nct(NctType.RET, susFigure(v, cur, next!!, bass)), next, 1)
+                    held && sameBass && dOut == -1 -> cands += Cand(v, Nct(NctType.SUS, susFigure(v, cur, next!!, bass)), next, 0)
+                    held && sameBass && dOut == 1 -> cands += Cand(v, Nct(NctType.RET, susFigure(v, cur, next!!, bass)), next, 1)
                     !held && dIn != null && abs(dIn) > 1 && dOut != null && abs(dOut) == 1 && dIn.sign != dOut.sign ->
                         cands += Cand(v, Nct(NctType.APP, "app"), next, 2)
                     !held && dIn != null && abs(dIn) == 1 && dOut != null && abs(dOut) == 1 && dIn.sign == dOut.sign ->
@@ -161,13 +165,13 @@ object HarmonyAnalyzer {
         }
     }
 
-    /** "4–3", "7–6", "9–8"; a suspended bass is "2–3". */
+    /** "4–3", "7–6", "9–8", "7–8" (retardation); a suspended bass is "2–3". */
     private fun susFigure(v: Voice, cur: Pitch, res: Pitch, bass: Pitch?): String {
         if (v == Voice.BASS || bass == null) return "2–3"
         fun simple(p: Pitch) = Interval.between(bass, p).simpleNumber
         val a = simple(cur); val b = simple(res)
         val top = if (a == 2) 9 else a
-        val bot = if (a == 2 && b == 1) 8 else b
+        val bot = if (b == 1) 8 else b
         return "$top–$bot"
     }
 }

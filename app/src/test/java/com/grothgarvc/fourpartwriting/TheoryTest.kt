@@ -205,6 +205,18 @@ class TheoryTest {
         assertTrue(issues.any { it.severity == Severity.ERROR } && issues.any { it.severity == Severity.WARNING })
     }
 
+    private fun nctLabels(s: Score) = VoiceLeading.check(s).ncts.values.map { it.label }
+
+    @Test fun suspensionFigures() {
+        // I – V with C held in S over G, resolving to B over the same bass: 4–3
+        assertEquals(listOf("4–3"), nctLabels(score(C, "C5 G4 E4 C3", "C5 D4 G3 G2", "B4 D4 G3 G2")))
+        // leading tone held over the tonic bass, rising to C over the same bass: 7–8 retardation
+        assertEquals(listOf("7–8"), nctLabels(score(C, "B4 D4 G3 G2", "B4 E4 G3 C3", "C5 E4 G3 C3")))
+        // leading tone held into vi, moving to C only with the next chord (new bass): not a suspension
+        val s = score(C, "B4 D4 G3 G2", "B4 C5 E4 A2", "C5 E4 G3 C3")
+        assertTrue(nctLabels(s).none { "–" in it })
+    }
+
     @Test fun harmonicRhythm() {
         val s = score(C, "E4 C4 G3 C3", "F4 C4 A3 F3", "D4 B3 G3 G2", "E4 C4 G3 C3", "G4 E4 C4 C3")
         assertTrue("Harmonic rhythm" in warnings(s))
