@@ -247,7 +247,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             appendSlot -> {
                 val base = score.clefs[hit.staff].pitchAt(hit.position)
                 val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave))
-                val next = nextVoice(v)
                 // The note goes where it was tapped; the time skipped becomes a rest. A tap after the last
                 // column of a later bar means that bar's start; of the current bar, right after the end.
                 val at = when {
@@ -257,7 +256,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     else -> end
                 }
                 val new = Edit.append(score, v, s.duration.value, pitch, at)
-                edit(new, NoteRef(v, new.voice(v).lastIndex), next)
+                edit(new, NoteRef(v, new.voice(v).lastIndex), nextVoice(new))
                 resumeVoice = null
                 _state.update { it.copy(accidental = null) }
                 preview(pitch)
@@ -275,15 +274,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val base = score.clefs[hit.staff].pitchAt(hit.position)
         val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave))
         val (new, i) = Edit.fillRest(score, v, hit.time, s.duration.value, pitch) ?: return false
-        edit(new, NoteRef(v, i), nextVoice(v))
+        edit(new, NoteRef(v, i), nextVoice(new))
         resumeVoice = null
         _state.update { it.copy(accidental = null) }
         preview(pitch)
         return true
     }
 
-    /** Voice for the next new note: the locked one, else the next voice (S→A→T→B). */
-    private fun nextVoice(v: Voice) = s.locked ?: Voice.entries[(v.ordinal + 1) % 4]
+    /** Voice for the next new note: the locked one, else the one ending earliest in [sc] (ties go S→A→T→B). */
+    private fun nextVoice(sc: Score) = s.locked ?: earliestVoice(sc)
+
+    private fun earliestVoice(sc: Score) = Voice.entries.minBy { sc.length(it) }
 
     /** Keeps [p] within [NOTE_POSITIONS] on [v]'s own staff (a far tap must not make a tower of ledger lines). */
     private fun onStaff(sc: Score, v: Voice, p: Pitch): Pitch {
@@ -321,8 +322,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** With a note selected, jumps to voice [v]'s note at the same time; otherwise sets the input voice. */
     fun selectVoice(v: Voice) {
         val sel = s.selected
-        // Any other voice button unlocks
-        if (s.locked != null && s.locked != v) _state.update { it.copy(locked = null) }
+        // Any other voice button unlocks; input then resumes at the voice that ends earliest
+        if (s.locked != null && s.locked != v) {
+            _state.update { it.copy(locked = null) }
+            if (sel == null) { resumeVoice = null; _state.update { it.copy(voice = earliestVoice(it.score)) }; return }
+        }
         if (sel == null) { resumeVoice = null; _state.update { it.copy(voice = v) }; return }
         val ref = refAt(s.score, v, onsetOf(sel))
         if (ref != null) { select(ref); _state.update { it.copy(followTick = it.followTick + 1) } }
@@ -427,7 +431,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun rest() {
         if (editSelected { sc, v, i -> Edit.dropEmptyLastBars(Edit.setPitch(sc, v, i, null)) }) return
         val v = s.locked ?: s.voice
-        edit(Edit.append(s.score, v, s.duration.value, null), null, nextVoice(v))
+        val new = Edit.append(s.score, v, s.duration.value, null)
+        edit(new, null, nextVoice(new))
         resumeVoice = null
     }
 
