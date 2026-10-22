@@ -55,6 +55,8 @@ data class UiState(
     val redo: List<Score> = emptyList(),
     /** Bumped when the view should scroll to the current note (edits, selection jumps). */
     val followTick: Int = 0,
+    /** Onsets of block chords whose voices look entered in the wrong order (shown as a prompt). */
+    val reorder: List<Fraction> = emptyList(),
 ) {
     val selectedEvent: Event? get() = selected?.let { score.voice(it.voice).getOrNull(it.index) }
     /** Duration shown on the palette: the selected note's written value if it has one. */
@@ -158,6 +160,27 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 analysis = it.analysis?.let { _ -> VoiceLeading.check(new, it.rules) }, focusedIssue = null,
             )
         }
+        if (!dragging) checkOrder() // a dragged pitch may pass through a crossing on its way
+    }
+
+    // ---------- voice order ----------
+
+    /** Chords the user said are fine as they are, by onset and pitches (a changed chord is asked about again). */
+    private val keptOrder = HashSet<Pair<Fraction, List<Pitch?>>>()
+
+    private fun chordKey(sc: Score, t: Fraction) =
+        t to Voice.entries.map { v -> sc.eventAt(v, t).takeIf { it >= 0 }?.let { sc.voice(v)[it].pitch } }
+
+    private fun checkOrder() = _state.update { st ->
+        st.copy(reorder = Edit.misorderedChords(st.score).filter { chordKey(st.score, it) !in keptOrder })
+    }
+
+    /** Gives the highest note to S ... the lowest to B in every flagged chord (one undo step). */
+    fun reorderVoices() = edit(Edit.sortChords(s.score, s.reorder))
+
+    fun keepOrder() {
+        s.reorder.forEach { keptOrder += chordKey(s.score, it) }
+        _state.update { it.copy(reorder = emptyList()) }
     }
 
     /** The event of [v] sounding at [t] in [score], as a selection. */
@@ -281,11 +304,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 val base = dragBase ?: return
                 dragBase = null
                 if (base != s.score) _state.update { it.copy(undo = (it.undo + base).takeLast(200), redo = emptyList()) }
+                checkOrder()
             }
             false -> {
                 val base = dragBase ?: return
                 dragBase = null
                 _state.update { it.copy(score = base, analysis = it.analysis?.let { _ -> VoiceLeading.check(base, it.rules) }) }
+                checkOrder()
             }
         }
     }
@@ -332,16 +357,22 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edit(new, sel)
     }
 
-    fun undo() = _state.update {
-        val prev = it.undo.lastOrNull() ?: return@update it
-        it.copy(score = prev, undo = it.undo.dropLast(1), redo = it.redo + it.score, selected = null,
-            analysis = it.analysis?.let { _ -> VoiceLeading.check(prev, it.rules) })
+    fun undo() {
+        _state.update {
+            val prev = it.undo.lastOrNull() ?: return@update it
+            it.copy(score = prev, undo = it.undo.dropLast(1), redo = it.redo + it.score, selected = null,
+                analysis = it.analysis?.let { _ -> VoiceLeading.check(prev, it.rules) })
+        }
+        checkOrder()
     }
 
-    fun redo() = _state.update {
-        val next = it.redo.lastOrNull() ?: return@update it
-        it.copy(score = next, redo = it.redo.dropLast(1), undo = it.undo + it.score, selected = null,
-            analysis = it.analysis?.let { _ -> VoiceLeading.check(next, it.rules) })
+    fun redo() {
+        _state.update {
+            val next = it.redo.lastOrNull() ?: return@update it
+            it.copy(score = next, redo = it.redo.dropLast(1), undo = it.undo + it.score, selected = null,
+                analysis = it.analysis?.let { _ -> VoiceLeading.check(next, it.rules) })
+        }
+        checkOrder()
     }
 
     // ---------- score settings ----------

@@ -93,6 +93,7 @@ fun EditorScreen(vm: EditorViewModel) {
                         onTempoTap = { tempoDialog = true },
                         savedViewport = vm.viewport, onViewport = vm::rememberViewport,
                     )
+                    if (st.reorder.isNotEmpty()) ReorderPrompt(st, vm, Modifier.align(Alignment.TopCenter).padding(8.dp))
                 }
                 st.analysis?.let { IssuesStrip(st, vm) }
                 HorizontalDivider()
@@ -148,6 +149,21 @@ private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
 }
 
 @Composable private fun Gap() = Spacer(Modifier.width(6.dp))
+
+/** Floating card: chords whose notes look entered in the wrong voices. */
+@Composable
+private fun ReorderPrompt(st: UiState, vm: EditorViewModel, modifier: Modifier) {
+    val n = st.reorder.size
+    val bar = (st.reorder.first() / st.score.time.measure).let { it.num / it.den + 1 }
+    Surface(modifier, shape = RoundedCornerShape(14.dp), tonalElevation = 6.dp, shadowElevation = 6.dp) {
+        Row(Modifier.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (n == 1) "Voices out of order in bar $bar." else "Voices out of order in $n chords (from bar $bar).",
+                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
+            TextButton(onClick = vm::keepOrder) { Text("Dismiss") }
+            FilledTonalButton(onClick = vm::reorderVoices) { Text("Reorder S A T B") }
+        }
+    }
+}
 
 /** A square-ish toolbar button that grows to share the row. */
 @Composable

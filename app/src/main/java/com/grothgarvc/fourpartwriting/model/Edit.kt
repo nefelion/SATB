@@ -66,6 +66,33 @@ object Edit {
         return s.withVoice(v, list)
     }
 
+    /**
+     * Onsets where all four voices start a note of the same length (a block chord) but the pitches
+     * are not ordered S ≥ A ≥ T ≥ B, so they can be swapped without touching the rhythm.
+     */
+    fun misorderedChords(s: Score): List<Fraction> {
+        val starts = Voice.entries.map { v -> s.onsets(v).withIndex().associate { (i, t) -> t to i } }
+        return s.onsets(Voice.SOPRANO).filter { t ->
+            val evs = Voice.entries.map { v -> starts[v.ordinal][t]?.let { s.voice(v)[it] } }
+            if (evs.any { it?.pitch == null } || evs.map { it!!.length }.distinct().size > 1) return@filter false
+            evs.zipWithNext().any { (up, lo) -> up!!.pitch!!.midi < lo!!.pitch!!.midi }
+        }
+    }
+
+    /** Re-deals the pitches of the chords at [times] top to bottom: highest to S ... lowest to B. */
+    fun sortChords(s: Score, times: List<Fraction>): Score {
+        var out = s
+        for (t in times) {
+            val idx = Voice.entries.map { s.eventAt(it, t) }
+            if (idx.any { it < 0 }) continue
+            val pitches = Voice.entries.map { s.voice(it)[idx[it.ordinal]].pitch }
+            if (pitches.any { it == null }) continue
+            val desc = pitches.filterNotNull().sortedWith(compareByDescending<Pitch> { it.midi }.thenByDescending { it.diatonic })
+            for (v in Voice.entries) out = setPitch(out, v, idx[v.ordinal], desc[v.ordinal])
+        }
+        return out
+    }
+
     /** Adjacent rests become one rest; the engraver writes it out with correct values. */
     private fun mergeRests(list: List<Event>): List<Event> {
         val out = mutableListOf<Event>()

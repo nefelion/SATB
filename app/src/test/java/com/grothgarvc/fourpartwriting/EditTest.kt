@@ -39,6 +39,24 @@ class EditTest {
         assertEquals("C4:1/4 F4:1/4", str(Edit.append(s("C4:4"), S, q, Pitch.parse("F4"), Fraction.ZERO)))
     }
 
+    /** Chords "S A T B" of quarter notes. */
+    private fun chords(vararg c: String) = Score(voices = Voice.entries.map { v ->
+        c.map { Event(q, it.split(" ")[v.ordinal].let { p -> if (p == "r") null else Pitch.parse(p) }) }
+    })
+
+    @Test fun misorderedChordsAreFoundAndSorted() {
+        // chord 2 was entered bottom-up; chord 3 is a unison (fine)
+        val sc = chords("E4 C4 G3 C3", "C3 G3 C4 E4", "C4 C4 G3 C3")
+        assertEquals(listOf(q), Edit.misorderedChords(sc))
+        val fixed = Edit.sortChords(sc, listOf(q))
+        assertEquals(chords("E4 C4 G3 C3", "E4 C4 G3 C3", "C4 C4 G3 C3"), fixed)
+        assertEquals(emptyList<Fraction>(), Edit.misorderedChords(fixed))
+        // a rest, or different note lengths, is not a block chord: never flagged
+        assertEquals(emptyList<Fraction>(), Edit.misorderedChords(chords("C3 G3 r E4")))
+        val uneven = chords("C3 G3 C4 E4").let { Edit.setLength(it, Voice.BASS, 0, h) }
+        assertEquals(emptyList<Fraction>(), Edit.misorderedChords(uneven))
+    }
+
     @Test fun lengtheningTakesTimeFromFollowingNotes() {
         val sc = s("C4:4", "D4:4", "E4:4", "F4:4")
         assertEquals("C4:1/2 E4:1/4 F4:1/4", str(Edit.setLength(sc, S, 0, h)))
