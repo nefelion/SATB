@@ -46,15 +46,18 @@ fun chordLabels(a: Analysis): Map<Fraction, ChordLabel> = a.points.associate { i
 
 class ColumnBox(val time: Fraction, val x: Float)
 class MeasureBox(val index: Int, val start: Fraction, val end: Fraction, val x0: Float, val x1: Float, val columns: List<ColumnBox>)
-class HeadBox(val ref: NoteRef, val x: Float, val y: Float, val staff: Int, val pos: Int)
+/** [at]: onset of this head's written segment (a tied note has one head per segment). */
+class HeadBox(val ref: NoteRef, val x: Float, val y: Float, val staff: Int, val pos: Int, val at: Fraction)
 
 /**
  * Tap target: staff, staff position, nearest column time, and whether the tap was after the last column.
  * [exact]: a notehead on the tapped line/space; [near]: a notehead close to the tap.
+ * [exactAt] / [nearAt]: onset of that head (which head of a tied note was tapped).
  */
 data class Hit(
     val staff: Int, val position: Int, val time: Fraction, val afterLast: Boolean,
     val exact: NoteRef? = null, val near: NoteRef? = null,
+    val exactAt: Fraction? = null, val nearAt: Fraction? = null,
 )
 
 /** One continuous system: all bars on one line. */
@@ -79,15 +82,16 @@ class ScoreLayout(
         val staff = staffTop.indices.minBy { abs(y - (staffTop[it] + 2)) }
         val pos = ((staffTop[staff] + 4 - y) * 2).roundToInt()
         val close = heads.filter { abs(it.x - x) < 1.5f }
-        val exact = close.firstOrNull { it.staff == staff && it.pos == pos }?.ref
-        val near = close.filter { abs(it.y - y) < 1.0f && abs(it.x - x) < 1.2f }
-            .minByOrNull { (it.x - x) * (it.x - x) + 2 * (it.y - y) * (it.y - y) }?.ref
-        val m = measures.firstOrNull { x < it.x1 } ?: return Hit(staff, pos, contentEnd, true, exact, near)
-        if (m.columns.isEmpty()) return Hit(staff, pos, m.start, true, exact, near)
+        val exactH = close.firstOrNull { it.staff == staff && it.pos == pos }
+        val nearH = close.filter { abs(it.y - y) < 1.0f && abs(it.x - x) < 1.2f }
+            .minByOrNull { (it.x - x) * (it.x - x) + 2 * (it.y - y) * (it.y - y) }
+        fun hit(t: Fraction, after: Boolean) = Hit(staff, pos, t, after, exactH?.ref, nearH?.ref, exactH?.at, nearH?.at)
+        val m = measures.firstOrNull { x < it.x1 } ?: return hit(contentEnd, true)
+        if (m.columns.isEmpty()) return hit(m.start, true)
         val last = m.columns.last()
-        if (x > last.x + max(1.8f, (m.x1 - last.x) / 2)) return Hit(staff, pos, last.time, true, exact, near)
+        if (x > last.x + max(1.8f, (m.x1 - last.x) / 2)) return hit(last.time, true)
         val col = m.columns.minBy { abs(x - (it.x + 0.6f)) }
-        return Hit(staff, pos, col.time, false, exact, near)
+        return hit(col.time, false)
     }
 
     /** x of the column at [t], or where a note starting at [t] would go. */
@@ -458,7 +462,7 @@ object Engraver {
                     val hx = c.x + it.xOff
                     val hy = sy(s, p)
                     val ref = it.ref
-                    heads += HeadBox(ref, hx + it.headW / 2, hy, s, p)
+                    heads += HeadBox(ref, hx + it.headW / 2, hy, s, p, it.seg.onset)
                     headAt[Triple(it.voice, it.index, it.segIndex)] = it to (hx to hy)
                     var lp = -2
                     while (lp >= p) { marks += LineMark(hx - Smufl.LEDGER_EXT, sy(s, lp), hx + it.headW + Smufl.LEDGER_EXT, sy(s, lp), Smufl.LEDGER); lp -= 2 }

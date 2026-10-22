@@ -128,4 +128,19 @@ class EditTest {
         assertEquals("C4:1/4 G4:1/4", str(Edit.setPitch(sc, S, 1, Pitch.parse("G4"))))
         assertEquals("C4:1/4 r:1/4", str(Edit.setPitch(sc, S, 1, null)))
     }
+
+    @Test fun restPartDeletesOneHeadOfATiedNote() {
+        // C4 whole note from beat 3 of bar 1 to beat 3 of bar 2 (two tied halves), then D4
+        val sc = s("r:2", "C4:1", "D4:4")
+        val bar2 = Fraction.of(1, 1)
+        assertEquals("r:1/2 C4:1/2 r:1/2 D4:1/4", str(Edit.restPart(sc, S, 1, bar2, bar2 + h)))
+        assertEquals("r:1/1 C4:1/2 D4:1/4", str(Edit.restPart(sc, S, 1, h, bar2)))
+        // last event: the tail is cut off, not left as a rest
+        assertEquals("r:1/2 C4:1/2", str(Edit.restPart(s("r:2", "C4:1"), S, 1, bar2, bar2 + h)))
+    }
+
+    @Test fun untieSplitsTheNote() {
+        val sc = s("r:2", "C4:1", "D4:4")
+        assertEquals("r:1/2 C4:1/2 C4:1/2 D4:1/4", str(Edit.untie(sc, S, 1, Fraction.of(1, 1))))
+    }
 }

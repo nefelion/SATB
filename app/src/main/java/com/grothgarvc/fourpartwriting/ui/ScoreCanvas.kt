@@ -145,6 +145,18 @@ fun ScoreCanvas(
             m
         }
 
+        // A selected tied note: full colour only around the tapped head, its other heads lighter
+        val headRange = remember(layout, state.selected, state.selectedTime) {
+            val sel = state.selected ?: return@remember null
+            val hs = layout.heads.filter { it.ref == sel }.sortedBy { it.x }
+            val t = state.selectedTime ?: return@remember null
+            if (hs.size < 2) return@remember null
+            val k = hs.indexOfLast { it.at <= t }.coerceAtLeast(0)
+            val lo = if (k > 0) (hs[k - 1].x + hs[k].x) / 2 else Float.NEGATIVE_INFINITY
+            val hi = if (k < hs.lastIndex) (hs[k].x + hs[k + 1].x) / 2 else Float.POSITIVE_INFINITY
+            lo..hi
+        }
+
         // Scroll to the note being worked on, but only when asked (edit, selection jump, issue, playback)
         // Over the dragged note while dragging; otherwise where the next note of the voice goes
         val dragged = state.selected?.takeIf { state.dragging }?.let { r -> state.score.onsets(r.voice).getOrNull(r.index) }
@@ -288,7 +300,11 @@ fun ScoreCanvas(
                     if (mk is LineMark && max(mk.x1, mk.x2) < visL) continue
                     if (mk is TieMark && mk.x2 < visL) continue
                     if (mk !is LineMark && mk !is TieMark && mk.x < visL - 6f) continue
-                    val markInk = color ?: ink
+                    val markInk = when {
+                        color == null -> ink
+                        headRange != null && mk.ref == state.selected && mk.x !in headRange -> (color and 0xFFFFFF) or (0x59 shl 24)
+                        else -> color
+                    }
                     when (mk) {
                         is LineMark -> {
                             paints.line.color = markInk

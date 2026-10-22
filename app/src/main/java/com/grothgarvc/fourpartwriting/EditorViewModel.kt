@@ -53,6 +53,8 @@ data class UiState(
     /** Accidental armed for the next placed note (null = follow key signature). */
     val accidental: Int? = null,
     val selected: NoteRef? = null,
+    /** Time of the tapped head of [selected] (a tied note has several); bar and head deletes use it. */
+    val selectedAt: Fraction? = null,
     val rules: Set<Rule> = Rule.entries.toSet(),
     val analysis: Analysis? = null,
     val focusedIssue: Int? = null,
@@ -79,6 +81,11 @@ data class UiState(
     /** Voice shown on the caret and voice buttons: while dragging, the dragged note's voice, not the next input voice. */
     val shownVoice: Voice get() = selected?.voice?.takeIf { dragging } ?: voice
     val selectedEvent: Event? get() = selected?.let { score.voice(it.voice).getOrNull(it.index) }
+    /** [selectedAt] while it lies inside the selected event, else the event's onset. */
+    val selectedTime: Fraction? get() = selected?.let { r ->
+        val on = score.onsets(r.voice).getOrNull(r.index) ?: return@let null
+        selectedAt?.takeIf { it >= on && it < on + score.voice(r.voice)[r.index].length } ?: on
+    }
     /** Duration shown on the palette: the selected note's written value if it has one. */
     val shownDuration: Duration get() = selectedEvent?.let { Notation.representable(it.length) } ?: duration
 }
@@ -189,12 +196,15 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun clearMessage() = _state.update { it.copy(message = null) }
 
     /** Applies a score edit with undo; re-runs the check if results are shown. */
-    private fun edit(new: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice) {
-        if (new == s.score) { _state.update { it.copy(selected = selected, voice = voice) }; return }
+    private fun edit(
+        new: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice,
+        selectedAt: Fraction? = if (selected == s.selected) s.selectedAt else null,
+    ) {
+        if (new == s.score) { _state.update { it.copy(selected = selected, selectedAt = selectedAt, voice = voice) }; return }
         val dragging = dragBase != null
         _state.update {
             it.copy(
-                score = new, selected = selected, voice = voice,
+                score = new, selected = selected, selectedAt = selectedAt, voice = voice,
                 followTick = if (dragging) it.followTick else it.followTick + 1,
                 undo = if (dragging) it.undo else (it.undo + it.score).takeLast(200), redo = emptyList(),
                 // While dragging a pitch, check once on release (dragPitch(true)), not at every step
@@ -243,7 +253,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
         when {
             // In the slot for the next note, only a tap right on an existing note selects it.
-            appendSlot && hit.exact != null -> select(hit.exact)
+            appendSlot && hit.exact != null -> select(hit.exact, hit.exactAt)
             appendSlot -> {
                 val base = score.clefs[hit.staff].pitchAt(hit.position)
                 val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave))
@@ -263,9 +273,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             }
             // A tap in a rest of the input voice (not on a note) puts a note there
             hit.exact == null && hit.near == null && fillRest(hit, v) -> {}
-            // Tapping the selected note again, or empty space, clears the selection
-            hit.near == null || hit.near == s.selected -> deselect()
-            else -> select(hit.near)
+            // Tapping the selected head again, or empty space, clears the selection; another head of a tied note selects that head
+            hit.near == null || (hit.near == s.selected && hit.nearAt == s.selectedTime) -> deselect()
+            else -> select(hit.near, hit.nearAt)
         }
     }
 
@@ -298,10 +308,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Input voice to return to when the selection is cleared (selecting a note switches to its voice). */
     private var resumeVoice: Voice? = null
 
-    fun select(ref: NoteRef?) {
+    fun select(ref: NoteRef?, at: Fraction? = null) {
         if (ref == null) { deselect(); return }
         if (resumeVoice == null) resumeVoice = s.voice
-        _state.update { it.copy(selected = ref, voice = ref?.voice ?: it.voice) }
+        _state.update { it.copy(selected = ref, selectedAt = at, voice = ref?.voice ?: it.voice) }
         ref?.let { r -> s.score.voice(r.voice).getOrNull(r.index)?.pitch?.let(::preview) }
     }
 
@@ -328,8 +338,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             if (sel == null) { resumeVoice = null; _state.update { it.copy(voice = earliestVoice(it.score)) }; return }
         }
         if (sel == null) { resumeVoice = null; _state.update { it.copy(voice = v) }; return }
-        val ref = refAt(s.score, v, onsetOf(sel))
-        if (ref != null) { select(ref); _state.update { it.copy(followTick = it.followTick + 1) } }
+        val t = s.selectedTime ?: onsetOf(sel)
+        val ref = refAt(s.score, v, t)
+        if (ref != null) { select(ref, t); _state.update { it.copy(followTick = it.followTick + 1) } }
         else _state.update { it.copy(voice = v, selected = null) }
     }
 
@@ -439,6 +450,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun tie() {
         val r = s.selected ?: run { msg("Select a note to tie it to the next one."); return }
         val e = s.selectedEvent ?: return
+        // A tapped head with a tie going out of it: remove that tie (the note splits in two)
+        if (e.pitch != null) {
+            val t = onsetOf(r)
+            val segs = Notation.split(t, e.length, s.score.time, false)
+            val k = segs.indexOfLast { it.onset <= (s.selectedTime ?: t) }
+            if (k < segs.lastIndex) { edit(Edit.untie(s.score, r.voice, r.index, segs[k + 1].onset)); return }
+        }
         if (e.pitch == null || r.index == s.score.voice(r.voice).lastIndex) { msg("Nothing to tie to."); return }
         editSelected { sc, v, i -> Edit.tie(sc, v, i) }
     }
@@ -455,6 +473,19 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val list = score.voice(r.voice)
         if (r.index !in list.indices) return
         val t = onsetOf(r)
+        // A tied note: delete only the tapped head
+        val e = list[r.index]
+        val segs = if (e.pitch == null) emptyList() else Notation.split(t, e.length, score.time, false)
+        val at = s.selectedTime ?: t
+        val seg = segs.takeIf { it.size > 1 }?.firstOrNull { at >= it.onset && at < it.onset + it.length }
+        if (seg != null) {
+            val new = Edit.dropEmptyLastBars(Edit.restPart(score, r.voice, r.index, seg.onset, seg.onset + seg.length))
+            // Stay at the deleted head (now a rest); when the end was cut off, go to the head before it
+            val cut = refAt(new, r.voice, seg.onset) == null
+            val back = if (cut) segs[segs.indexOf(seg) - 1].onset else seg.onset
+            edit(new, refAt(new, r.voice, back), selectedAt = back)
+            return
+        }
         val new = Edit.dropEmptyLastBars(Edit.delete(score, r.voice, r.index))
         // Keep deleting backwards from the end; otherwise stay at the same time
         val sel = if (r.index == list.lastIndex) new.voice(r.voice).lastIndex.takeIf { it >= 0 }?.let { NoteRef(r.voice, it) }
@@ -467,7 +498,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val r = s.selected
         if (r == null || s.selectedEvent == null) { msg("Select a note in the bar you want to delete."); return }
         val ml = s.score.time.measure
-        val bar = (onsetOf(r) / ml).let { (it.num / it.den).toInt() }
+        val bar = (s.selectedTime!! / ml).let { (it.num / it.den).toInt() }
         val new = Edit.dropEmptyLastBars(Edit.deleteMeasure(s.score, bar))
         // Stay in place so the next bar can go at once: the first event of the bar that moved into this
         // position, or the last event of the previous bar when the last bar was deleted. Same voice if it has one.

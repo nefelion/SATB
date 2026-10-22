@@ -379,7 +379,7 @@ private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings:
             Tool(onClick = vm::undo, label = "Undo") { Text("↶", fontSize = 22.sp, color = ink) }
             Tool(onClick = vm::redo, label = "Redo") { Text("↷", fontSize = 22.sp, color = ink) }
         }
-        val bar = st.selected?.let { r -> st.score.onsets(r.voice).getOrNull(r.index) }?.let { (it / st.score.time.measure).let { f -> f.num / f.den + 1 } }
+        val bar = st.selectedTime?.let { (it / st.score.time.measure).let { f -> f.num / f.den + 1 } }
         Tool(onClick = vm::delete, label = "Delete", hold = HoldTarget(if (bar != null) "🗑  Delete bar $bar" else "🗑  Select a note first", below, danger = true, onDrop = vm::deleteMeasure)) {
             Text("⌫", fontSize = 20.sp, color = ink)
         }

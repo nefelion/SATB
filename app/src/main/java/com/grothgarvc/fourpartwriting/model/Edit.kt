@@ -73,6 +73,35 @@ object Edit {
         return s.withVoice(v, mergeRests(list))
     }
 
+    /**
+     * Makes the part [from]..[to] of event [i] a rest; its other parts keep the note (deletes one head
+     * of a tied note). A part at the very end of the voice is cut off instead.
+     */
+    fun restPart(s: Score, v: Voice, i: Int, from: Fraction, to: Fraction): Score {
+        val list = s.voice(v).toMutableList()
+        val e = list[i]
+        val start = s.onsets(v)[i]
+        val end = start + e.length
+        val parts = listOfNotNull(
+            Event(from - start, e.pitch).takeIf { from > start },
+            Event(to - from, null).takeIf { i < list.lastIndex || to < end },
+            Event(end - to, e.pitch).takeIf { to < end },
+        )
+        list.removeAt(i)
+        list.addAll(i, parts)
+        return s.withVoice(v, mergeRests(list))
+    }
+
+    /** Splits event [i] at [at] (inside it) into two events with its pitch: removes a tie. */
+    fun untie(s: Score, v: Voice, i: Int, at: Fraction): Score {
+        val list = s.voice(v).toMutableList()
+        val e = list[i]
+        val start = s.onsets(v)[i]
+        list[i] = e.copy(length = at - start)
+        list.add(i + 1, e.copy(length = start + e.length - at))
+        return s.withVoice(v, list)
+    }
+
     /** Ties note [i] to the next event: one event, pitch of [i], lengths added. */
     fun tie(s: Score, v: Voice, i: Int): Score {
         val list = s.voice(v).toMutableList()
