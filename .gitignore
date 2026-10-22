@@ -18,3 +18,4 @@ local.properties
 .kotlin/
 .idea/
 *.sf2
+*.stackdump
