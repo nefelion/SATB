@@ -378,77 +378,73 @@ private fun RowScope.NoteTools(st: UiState, vm: EditorViewModel) {
     val ink = MaterialTheme.colorScheme.onSurface
     val d = st.shownDuration
     val idx = BASES.indexOf(d.base)
-    var durOpen by remember { mutableStateOf(false) }
-    var accOpen by remember { mutableStateOf(false) }
     val sel = st.selectedEvent
+    PickTool("Note length", selected = false, count = BASES.size, current = idx, onPick = { vm.setDuration(BASES[it]) },
+        icon = { GlyphIcon(Smufl.MET_NOTES[idx], 40, ink) }) { GlyphIcon(Smufl.MET_NOTES[it], 42, ink) }
+    Tool(d.dots > 0, vm::toggleDot, "Dot") { Text(if (d.dots == 2) "··" else "·", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ink) }
+    Tool(sel != null && sel.pitch == null, vm::rest, "Rest") { GlyphIcon(Smufl.RESTS[idx], 40, ink) }
+    val p = sel?.pitch
+    val shownAlter = if (p != null) p.alter.takeIf { it != st.score.key.sigAlter(p.step) } else st.accidental
+    PickTool("Accidental", selected = shownAlter != null, count = ALTERS.size, current = ALTERS.indexOf(shownAlter), onPick = { vm.setAccidental(ALTERS[it]) },
+        icon = { GlyphIcon(Smufl.accidental(shownAlter ?: 0), 40, if (shownAlter == null) ink.copy(alpha = 0.5f) else ink) }) {
+        GlyphIcon(Smufl.accidental(ALTERS[it]), 42, ink)
+    }
+    // "⁀" sits high in the font; nudge it to the button's middle
+    Tool(onClick = vm::tie, label = "Tie") { Text("⁀", fontSize = 30.sp, color = ink, modifier = Modifier.offset(y = 7.dp)) }
+}
 
-    // Press opens the pocket at once: slide onto a length and let go to pick it. A tap leaves it open.
-    val durItems = remember { arrayOfNulls<LayoutCoordinates>(BASES.size) }
-    var durHover by remember { mutableIntStateOf(-1) }
-    fun durAt(p: Offset) = durItems.indexOfFirst { c ->
+private val ALTERS = listOf(-2, -1, 0, 1, 2)
+
+/**
+ * Toolbar button with a pocket of [count] choices drawn by [item]. Pressing opens the pocket at once:
+ * slide onto a choice and let go to pick it. A tap leaves it open for a normal pick; sliding off cancels.
+ */
+@Composable
+private fun RowScope.PickTool(
+    label: String, selected: Boolean, count: Int, current: Int, onPick: (Int) -> Unit,
+    icon: @Composable () -> Unit, item: @Composable (Int) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    var hover by remember { mutableIntStateOf(-1) }
+    val items = remember(count) { arrayOfNulls<LayoutCoordinates>(count) }
+    fun at(p: Offset) = items.indexOfFirst { c ->
         c != null && c.isAttached && Rect(c.localToScreen(Offset.Zero), c.localToScreen(Offset(c.size.width.toFloat(), c.size.height.toFloat()))).contains(p)
     }
     Box(Modifier.weight(1f)) {
         Row {
-            Tool(onClick = { durOpen = true }, label = "Note length", menu = true, press = { down, toScreen ->
-                durOpen = true
+            Tool(selected, { open = true }, label, menu = true, press = { down, toScreen ->
+                open = true
                 var moved = false
                 var lifted = false
                 while (true) {
                     val ch = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
                     if ((ch.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
-                    durHover = durAt(toScreen(ch.position))
+                    hover = at(toScreen(ch.position))
                     ch.consume()
                     if (!ch.pressed) { lifted = true; break }
                 }
-                val pick = durHover
-                durHover = -1
-                if (lifted && pick >= 0) { vm.setDuration(BASES[pick]); durOpen = false }
-                else if (moved || !lifted) durOpen = false
-            }) { GlyphIcon(Smufl.MET_NOTES[idx], 40, ink) }
+                val pick = hover
+                hover = -1
+                if (lifted && pick >= 0) { onPick(pick); open = false }
+                else if (moved || !lifted) open = false
+            }, content = icon)
         }
         // A plain popup right above the button: a menu keeps a wide gap, too far for slide-to-pick
-        if (durOpen) Popup(popupPositionProvider = AboveAnchor(with(LocalDensity.current) { 4.dp.roundToPx() }),
-            onDismissRequest = { durOpen = false }, properties = PopupProperties(focusable = true)) {
+        if (open) Popup(popupPositionProvider = AboveAnchor(with(LocalDensity.current) { 4.dp.roundToPx() }),
+            onDismissRequest = { open = false }, properties = PopupProperties(focusable = true)) {
             Surface(shape = SHAPE, shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surfaceVariant) {
-            Row(Modifier.padding(4.dp)) {
-                BASES.forEachIndexed { i, b ->
-                    Box(Modifier.size(48.dp).onGloballyPositioned { durItems[i] = it }.clip(SHAPE)
+                Row(Modifier.padding(4.dp)) {
+                    for (i in 0 until count) Box(Modifier.size(48.dp).onGloballyPositioned { items[i] = it }.clip(SHAPE)
                         .background(when {
-                            i == durHover -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-                            b == d.base -> MaterialTheme.colorScheme.primaryContainer
+                            i == hover -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                            i == current -> MaterialTheme.colorScheme.primaryContainer
                             else -> Color.Transparent
                         })
-                        .clickable { vm.setDuration(b); durOpen = false }, contentAlignment = Alignment.Center) {
-                        GlyphIcon(Smufl.MET_NOTES[i], 42, ink)
-                    }
-                }
-            }
-            }
-        }
-    }
-    Tool(d.dots > 0, vm::toggleDot, "Dot") { Text(if (d.dots == 2) "··" else "·", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ink) }
-    Tool(sel != null && sel.pitch == null, vm::rest, "Rest") { GlyphIcon(Smufl.RESTS[idx], 40, ink) }
-    val p = sel?.pitch
-    val shownAlter = if (p != null) p.alter.takeIf { it != st.score.key.sigAlter(p.step) } else st.accidental
-    Box(Modifier.weight(1f)) {
-        Row {
-            Tool(shownAlter != null, { accOpen = true }, "Accidental", menu = true) {
-                GlyphIcon(Smufl.accidental(shownAlter ?: 0), 40, if (shownAlter == null) ink.copy(alpha = 0.5f) else ink)
-            }
-        }
-        DropdownMenu(accOpen, { accOpen = false }, shape = SHAPE) {
-            Row {
-                for (a in listOf(-2, -1, 0, 1, 2)) Box(Modifier.size(48.dp).clip(SHAPE)
-                    .background(if (a == shownAlter) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                    .clickable { vm.setAccidental(a); accOpen = false }, contentAlignment = Alignment.Center) {
-                    GlyphIcon(Smufl.accidental(a), 42, ink)
+                        .clickable { onPick(i); open = false }, contentAlignment = Alignment.Center) { item(i) }
                 }
             }
         }
     }
-    // "⁀" sits high in the font; nudge it to the button's middle
-    Tool(onClick = vm::tie, label = "Tie") { Text("⁀", fontSize = 30.sp, color = ink, modifier = Modifier.offset(y = 7.dp)) }
 }
 
 @Composable
