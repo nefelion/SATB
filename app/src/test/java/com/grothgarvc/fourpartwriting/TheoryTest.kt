@@ -198,6 +198,13 @@ class TheoryTest {
         assertTrue(messages(score(C, "D5 G4 B3 G2", "D5 A4 F4 D3", "E5 C5 E4 C3")).none { "diminished leap" in it })
     }
 
+    @Test fun issuesSortedErrorsFirstThenByTime() {
+        val s = score(C, "E4 C4 G3 C3", "C5 C4 A3 F3", "D5 B3 G3 G3", "G4 E4 C4 C3", "A4 F4 D4 D3")
+        val issues = VoiceLeading.check(s).issues
+        assertEquals(issues.sortedWith(compareBy({ it.severity }, { it.slice })), issues)
+        assertTrue(issues.any { it.severity == Severity.ERROR } && issues.any { it.severity == Severity.WARNING })
+    }
+
     @Test fun harmonicRhythm() {
         val s = score(C, "E4 C4 G3 C3", "F4 C4 A3 F3", "D4 B3 G3 G2", "E4 C4 G3 C3", "G4 E4 C4 C3")
         assertTrue("Harmonic rhythm" in warnings(s))

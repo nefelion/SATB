@@ -226,7 +226,8 @@ object VoiceLeading {
                 dir = d
             }
         }
-        return Analysis(slices, chords, out, points, ncts)
+        // Errors first, then warnings; each by position in the score (slices are in time order)
+        return Analysis(slices, chords, out.sortedWith(compareBy({ it.severity }, { it.slice })), points, ncts)
     }
 
     private fun String.cap() = replaceFirstChar { it.uppercase() }
