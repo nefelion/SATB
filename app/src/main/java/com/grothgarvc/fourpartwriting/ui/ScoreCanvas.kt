@@ -58,7 +58,6 @@ private const val INK = 0xFF161616.toInt()
 private const val ERROR = 0xFFD32F2F.toInt()
 private const val WARN = 0xFFE67700.toInt()
 private const val PLAY = 0xFF2E7D32.toInt()
-private const val TEMPO_CHIP = 0x1A34558B
 
 /** Voice colours, used on the voice buttons and the insertion caret. */
 val VOICE_COLORS = listOf(Color(0xFFC62828), Color(0xFFEF6C00), Color(0xFF2E7D32), Color(0xFF1565C0))
@@ -260,11 +259,6 @@ fun ScoreCanvas(
                 val nc = c.nativeCanvas
                 nc.save()
                 nc.translate(offX, offY)
-                // Faint chip behind the tempo mark: it opens the tempo dialog when tapped
-                layout.tempoBox.let { b ->
-                    paints.fill.color = TEMPO_CHIP
-                    nc.drawRoundRect(b[0] * sp, b[1] * sp, b[2] * sp, b[3] * sp, 0.8f * sp, 0.8f * sp, paints.fill)
-                }
                 // Playback cursor
                 state.playTime?.let { t ->
                     layout.locate(t)?.let { x ->

@@ -3,6 +3,20 @@ package com.grothgarvc.fourpartwriting.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.foundation.systemGestureExclusion
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.pointer.AwaitPointerEventScope
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
@@ -27,13 +41,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.WindowInsetsSides
-import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.clickable
@@ -138,8 +150,9 @@ fun EditorScreen(vm: EditorViewModel) {
                     ActionButtons(st, vm, onSettings = { settings = true }, leading = false, below = true)
                 }
                 if (!wide) HorizontalDivider()
+                // Clip: zoomed-in music must stay under the toolbars, not paint over them
                 Box(Modifier.weight(1f).fillMaxWidth()
-                    .then(if (wide) Modifier.windowInsetsPadding(safe.only(WindowInsetsSides.Top)) else Modifier)) {
+                    .then(if (wide) Modifier.windowInsetsPadding(safe.only(WindowInsetsSides.Top)) else Modifier).clipToBounds()) {
                     ScoreCanvas(
                         st, vm::tap, vm::nudge, vm::dragPitch,
                         onTempoTap = { tempoDialog = true },
@@ -228,7 +241,9 @@ private val SHAPE = RoundedCornerShape(12.dp)
 /**
  * A square-ish toolbar button that grows to share the row. With [hold], holding it shows a drop
  * target ([hold].label) above it, or below when [below]; sliding onto it and letting go runs [hold].onDrop.
- * A small dot marks buttons that can be held; [menu] adds a ▾ corner mark for buttons that open a menu.
+ * The target shows as soon as the finger is down; a quick release in place is a tap, while a long
+ * hold released in place, or sliding elsewhere, cancels. A small dot marks buttons with a target; [menu] adds a ▾ corner mark.
+ * [press] replaces all of this with a custom gesture; it gets the down event and a local-to-screen mapper.
  */
 @Composable
 private fun RowScope.Tool(
@@ -238,39 +253,52 @@ private fun RowScope.Tool(
     color: Color = MaterialTheme.colorScheme.primaryContainer,
     hold: HoldTarget? = null,
     menu: Boolean = false,
+    press: (suspend AwaitPointerEventScope.(PointerInputChange, (Offset) -> Offset) -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     var shown by remember { mutableStateOf(false) }
     var over by remember { mutableStateOf(false) }
     val click by rememberUpdatedState(onClick)
     val drop by rememberUpdatedState(hold?.onDrop)
+    val onPress by rememberUpdatedState(press)
+    val coords = remember { arrayOfNulls<LayoutCoordinates>(1) }
     val below = hold?.below == true
     val hint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
     Box(
         Modifier.weight(1f).height(46.dp).padding(2.dp).clip(SHAPE)
             .background(if (selected) color else Color.Transparent)
             .semantics { contentDescription = label }
-            .then(if (hold == null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier.semantics {
+            // Buttons at the screen edge would otherwise wait for Android's back-swipe check before a press arrives
+            .then(if (press != null || hold != null) Modifier.systemGestureExclusion() else Modifier)
+            .then(if (press != null) Modifier.semantics { role = Role.Button; onClick(label) { click(); true } }
+                .onGloballyPositioned { coords[0] = it }
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        val f = onPress ?: return@awaitEachGesture
+                        f(down) { p -> coords[0]?.takeIf { it.isAttached }?.localToScreen(p) ?: p }
+                    }
+                }
+            else if (hold == null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier.semantics {
                 role = Role.Button
                 onClick(label) { click(); true }
                 onLongClick(hold.label) { drop?.invoke(); true }
             }.pointerInput(below) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
-                    var released = false
-                    val up = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
-                        waitForUpOrCancellation().also { released = true }
-                    }
-                    if (released) { if (up != null) { up.consume(); click() }; return@awaitEachGesture }
                     shown = true
                     val reach = 14.dp.toPx()
+                    var moved = false
+                    var lifted = false
                     while (true) {
                         val ch = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
                         over = if (below) ch.position.y > size.height + reach else ch.position.y < -reach
+                        if ((ch.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
                         ch.consume()
-                        if (!ch.pressed) break
+                        if (!ch.pressed) { lifted = true; break }
                     }
-                    if (over) drop?.invoke()
+                    val quick = currentEvent.changes.firstOrNull()?.let { it.uptimeMillis - down.uptimeMillis < viewConfiguration.longPressTimeoutMillis } == true
+                    if (over) drop?.invoke() else if (lifted && !moved && quick) click()
                     shown = false; over = false
                 }
             }),
@@ -299,6 +327,15 @@ private fun RowScope.Tool(
 @Composable
 private fun RowScope.Pill(content: @Composable RowScope.() -> Unit) =
     Row(Modifier.weight(2f).height(46.dp).padding(2.dp).clip(SHAPE).background(MaterialTheme.colorScheme.surfaceVariant), content = content)
+
+/** Places a popup just above its anchor ([gap] px), centred on it and kept inside the window. */
+private class AboveAnchor(val gap: Int) : PopupPositionProvider {
+    override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) =
+        IntOffset(
+            (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0)),
+            (anchorBounds.top - gap - popupContentSize.height).coerceAtLeast(0),
+        )
+}
 
 /** What a held toolbar button offers: slide onto [label] and let go to run [onDrop]. */
 private class HoldTarget(val label: String, val below: Boolean, val danger: Boolean = false, val onDrop: () -> Unit)
@@ -345,17 +382,48 @@ private fun RowScope.NoteTools(st: UiState, vm: EditorViewModel) {
     var accOpen by remember { mutableStateOf(false) }
     val sel = st.selectedEvent
 
+    // Press opens the pocket at once: slide onto a length and let go to pick it. A tap leaves it open.
+    val durItems = remember { arrayOfNulls<LayoutCoordinates>(BASES.size) }
+    var durHover by remember { mutableIntStateOf(-1) }
+    fun durAt(p: Offset) = durItems.indexOfFirst { c ->
+        c != null && c.isAttached && Rect(c.localToScreen(Offset.Zero), c.localToScreen(Offset(c.size.width.toFloat(), c.size.height.toFloat()))).contains(p)
+    }
     Box(Modifier.weight(1f)) {
-        Row { Tool(onClick = { durOpen = true }, label = "Note length", menu = true) { GlyphIcon(Smufl.MET_NOTES[idx], 40, ink) } }
-        DropdownMenu(durOpen, { durOpen = false }, shape = SHAPE) {
-            Row {
+        Row {
+            Tool(onClick = { durOpen = true }, label = "Note length", menu = true, press = { down, toScreen ->
+                durOpen = true
+                var moved = false
+                var lifted = false
+                while (true) {
+                    val ch = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                    if ((ch.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
+                    durHover = durAt(toScreen(ch.position))
+                    ch.consume()
+                    if (!ch.pressed) { lifted = true; break }
+                }
+                val pick = durHover
+                durHover = -1
+                if (lifted && pick >= 0) { vm.setDuration(BASES[pick]); durOpen = false }
+                else if (moved || !lifted) durOpen = false
+            }) { GlyphIcon(Smufl.MET_NOTES[idx], 40, ink) }
+        }
+        // A plain popup right above the button: a menu keeps a wide gap, too far for slide-to-pick
+        if (durOpen) Popup(popupPositionProvider = AboveAnchor(with(LocalDensity.current) { 4.dp.roundToPx() }),
+            onDismissRequest = { durOpen = false }, properties = PopupProperties(focusable = true)) {
+            Surface(shape = SHAPE, shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surfaceVariant) {
+            Row(Modifier.padding(4.dp)) {
                 BASES.forEachIndexed { i, b ->
-                    Box(Modifier.size(48.dp).clip(SHAPE)
-                        .background(if (b == d.base) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                    Box(Modifier.size(48.dp).onGloballyPositioned { durItems[i] = it }.clip(SHAPE)
+                        .background(when {
+                            i == durHover -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                            b == d.base -> MaterialTheme.colorScheme.primaryContainer
+                            else -> Color.Transparent
+                        })
                         .clickable { vm.setDuration(b); durOpen = false }, contentAlignment = Alignment.Center) {
                         GlyphIcon(Smufl.MET_NOTES[i], 42, ink)
                     }
                 }
+            }
             }
         }
     }
