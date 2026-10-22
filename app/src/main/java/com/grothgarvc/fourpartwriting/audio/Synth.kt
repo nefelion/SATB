@@ -14,6 +14,8 @@ object Synth {
     fun start() = nativeStart()
     fun close() = nativeClose()
     fun load(path: String) = nativeLoad(path).also { loaded = loaded || it }
+    /** Loads from an open file descriptor (not closed here); the file is read in place. */
+    fun loadFd(fd: Int) = nativeLoadFd(fd).also { loaded = loaded || it }
     fun noteOn(midi: Int, vel: Int = 90) = nativeNote(midi, vel)
     fun noteOff(midi: Int) = nativeNote(midi, 0)
     fun stop() = nativeStop()
@@ -44,6 +46,7 @@ object Synth {
     private external fun nativeStart(): Boolean
     private external fun nativeClose()
     private external fun nativeLoad(path: String): Boolean
+    private external fun nativeLoadFd(fd: Int): Boolean
     private external fun nativeNote(key: Int, vel: Int)
     private external fun nativePlay(events: DoubleArray)
     private external fun nativeSetTempo(qpm: Double)

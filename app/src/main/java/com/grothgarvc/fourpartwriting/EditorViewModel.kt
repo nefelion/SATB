@@ -2,7 +2,9 @@ package com.grothgarvc.fourpartwriting
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.grothgarvc.fourpartwriting.audio.Synth
@@ -52,6 +54,8 @@ data class UiState(
     /** Onset of the slice under the playback cursor. */
     val playTime: Fraction? = null,
     val soundLoaded: Boolean = false,
+    /** Name of the .sf2 file the user picked (null before any pick in this version). */
+    val soundName: String? = null,
     val message: String? = null,
     val undo: List<Score> = emptyList(),
     val redo: List<Score> = emptyList(),
@@ -105,11 +109,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             // Stored as the rules switched OFF, so rules added in later versions start on
             rules = Rule.entries.toSet() - prefs.getStringSet("rulesOff", emptySet())!!.mapNotNull { n -> Rule.entries.firstOrNull { it.name == n } }.toSet(),
             autoVoice = prefs.getBoolean("autoVoice", true),
+            soundName = prefs.getString("sf2Name", null),
             voice = Voice.entries.getOrElse(prefs.getInt("voice", 0)) { Voice.SOPRANO },
             duration = runCatching { Duration(prefs.getInt("durBase", 4), prefs.getInt("durDots", 0)) }.getOrDefault(Duration(4)),
         )
     )
     val state: StateFlow<UiState> = _state
+    /** Copy of the SoundFont made by older versions; still used until the user picks a file again. */
     private val sf2 = File(app.filesDir, "piano.sf2")
     private var playJob: Job? = null
     /** SoundFont load started on app start, and a Play tap waiting for it. */
@@ -123,9 +129,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     init {
-        if (sf2.exists()) loadJob = viewModelScope.launch(Dispatchers.IO) {
-            val ok = Synth.load(sf2.path)
-            _state.update { it.copy(soundLoaded = ok) }
+        val savedUri = prefs.getString("sf2Uri", null)?.let(Uri::parse)
+        if (savedUri != null || sf2.exists()) loadJob = viewModelScope.launch(Dispatchers.IO) {
+            val ok = if (savedUri != null) loadSf2(savedUri) else Synth.load(sf2.path)
+            _state.update {
+                it.copy(soundLoaded = ok, message = if (ok || savedUri == null) it.message
+                    else "Could not open ${it.soundName ?: "the SoundFont"}. Pick it again in Settings.")
+            }
         }
         // Save the score shortly after it changes
         viewModelScope.launch {
@@ -522,12 +532,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (waitJob?.isActive == true) { waitJob?.cancel(); return }
         val loading = loadJob
         if (!s.soundLoaded && loading?.isActive == true) {
-            msg("Loading the piano sound… playback starts when it is ready.")
+            msg("Loading the sound… playback starts when it is ready.")
             // Clear waitJob first, or togglePlay sees an active wait and cancels it
             waitJob = viewModelScope.launch { loading.join(); waitJob = null; togglePlay() }
             return
         }
-        if (!s.soundLoaded) { msg("Load a piano SoundFont (.sf2) in Settings to play."); return }
+        if (!s.soundLoaded) { msg("Load a SoundFont (.sf2) in Settings to play."); return }
         val score = s.score
         val onsets = score.slices().map { it.time }
         if (onsets.isEmpty()) return
@@ -551,15 +561,36 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun importSf2(uri: Uri) = viewModelScope.launch {
-        val ok = withContext(Dispatchers.IO) {
+        val resolver = getApplication<Application>().contentResolver
+        val name = withContext(Dispatchers.IO) {
             runCatching {
-                val tmp = File(sf2.path + ".tmp")
-                getApplication<Application>().contentResolver.openInputStream(uri)!!.use { i -> tmp.outputStream().use { i.copyTo(it) } }
-                // Validate before replacing the previous working file
-                if (!Synth.load(tmp.path)) { tmp.delete(); false } else { tmp.renameTo(sf2); Synth.load(sf2.path) }
-            }.getOrDefault(false)
+                resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+            }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/')
         }
-        _state.update { it.copy(soundLoaded = it.soundLoaded || ok, message = if (ok) "SoundFont loaded." else "Could not read that file as a SoundFont (.sf2).") }
+        val old = prefs.getString("sf2Uri", null)
+        val ok = withContext(Dispatchers.IO) {
+            // Keep read access across restarts: the file is read where it is, never copied
+            runCatching { resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            loadSf2(uri) // on failure the native side keeps the previous font
+        }
+        if (ok) {
+            prefs.edit().putString("sf2Uri", uri.toString()).putString("sf2Name", name).apply()
+            if (old != null && old != uri.toString()) releaseSf2(old)
+            sf2.delete() // free the copy older versions kept
+        } else if (old != uri.toString()) releaseSf2(uri.toString())
+        _state.update {
+            it.copy(soundLoaded = it.soundLoaded || ok, soundName = if (ok) name else it.soundName,
+                message = if (ok) "SoundFont loaded: ${name ?: "file"}" else "Could not read ${name ?: "that file"} as a SoundFont (.sf2).")
+        }
+    }
+
+    /** Loads the SoundFont straight from the user's file through its file descriptor, without a copy. */
+    private fun loadSf2(uri: Uri): Boolean = runCatching {
+        getApplication<Application>().contentResolver.openFileDescriptor(uri, "r")!!.use { Synth.loadFd(it.fd) }
+    }.getOrDefault(false)
+
+    private fun releaseSf2(uri: String) = runCatching {
+        getApplication<Application>().contentResolver.releasePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
     fun exportMusicXml(uri: Uri) = viewModelScope.launch {

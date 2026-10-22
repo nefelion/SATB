@@ -5,6 +5,7 @@
 #include "tsf.h"
 
 #include <aaudio/AAudio.h>
+#include <unistd.h>
 #include <android/log.h>
 #include <jni.h>
 #include <algorithm>
@@ -108,11 +109,8 @@ Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeClose(JNIEnv*, jobject) {
     if (s) { AAudioStream_requestStop(s); AAudioStream_close(s); }
 }
 
-JNIEXPORT jboolean JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeLoad(JNIEnv* env, jobject, jstring path) {
-    const char* p = env->GetStringUTFChars(path, nullptr);
-    tsf* f = tsf_load_filename(p);
-    env->ReleaseStringUTFChars(path, p);
+// Swaps in a freshly loaded font; a failed load (null) keeps the current one.
+static jboolean install(tsf* f) {
     if (!f) return JNI_FALSE;
     tsf_set_output(f, TSF_STEREO_INTERLEAVED, sampleRate, -6.0f);
     tsf_set_max_voices(f, 96);  // preallocate so the audio thread never allocates
@@ -123,6 +121,29 @@ Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeLoad(JNIEnv* env, jobject,
     }
     if (old) tsf_close(old);
     return JNI_TRUE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeLoad(JNIEnv* env, jobject, jstring path) {
+    const char* p = env->GetStringUTFChars(path, nullptr);
+    tsf* f = tsf_load_filename(p);
+    env->ReleaseStringUTFChars(path, p);
+    return install(f);
+}
+
+// Reads the font from an open file descriptor (a user's file opened through Android's document
+// picker), so the file never has to be copied. The fd stays owned by the caller.
+JNIEXPORT jboolean JNICALL
+Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeLoadFd(JNIEnv*, jobject, jint fd) {
+    int own = dup(fd);
+    if (own < 0) return JNI_FALSE;
+    FILE* fp = fdopen(own, "rb");
+    if (!fp) { close(own); return JNI_FALSE; }
+    fseek(fp, 0, SEEK_SET);
+    tsf_stream stream = { fp, (int(*)(void*, void*, unsigned int))&tsf_stream_stdio_read, (int(*)(void*, unsigned int))&tsf_stream_stdio_skip };
+    tsf* f = tsf_load(&stream);
+    fclose(fp);
+    return install(f);
 }
 
 JNIEXPORT void JNICALL

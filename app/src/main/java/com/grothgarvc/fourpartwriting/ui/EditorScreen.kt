@@ -503,7 +503,7 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                 Label("Tempo")
                 TempoEditor(score.tempo, vm)
                 Label("Sound")
-                Text(if (st.soundLoaded) "Piano SoundFont loaded." else "No SoundFont loaded. Pick a piano .sf2 file.",
+                Text(if (st.soundLoaded) "Loaded: ${st.soundName ?: "SoundFont"}" else "No SoundFont loaded. Pick any .sf2 file (piano, choir, strings…).",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FilledTonalButton(onClick = { sf2Picker.launch(arrayOf("*/*")) }, shape = SHAPE) { Text("Load .sf2 file…") }
             }
