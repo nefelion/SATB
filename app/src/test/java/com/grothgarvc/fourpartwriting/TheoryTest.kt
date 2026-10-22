@@ -139,8 +139,76 @@ class TheoryTest {
     }
 
     @Test fun cleanProgressionHasNoErrors() {
-        val s = score(C, "E4 C4 G3 C3", "F4 C4 A3 F3", "D4 B3 G3 G2", "E4 C4 G3 C3")
+        val s = score(C, "E4 C4 G3 C3", "F4 C4 A3 F2", "D4 B3 G3 G2", "E4 C4 G3 C3")
         assertEquals(emptyList<String>(), rules(s))
+        assertEquals(emptyList<String>(), VoiceLeading.check(EXAMPLE).issues.map { it.message })
+    }
+
+    private fun warnings(s: Score) = VoiceLeading.check(s).issues.map { it.rule.label }
+
+    @Test fun seventhLeap() {
+        assertTrue("Melodic interval" in rules(score(C, "E4 C4 G3 C3", "F4 C4 A3 F3", "D4 B3 G3 G2")))
+    }
+
+    @Test fun leapHandling() {
+        // S leaps a sixth up then keeps going up
+        assertTrue("Leap handling" in warnings(score(C, "E4 C4 G3 C3", "C5 C4 A3 F3", "D5 B3 G3 G3")))
+        // two thirds up outline a triad: fine; two fourths up span a seventh: not
+        assertTrue("Leap handling" !in warnings(score(C, "C4 G3 E3 C3", "E4 G3 C3 C3", "G4 G3 C3 C3")))
+        assertTrue("Leap handling" in warnings(score(C, "C4 G3 E3 C3", "F4 G3 C3 C3", "B4 G3 D3 G2")))
+    }
+
+    private fun messages(s: Score) = VoiceLeading.check(s).issues.map { it.message }
+
+    @Test fun sixFourUsage() {
+        // ii – I6/4 – ii: bass neither passes, holds nor arpeggiates
+        assertTrue("Six-four chords" in warnings(score(C, "F4 D4 A3 F3", "E4 C4 C4 G3", "F4 D4 A3 F3")))
+        // passing V6/4 between I and I6
+        assertTrue("Six-four chords" !in warnings(score(C, "E4 C4 G3 C3", "D4 B3 G3 D3", "C4 C4 G3 E3")))
+    }
+
+    @Test fun doublingPreferences() {
+        assertTrue(messages(score(C, "E4 G3 E3 C3")).any { it.startsWith("Doubled third") })
+        assertTrue(messages(score(C, "E4 C4 G3 C3")).none { it.startsWith("Doubled third") })
+    }
+
+    @Test fun innerLeadingTone() {
+        // T: B3 → E3 (neither up nor a third down)
+        val bad = score(C, "G4 D4 B3 G2", "G4 C4 E3 C3")
+        assertTrue("Leading tone" in warnings(bad))
+        assertTrue("Leading tone" !in rules(bad))
+        // T: B3 → G3, frustrated leading tone
+        assertTrue("Leading tone" !in warnings(score(C, "G4 D4 B3 G2", "G4 E4 G3 C3")))
+    }
+
+    @Test fun tendencyTones() {
+        // It+6 → V: A♭ down, F♯ up
+        assertTrue("Tendency tones" !in rules(score(C, "F#4 C4 C4 Ab3", "G4 D4 B3 G3")))
+        assertTrue("Tendency tones" in rules(score(C, "F#4 C4 C4 Ab3", "G4 D4 B3 G2")))
+        // vii°7 → I with the fifth (F) going up
+        assertTrue("Tendency tones" in warnings(score(C, "Ab4 F4 D4 B2", "G4 G4 E4 C3")))
+    }
+
+    @Test fun lineAndSpacing() {
+        assertTrue("Spacing" in warnings(score(C, "G5 E5 C5 C3")))
+        val line = score(C, "F4 C4 A3 F3", "G4 C4 A3 F3", "A4 C4 A3 F3", "B4 D4 G3 G3", "G4 D4 G3 G3")
+        assertTrue(messages(line).any { "tritone" in it })
+        // T: B3 up to F4 (d5), then on up (bad) or back by step (fine)
+        assertTrue(messages(score(C, "D5 G4 B3 G2", "D5 A4 F4 D3", "E5 C5 G4 C3")).any { "diminished leap" in it })
+        assertTrue(messages(score(C, "D5 G4 B3 G2", "D5 A4 F4 D3", "E5 C5 E4 C3")).none { "diminished leap" in it })
+    }
+
+    @Test fun harmonicRhythm() {
+        val s = score(C, "E4 C4 G3 C3", "F4 C4 A3 F3", "D4 B3 G3 G2", "E4 C4 G3 C3", "G4 E4 C4 C3")
+        assertTrue("Harmonic rhythm" in warnings(s))
+    }
+
+    @Test fun crossRelationAndSimilarMotion() {
+        // F in S, then F# in B
+        assertTrue("Cross relation" in warnings(score(C, "F4 C4 A3 D3", "A4 E4 C4 F#3")))
+        // F → F# inside one voice is fine
+        assertTrue("Cross relation" !in warnings(score(C, "F4 C4 A3 D3", "F#4 C4 A3 D3")))
+        assertTrue("All voices in one direction" in warnings(score(C, "E4 C4 G3 C3", "F4 D4 A3 D3")))
     }
 
     @Test fun parallelFifthsAndOctaves() {

@@ -89,7 +89,7 @@ class RenderPreview {
         )
         render(tricky, "tricky")
         render(Score(key = Key(5, Mode.MINOR), clefs = listOf(Clef.ALTO, Clef.TENOR), voices = EXAMPLE.voices), "clefs")
-        for (a in Arrangement.entries) render(EXAMPLE.withArrangement(a), "arr_${a.name}")
+        for (a in Arrangement.entries) render(EXAMPLE.withArrangement(a), "arr_${a.label.replace('/', '_')}")
         // Ties and metric splitting: 4/4 syncopation, notes over barlines, dotted rhythms
         render(Score(voices = listOf(
             line("C5:4 D5:2 C5:4 B4:8 C5:4 D5:8 E5:2 G5:2. F5:2"),

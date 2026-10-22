@@ -11,16 +11,52 @@ data class Event(val length: Fraction, val pitch: Pitch?) {
 enum class Voice(val label: String) { SOPRANO("S"), ALTO("A"), TENOR("T"), BASS("B") }
 
 /**
- * How the four voices sit on staves. [stems] per voice: 1 = up, -1 = down, 0 = from note position
- * (a voice alone on its staff).
+ * Staff (0 = top) of each voice S, A, T, B. Voices keep their order top to bottom, so any
+ * split of SATB into consecutive groups works: "SATB", "SA/TB", keyboard style "SAT/B", ...
  */
-enum class Arrangement(val label: String, val staffOf: IntArray, val stems: IntArray, val defaultClefs: List<Clef>) {
-    ONE("1 staff", intArrayOf(0, 0, 0, 0), intArrayOf(1, 1, -1, -1), listOf(Clef.TREBLE)),
-    CLOSED("2 staves", intArrayOf(0, 0, 1, 1), intArrayOf(1, -1, 1, -1), listOf(Clef.TREBLE, Clef.BASS)),
-    THREE("3 staves", intArrayOf(0, 0, 1, 2), intArrayOf(1, -1, 0, 0), listOf(Clef.TREBLE, Clef.TREBLE_8VB, Clef.BASS)),
-    OPEN("4 staves", intArrayOf(0, 1, 2, 3), intArrayOf(0, 0, 0, 0), listOf(Clef.TREBLE, Clef.TREBLE, Clef.TREBLE_8VB, Clef.BASS));
+data class Arrangement(val staffOf: List<Int>) {
+    init { require(staffOf.size == 4 && staffOf[0] == 0 && staffOf.zipWithNext().all { (a, b) -> b == a || b == a + 1 }) }
 
-    val staves get() = defaultClefs.size
+    val staves get() = staffOf.last() + 1
+    fun voicesOn(staff: Int) = Voice.entries.filter { staffOf[it.ordinal] == staff }
+
+    /**
+     * Stem direction per voice: 1 = up, -1 = down, 0 = from note position (a voice alone on its staff).
+     * On a shared staff the top voice stems up (the top two of four), the rest down.
+     */
+    val stems: List<Int> get() = Voice.entries.map { v ->
+        val on = voicesOn(staffOf[v.ordinal])
+        when {
+            on.size == 1 -> 0
+            on.indexOf(v) < maxOf(1, on.size / 2) -> 1
+            else -> -1
+        }
+    }
+
+    val defaultClefs: List<Clef> get() = List(staves) { s ->
+        val on = voicesOn(s)
+        when {
+            Voice.BASS in on && Voice.SOPRANO !in on -> Clef.BASS
+            on.first() == Voice.TENOR -> Clef.TREBLE_8VB
+            else -> Clef.TREBLE
+        }
+    }
+
+    val label get() = (0 until staves).joinToString("/") { s -> voicesOn(s).joinToString("") { it.label } }
+
+    companion object {
+        val ONE = Arrangement(listOf(0, 0, 0, 0))
+        val CLOSED = Arrangement(listOf(0, 0, 1, 1))
+        val KEYBOARD = Arrangement(listOf(0, 0, 0, 1))
+        val THREE = Arrangement(listOf(0, 0, 1, 2))
+        val OPEN = Arrangement(listOf(0, 1, 2, 3))
+
+        /** All 8 splits, fewest staves first. Bit k set = staff break below voice k. */
+        val entries: List<Arrangement> = (0 until 8).map { bits ->
+            var s = 0
+            Arrangement(List(4) { v -> if (v > 0 && (bits shr (v - 1)) and 1 == 1) s++; s })
+        }.sortedBy { it.staves }
+    }
 }
 
 /**
@@ -39,7 +75,7 @@ data class Score(
 
     fun voice(v: Voice) = voices[v.ordinal]
     fun staffOf(v: Voice) = arrangement.staffOf[v.ordinal]
-    fun voicesOn(staff: Int) = Voice.entries.filter { staffOf(it) == staff }
+    fun voicesOn(staff: Int) = arrangement.voicesOn(staff)
 
     fun withVoice(v: Voice, events: List<Event>) =
         copy(voices = voices.toMutableList().also { it[v.ordinal] = events })

@@ -101,15 +101,17 @@ fun ScoreCanvas(
         // Zoom/offset survive panels opening (view height changes); they reset to "fit" only for a new
         // arrangement or orientation. The saved viewport is used once, on start.
         val usedSaved = remember { booleanArrayOf(false) }
-        var sp by remember(state.score.arrangement, landscape) {
+        // Everything that captures sp/offX/offY must restart with this key, or it keeps the old (dead) state
+        val viewKey = state.score.arrangement to landscape
+        var sp by remember(viewKey) {
             val saved = savedViewport?.takeIf { !usedSaved[0] }
             mutableFloatStateOf(saved?.first?.coerceIn(minSp, maxSp)
                 ?: (viewH * 0.92f / layout.height).coerceIn(with(density) { 6.dp.toPx() }, with(density) { 19.dp.toPx() }))
         }
-        var offX by remember(state.score.arrangement, landscape) {
+        var offX by remember(viewKey) {
             mutableFloatStateOf(savedViewport?.takeIf { !usedSaved[0] }?.second ?: 0f).also { usedSaved[0] = true }
         }
-        var offY by remember(state.score.arrangement, landscape) { mutableFloatStateOf(0f) }
+        var offY by remember(viewKey) { mutableFloatStateOf(0f) }
         val currentLayout by rememberUpdatedState(layout)
         val vw by rememberUpdatedState(viewW)
         val vh by rememberUpdatedState(viewH)
@@ -120,7 +122,7 @@ fun ScoreCanvas(
             offY = if (ch <= vh) (vh - ch) / 2 else offY.coerceIn(vh - ch, 0f)
         }
         SideEffect { clampOffsets() }
-        LaunchedEffect(Unit) { snapshotFlow { sp to offX }.collect { (a, b) -> onViewport(a, b) } }
+        LaunchedEffect(viewKey) { snapshotFlow { sp to offX }.collect { (a, b) -> onViewport(a, b) } }
 
         // Highlight colours per note
         val colors = remember(analysis, state.focusedIssue, state.selected, state.playTime, state.score) {
@@ -156,7 +158,7 @@ fun ScoreCanvas(
             t?.let { currentLayout.locate(it) }?.let { follow(it) }
         }
         // When Check opens (labels added, less height), zoom out just enough to show the whole system
-        LaunchedEffect(analysis != null, vh) {
+        LaunchedEffect(analysis != null, vh, viewKey) {
             val fit = vh * 0.96f / currentLayout.height
             if (analysis != null && sp > fit) animate(sp, fit.coerceAtLeast(minSp)) { v, _ -> sp = v; clampOffsets() }
         }
@@ -172,7 +174,7 @@ fun ScoreCanvas(
         Canvas(
             Modifier
                 .size(maxWidth, maxHeight)
-                .pointerInput(Unit) {
+                .pointerInput(viewKey) {
                     val slop = viewConfiguration.touchSlop
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)

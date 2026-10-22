@@ -8,7 +8,7 @@ object ScoreCodec {
         appendLine("key ${s.key.fifths} ${s.key.mode.name}")
         appendLine("time ${s.time.beats} ${s.time.beatUnit} ${s.time.symbol.name}")
         appendLine("tempo ${s.tempo}")
-        appendLine("arr ${s.arrangement.name}")
+        appendLine("arr " + s.arrangement.staffOf.joinToString(" "))
         appendLine("clefs " + s.clefs.joinToString(" ") { it.name })
         for (v in Voice.entries) {
             append(v.label)
@@ -30,7 +30,10 @@ object ScoreCodec {
         val map = lines.drop(1).associate { l -> l.substringBefore(' ') to l.substringAfter(' ', "") }
         val k = map.getValue("key").split(" ")
         val t = map.getValue("time").split(" ")
-        val arr = Arrangement.valueOf(map.getValue("arr").trim())
+        val arrText = map.getValue("arr").trim()
+        // Files from older versions store a preset name
+        val legacy = mapOf("ONE" to Arrangement.ONE, "CLOSED" to Arrangement.CLOSED, "THREE" to Arrangement.THREE, "OPEN" to Arrangement.OPEN)
+        val arr = legacy[arrText] ?: Arrangement(arrText.split(" ").map { it.toInt() })
         val clefs = map.getValue("clefs").trim().split(" ").map { Clef.valueOf(it) }
         val voices = Voice.entries.map { v ->
             map[v.label].orEmpty().trim().split(" ").filter { it.isNotEmpty() }.map { tok ->

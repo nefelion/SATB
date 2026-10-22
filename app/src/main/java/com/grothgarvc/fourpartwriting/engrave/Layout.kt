@@ -1,6 +1,5 @@
 package com.grothgarvc.fourpartwriting.engrave
 
-import com.grothgarvc.fourpartwriting.model.Arrangement
 import com.grothgarvc.fourpartwriting.model.Fraction
 import com.grothgarvc.fourpartwriting.model.Score
 import com.grothgarvc.fourpartwriting.model.TimeSig
@@ -204,18 +203,15 @@ object Engraver {
 
         val top = sy(0, 8); val bot = sy(n - 1, 0)
         for (s in 0 until n) for (l in 0..4) marks += LineMark(x0, sy(s, l * 2), xEnd, sy(s, l * 2), Smufl.STAFF_LINE)
-        when (score.arrangement) {
-            Arrangement.CLOSED -> {
-                val braceScale = (bot - top) / Smufl.BRACE_H
-                marks += GlyphMark(Smufl.BRACE, x0 - 0.35f - Smufl.BRACE_W * braceScale, bot, scale = braceScale)
-            }
-            Arrangement.THREE, Arrangement.OPEN -> {
-                val bx = x0 - 1.0f
-                marks += LineMark(bx + 0.25f, top - 0.5f, bx + 0.25f, bot + 0.5f, Smufl.THICK_BAR)
-                marks += GlyphMark(Smufl.BRACKET_TOP, bx, top - 0.5f)
-                marks += GlyphMark(Smufl.BRACKET_BOTTOM, bx, bot + 0.5f)
-            }
-            Arrangement.ONE -> {}
+        // Two staves (piano style) get a brace, more (choir style) a bracket
+        if (n == 2) {
+            val braceScale = (bot - top) / Smufl.BRACE_H
+            marks += GlyphMark(Smufl.BRACE, x0 - 0.35f - Smufl.BRACE_W * braceScale, bot, scale = braceScale)
+        } else if (n > 2) {
+            val bx = x0 - 1.0f
+            marks += LineMark(bx + 0.25f, top - 0.5f, bx + 0.25f, bot + 0.5f, Smufl.THICK_BAR)
+            marks += GlyphMark(Smufl.BRACKET_TOP, bx, top - 0.5f)
+            marks += GlyphMark(Smufl.BRACKET_BOTTOM, bx, bot + 0.5f)
         }
         if (n > 1) marks += LineMark(x0, top, x0, bot, Smufl.THIN_BAR)
 
@@ -237,7 +233,7 @@ object Engraver {
         }
         for (s in 0 until n) timeSig(score.time, hx, ::sy, s, marks)
         val tempoY = top - max(2.2f, (maxP[0] - 8) * 0.5f + 1.2f) - (if (hasLabels) 2.8f else 0f)
-        val tx = x0 + if (score.arrangement == Arrangement.THREE || score.arrangement == Arrangement.OPEN) 1.6f else 0.8f // clear the bracket hook
+        val tx = x0 + if (n > 2) 1.6f else 0.8f // clear the bracket hook
         marks += GlyphMark(Smufl.MET_QUARTER, tx, tempoY, scale = 0.75f)
         marks += TextMark("= ${score.tempo}", tx + 1.2f, tempoY, 1.6f, TextStyle.TEMPO)
 

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -337,17 +338,13 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Un
                     item { TempoEditor(score.tempo, vm) }
                     item { Section("Staves") }
                     item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            for (a in StaffArrangement.entries) Choice(score.arrangement == a, "${a.staves}") { vm.setArrangement(a) }
+                        // "/" = staff break; SAT/B is keyboard style
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (a in StaffArrangement.entries) Choice(score.arrangement == a, a.label) { vm.setArrangement(a) }
                         }
                     }
                     item {
-                        val names = when (score.arrangement) {
-                            StaffArrangement.ONE -> listOf("SATB")
-                            StaffArrangement.CLOSED -> listOf("S/A", "T/B")
-                            StaffArrangement.THREE -> listOf("S/A", "T", "B")
-                            StaffArrangement.OPEN -> listOf("S", "A", "T", "B")
-                        }
+                        val names = score.arrangement.label.split("/")
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             for (i in score.clefs.indices) Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("Staff ${i + 1} (${names[i]})", Modifier.weight(1f))

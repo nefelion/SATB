@@ -75,7 +75,7 @@ private fun chorale(vararg chords: String): List<List<Event>> {
 /** A short phrase in C major (I IV V I | vi ii6 Cad6/4 V7 | I) so the first screen shows music. */
 val EXAMPLE = Score(
     voices = chorale(
-        "E4 C4 G3 C3", "F4 C4 A3 F3", "D4 B3 G3 G2", "E4 C4 G3 C3",
+        "E4 C4 G3 C3", "F4 C4 A3 F2", "D4 B3 G3 G2", "E4 C4 G3 C3",
         "E4 C4 A3 A2", "F4 D4 A3 F2", "E4 C4 G3 G2", "D4 B3 F3 G2",
         "C4:1 C4:1 E3:1 C3:1",
     ),

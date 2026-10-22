@@ -28,11 +28,25 @@ class ScoreCodecTest {
             ),
         )
         assertEquals(odd, ScoreCodec.decode(ScoreCodec.encode(odd)))
+        val kb = EXAMPLE.withArrangement(Arrangement.KEYBOARD)
+        assertEquals(kb, ScoreCodec.decode(ScoreCodec.encode(kb)))
+        // Older files name a preset
+        assertEquals(EXAMPLE, ScoreCodec.decode(ScoreCodec.encode(EXAMPLE).replace("arr 0 0 1 1", "arr CLOSED")))
+    }
+
+    @Test fun arrangements() {
+        assertEquals(8, Arrangement.entries.distinct().size)
+        val kb = Arrangement.KEYBOARD
+        assertEquals("SAT/B", kb.label)
+        assertEquals(listOf(1, -1, -1, 0), kb.stems)
+        assertEquals(listOf(Clef.TREBLE, Clef.BASS), kb.defaultClefs)
+        assertEquals(listOf(Clef.TREBLE, Clef.TREBLE_8VB, Clef.BASS), Arrangement.THREE.defaultClefs)
+        assertEquals(listOf(1, 1, -1, -1), Arrangement.ONE.stems)
     }
 
     @Test fun garbageIsRejected() {
         assertNull(ScoreCodec.decode(""))
         assertNull(ScoreCodec.decode("v1\nkey x"))
-        assertNull(ScoreCodec.decode(ScoreCodec.encode(EXAMPLE).replace("CLOSED", "NOPE")))
+        assertNull(ScoreCodec.decode(ScoreCodec.encode(EXAMPLE).replace("arr 0 0 1 1", "arr 0 2 1 1")))
     }
 }
