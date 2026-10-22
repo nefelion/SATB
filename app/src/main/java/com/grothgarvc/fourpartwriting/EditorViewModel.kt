@@ -77,6 +77,8 @@ data class UiState(
     val locked: Voice? = null,
     /** A selected note's pitch is being dragged. */
     val dragging: Boolean = false,
+    /** Movement mode (tap the active voice button): taps only select notes, nothing is added. */
+    val moving: Boolean = false,
 ) {
     /** Voice shown on the caret and voice buttons: while dragging, the dragged note's voice, not the next input voice. */
     val shownVoice: Voice get() = selected?.voice?.takeIf { dragging } ?: voice
@@ -243,6 +245,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- input ----------
 
     fun tap(hit: Hit) {
+        if (s.moving) {
+            if (hit.near != null) select(hit.near, hit.nearAt) else if (hit.exact != null) select(hit.exact, hit.exactAt)
+            return
+        }
         val score = s.score
         val v = s.locked ?: s.voice
         val end = score.length(v)
@@ -312,6 +318,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun select(ref: NoteRef?, at: Fraction? = null) {
         if (ref == null) { deselect(); return }
+        // Selecting in movement mode ends it; the note's voice becomes the input voice
+        if (s.moving) { resumeVoice = ref.voice; _state.update { it.copy(moving = false) } }
         if (resumeVoice == null) resumeVoice = s.voice
         _state.update { it.copy(selected = ref, selectedAt = at, voice = ref?.voice ?: it.voice) }
         ref?.let { r -> s.score.voice(r.voice).getOrNull(r.index)?.pitch?.let(::preview) }
@@ -334,6 +342,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** With a note selected, jumps to voice [v]'s note at the same time; otherwise sets the input voice. */
     fun selectVoice(v: Voice) {
         val sel = s.selected
+        // The active voice button again enters movement mode (and drops the selection); any voice button leaves it
+        if (s.moving) _state.update { it.copy(moving = false) }
+        else if (v == s.voice) { resumeVoice = null; _state.update { it.copy(moving = true, selected = null) }; return }
         // Any other voice button unlocks; input then resumes at the voice that ends earliest
         if (s.locked != null && s.locked != v) {
             _state.update { it.copy(locked = null) }
@@ -355,7 +366,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Hold a voice button: all new notes go to [v] until another voice button is tapped. */
     fun lockVoice(v: Voice) {
         resumeVoice = null
-        _state.update { it.copy(locked = v, voice = v, selected = null) }
+        _state.update { it.copy(locked = v, voice = v, selected = null, moving = false) }
     }
 
     fun finishTutorial() {
@@ -443,6 +454,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun rest() {
         if (editSelected { sc, v, i -> Edit.dropEmptyLastBars(Edit.setPitch(sc, v, i, null)) }) return
+        if (s.moving) return
         val v = s.locked ?: s.voice
         val new = Edit.append(s.score, v, s.duration.value, null)
         edit(new, null, nextVoice(new))
@@ -467,6 +479,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val r = s.selected
         val score = s.score
         if (r == null) {
+            if (s.moving) return
             val v = s.locked ?: s.voice
             val list = score.voice(v)
             if (list.isNotEmpty()) edit(Edit.dropEmptyLastBars(score.withVoice(v, list.dropLast(1))), null)

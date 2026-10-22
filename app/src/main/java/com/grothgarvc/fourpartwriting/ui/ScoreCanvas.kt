@@ -276,8 +276,8 @@ fun ScoreCanvas(
                         nc.drawRect((x - 0.5f) * sp, (layout.noteTop - 1.5f) * sp, (x + 1.7f) * sp, (layout.noteBottom + 1.5f) * sp, paints.fill)
                     }
                 }
-                // Insertion caret for the active voice
-                if (!state.playing) {
+                // Insertion caret for the active voice (none in movement mode)
+                if (!state.playing && !state.moving) {
                     val col = sc.voices[state.shownVoice.ordinal]
                     paints.fill.color = col.copy(alpha = sc.caretAlpha).toArgb()
                     // From above the highest note to below the lowest, so the voice letter never sits under a note
