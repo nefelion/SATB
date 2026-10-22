@@ -93,13 +93,13 @@ bool openStream() {
 extern "C" {
 
 JNIEXPORT jboolean JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeStart(JNIEnv*, jobject) {
+Java_com_nefelion_fourpartwriting_audio_Synth_nativeStart(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(mx);
     return stream != nullptr || openStream();
 }
 
 JNIEXPORT void JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeClose(JNIEnv*, jobject) {
+Java_com_nefelion_fourpartwriting_audio_Synth_nativeClose(JNIEnv*, jobject) {
     AAudioStream* s;
     {
         std::lock_guard<std::mutex> lock(mx);
@@ -124,7 +124,7 @@ static jboolean install(tsf* f) {
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeLoad(JNIEnv* env, jobject, jstring path) {
+Java_com_nefelion_fourpartwriting_audio_Synth_nativeLoad(JNIEnv* env, jobject, jstring path) {
     const char* p = env->GetStringUTFChars(path, nullptr);
     tsf* f = tsf_load_filename(p);
     env->ReleaseStringUTFChars(path, p);
@@ -134,7 +134,7 @@ Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeLoad(JNIEnv* env, jobject,
 // Reads the font from an open file descriptor (a user's file opened through Android's document
 // picker), so the file never has to be copied. The fd stays owned by the caller.
 JNIEXPORT jboolean JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeLoadFd(JNIEnv*, jobject, jint fd) {
+Java_com_nefelion_fourpartwriting_audio_Synth_nativeLoadFd(JNIEnv*, jobject, jint fd) {
     int own = dup(fd);
     if (own < 0) return JNI_FALSE;
     FILE* fp = fdopen(own, "rb");
@@ -147,7 +147,7 @@ Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeLoadFd(JNIEnv*, jobject, j
 }
 
 JNIEXPORT void JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeNote(JNIEnv*, jobject, jint key, jint vel) {
+Java_com_nefelion_fourpartwriting_audio_Synth_nativeNote(JNIEnv*, jobject, jint key, jint vel) {
     std::lock_guard<std::mutex> lock(mx);
     if (!sf) return;
     if (vel > 0) tsf_note_on(sf, 0, key, vel / 127.0f);
@@ -156,7 +156,7 @@ Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeNote(JNIEnv*, jobject, jin
 
 // events: flat [time in whole notes, key, velocity(0 = off)] triples.
 JNIEXPORT void JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativePlay(JNIEnv* env, jobject, jdoubleArray arr) {
+Java_com_nefelion_fourpartwriting_audio_Synth_nativePlay(JNIEnv* env, jobject, jdoubleArray arr) {
     jsize n = env->GetArrayLength(arr);
     std::vector<jdouble> a(n);
     env->GetDoubleArrayRegion(arr, 0, n, a.data());
@@ -172,13 +172,13 @@ Java_com_grothgarvc_fourpartwriting_audio_Synth_nativePlay(JNIEnv* env, jobject,
 
 /** Quarter notes per minute; takes effect at once, also during playback. */
 JNIEXPORT void JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeSetTempo(JNIEnv*, jobject, jdouble qpm) {
+Java_com_nefelion_fourpartwriting_audio_Synth_nativeSetTempo(JNIEnv*, jobject, jdouble qpm) {
     std::lock_guard<std::mutex> lock(mx);
     if (qpm > 0) tempo = qpm;
 }
 
 JNIEXPORT void JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeStop(JNIEnv*, jobject) {
+Java_com_nefelion_fourpartwriting_audio_Synth_nativeStop(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(mx);
     playing = false;
     if (sf) tsf_note_off_all(sf);
@@ -186,13 +186,13 @@ Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeStop(JNIEnv*, jobject) {
 
 /** Whole notes played since play(), or -1 when idle. */
 JNIEXPORT jdouble JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativePosition(JNIEnv*, jobject) {
+Java_com_nefelion_fourpartwriting_audio_Synth_nativePosition(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(mx);
     return playing ? mpos : -1.0;
 }
 
 JNIEXPORT jint JNICALL
-Java_com_grothgarvc_fourpartwriting_audio_Synth_nativeSampleRate(JNIEnv*, jobject) {
+Java_com_nefelion_fourpartwriting_audio_Synth_nativeSampleRate(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(mx);
     return sampleRate;
 }

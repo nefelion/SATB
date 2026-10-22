@@ -4,17 +4,17 @@ plugins {
 }
 
 android {
-    namespace = "com.grothgarvc.fourpartwriting"
+    namespace = "com.nefelion.fourpartwriting"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.grothgarvc.fourpartwriting"
+        applicationId = "com.nefelion.fourpartwriting"
         minSdk = 26 // AAudio
         targetSdk = 37
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
