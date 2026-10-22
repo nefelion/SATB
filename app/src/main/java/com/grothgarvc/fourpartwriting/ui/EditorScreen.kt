@@ -3,6 +3,11 @@ package com.grothgarvc.fourpartwriting.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.luminance
 import com.grothgarvc.fourpartwriting.ui.theme.LocalScoreColors
 import androidx.compose.ui.unit.IntRect
@@ -183,7 +188,7 @@ fun EditorScreen(vm: EditorViewModel) {
     }
     if (settings) SettingsDialog(st, vm, onUndoable = { undoable = it }) { settings = false }
     if (tempoDialog) Dialog(onDismissRequest = { tempoDialog = false }) {
-        Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
+        Surface(Modifier.clearFocusOnTap(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Tempo", style = MaterialTheme.typography.titleLarge)
                 TempoEditor(st.score.tempo, vm)
@@ -198,6 +203,7 @@ fun EditorScreen(vm: EditorViewModel) {
 private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
     var text by remember(tempo) { mutableStateOf(tempo.toString()) }
     fun commit(v: Int) { vm.setTempo(v); vm.commitTempo() }
+    val focus = LocalFocusManager.current
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GlyphIcon(Smufl.MET_NOTES[2], 36, MaterialTheme.colorScheme.onSurface)
@@ -213,8 +219,11 @@ private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
                 singleLine = true,
                 shape = SHAPE,
                 textStyle = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center),
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                modifier = Modifier.width(84.dp),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
+                // Leaving the field drops an unfinished or out-of-range number and shows the tempo in use
+                modifier = Modifier.width(84.dp).onFocusChanged { if (!it.isFocused) text = tempo.toString() },
             )
             Small("+") { commit((tempo / 5 + 1) * 5) }
         }
@@ -225,6 +234,13 @@ private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
 }
 
 @Composable private fun Gap() = Spacer(Modifier.width(6.dp))
+
+/** Tapping empty space ends text editing: the caret and keyboard go away. */
+@Composable
+private fun Modifier.clearFocusOnTap(): Modifier {
+    val focus = LocalFocusManager.current
+    return pointerInput(Unit) { detectTapGestures { focus.clearFocus() } }
+}
 
 /** Floating card: chords whose notes look entered in the wrong voices. */
 @Composable
@@ -640,7 +656,7 @@ private fun FullScreenPage(title: String, onDismiss: () -> Unit, content: androi
                 }
             }
         }
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        Surface(Modifier.fillMaxSize().clearFocusOnTap(), color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
                 Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(56.dp).clickable(onClick = onDismiss).semantics { contentDescription = "Back" },
