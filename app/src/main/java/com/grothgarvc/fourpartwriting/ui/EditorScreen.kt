@@ -65,7 +65,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -562,7 +561,6 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                     Text("Theme", Modifier.weight(1f))
                     Segmented(listOf("Light", "Dark"), if (st.dark) 1 else 0, itemWidth = 84.dp) { vm.setDark(it == 1) }
                 }
-                OutlinedButton(onClick = { onDismiss(); vm.showTutorial() }, shape = SHAPE) { Text("Show tutorial") }
             }
         }
         item {
@@ -586,9 +584,13 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                     Segmented(listOf("2", "4", "8", "16"), listOf(2, 4, 8, 16).indexOf(t.beatUnit)) { vm.setTime(TimeSig(t.beats, listOf(2, 4, 8, 16)[it])) }
                 }
                 Label("Staves")
-                // "/" = staff break; SAT/B is keyboard style
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (a in StaffArrangement.entries) Choice(score.arrangement == a, a.label) { vm.setArrangement(a) }
+                // Staff count, then which SATB split for that count ("/" = staff break; SAT/B is keyboard style)
+                val arr = score.arrangement
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Segmented(listOf("1", "2", "3", "4"), arr.staves - 1) { i ->
+                        if (i + 1 != arr.staves) vm.setArrangement(listOf(StaffArrangement.ONE, StaffArrangement.CLOSED, StaffArrangement.THREE, StaffArrangement.OPEN)[i])
+                    }
+                    Picker(arr.label, StaffArrangement.entries.filter { it.staves == arr.staves }, { it.label }) { vm.setArrangement(it) }
                 }
                 val names = score.arrangement.label.split("/")
                 for (i in score.clefs.indices) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -602,14 +604,13 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                 Label("Tempo")
                 TempoEditor(score.tempo, vm)
                 Label("Sound")
-                Text(if (st.soundLoaded) "Loaded: ${st.soundName ?: "SoundFont"}" else "No SoundFont loaded. Pick any .sf2 file (piano, choir, strings…).",
+                Text(if (st.soundLoading) "Loading…" else if (st.soundLoaded) "Loaded: ${st.soundName ?: "SoundFont"}" else "No SoundFont loaded. Pick any .sf2 file (piano, choir, strings…).",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FilledTonalButton(onClick = { sf2Picker.launch(arrayOf("*/*")) }, shape = SHAPE) { Text("Load .sf2 file…") }
             }
         }
         item {
-            Group("Writing") {
-                SwitchRow("After each note, move to the next voice (S→A→T→B)", st.autoVoice, vm::toggleAutoVoice)
+            Group("Rules") {
                 Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { rulesOpen = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Rules to check", Modifier.weight(1f))
                     Text("${st.rules.size} of ${Rule.entries.size} on  ›", color = MaterialTheme.colorScheme.primary)
@@ -620,7 +621,7 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
             Group("Score") {
                 OutlinedButton(onClick = { xmlSaver.launch("satb.musicxml") }, shape = SHAPE) { Text("Export MusicXML…") }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = { vm.loadExample(); onDismiss(); onUndoable("Example loaded") }, shape = SHAPE) { Text("Load example") }
+                OutlinedButton(onClick = { vm.loadExample(); onDismiss(); onUndoable("Example loaded") }, shape = SHAPE) { Text("Example score") }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = { vm.clearScore(); onDismiss(); onUndoable("Score cleared") }, shape = SHAPE,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Clear score") }
@@ -644,7 +645,6 @@ private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     }
 }
 
-/** Full-screen page with a back arrow, drawn under the status bar like the editor. */
 /** Call inside a Dialog or Popup: its window does not inherit the refresh rate MainActivity asked for. */
 @Composable
 private fun KeepRefreshRate() {
@@ -669,6 +669,7 @@ private fun KeepRefreshRate() {
     }
 }
 
+/** Full-screen page with a back arrow, drawn under the status bar like the editor. */
 @Composable
 private fun FullScreenPage(title: String, onDismiss: () -> Unit, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -753,12 +754,6 @@ private fun SwitchRow(label: String, checked: Boolean, onToggle: () -> Unit) {
         Text(label, Modifier.weight(1f).padding(end = 12.dp))
         Switch(checked = checked, onCheckedChange = { onToggle() })
     }
-}
-
-@Composable
-private fun Choice(selected: Boolean, label: String, onClick: () -> Unit) {
-    if (selected) FilledTonalButton(onClick = onClick, shape = SHAPE) { Text(label, fontWeight = FontWeight.Bold) }
-    else OutlinedButton(onClick = onClick, shape = SHAPE) { Text(label) }
 }
 
 @Composable

@@ -43,12 +43,11 @@ import kotlin.math.abs
 data class UiState(
     val score: Score = EXAMPLE,
     val voice: Voice = Voice.SOPRANO,
-    val autoVoice: Boolean = true,
     /** Dark theme on; chosen in Settings. */
     val dark: Boolean = false,
     /** False until the user has picked Light or Dark (the first-run picker shows until then). */
     val themeChosen: Boolean = true,
-    /** False until the welcome tutorial has been finished or skipped (Settings can show it again). */
+    /** False until the welcome tutorial has been finished or skipped. */
     val tutorialSeen: Boolean = true,
     val duration: Duration = Duration(4),
     /** Accidental armed for the next placed note (null = follow key signature). */
@@ -61,6 +60,8 @@ data class UiState(
     /** Onset of the slice under the playback cursor. */
     val playTime: Fraction? = null,
     val soundLoaded: Boolean = false,
+    /** A SoundFont is being read (on app start or after a pick). */
+    val soundLoading: Boolean = false,
     /** Name of the .sf2 file the user picked (null before any pick in this version). */
     val soundName: String? = null,
     val message: String? = null,
@@ -115,7 +116,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             redo = history?.second.orEmpty(),
             // Stored as the rules switched OFF, so rules added in later versions start on
             rules = Rule.entries.toSet() - prefs.getStringSet("rulesOff", emptySet())!!.mapNotNull { n -> Rule.entries.firstOrNull { it.name == n } }.toSet(),
-            autoVoice = prefs.getBoolean("autoVoice", true),
             // Until the user picks, start in the phone's current mode
             themeChosen = prefs.contains("dark"),
             tutorialSeen = prefs.getBoolean("tutorialSeen", false),
@@ -142,9 +142,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     init {
         val savedUri = prefs.getString("sf2Uri", null)?.let(Uri::parse)
         if (savedUri != null || sf2.exists()) loadJob = viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(soundLoading = true) }
             val ok = if (savedUri != null) loadSf2(savedUri) else Synth.load(sf2.path)
             _state.update {
-                it.copy(soundLoaded = ok, message = if (ok || savedUri == null) it.message
+                it.copy(soundLoaded = ok, soundLoading = false, message = if (ok || savedUri == null) it.message
                     else "Could not open ${it.soundName ?: "the SoundFont"}. Pick it again in Settings.")
             }
         }
@@ -281,8 +282,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
-    /** Voice for the next new note: the locked one, else the next voice in auto mode. */
-    private fun nextVoice(v: Voice) = s.locked ?: if (s.autoVoice) Voice.entries[(v.ordinal + 1) % 4] else v
+    /** Voice for the next new note: the locked one, else the next voice (S→A→T→B). */
+    private fun nextVoice(v: Voice) = s.locked ?: Voice.entries[(v.ordinal + 1) % 4]
 
     /** Keeps [p] within [NOTE_POSITIONS] on [v]'s own staff (a far tap must not make a tower of ledger lines). */
     private fun onStaff(sc: Score, v: Voice, p: Pitch): Pitch {
@@ -329,7 +330,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deselect() {
-        val back = s.locked ?: resumeVoice?.takeIf { s.autoVoice }
+        val back = s.locked ?: resumeVoice
         _state.update { it.copy(selected = null, voice = back ?: it.voice) }
         resumeVoice = null
     }
@@ -345,17 +346,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putBoolean("tutorialSeen", true).apply()
     }
 
-    fun showTutorial() = _state.update { it.copy(tutorialSeen = false) }
-
     fun setDark(dark: Boolean) {
         _state.update { it.copy(dark = dark, themeChosen = true) }
         prefs.edit().putBoolean("dark", dark).apply()
     }
 
-    fun toggleAutoVoice() {
-        _state.update { it.copy(autoVoice = !it.autoVoice) }
-        prefs.edit().putBoolean("autoVoice", s.autoVoice).apply()
-    }
 
     /** Applies [f] to the selected event and keeps the selection on the event at the same onset. */
     private fun editSelected(f: (Score, Voice, Int) -> Score): Boolean {
@@ -591,6 +586,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/')
         }
         val old = prefs.getString("sf2Uri", null)
+        _state.update { it.copy(soundLoading = true) }
         val ok = withContext(Dispatchers.IO) {
             // Keep read access across restarts: the file is read where it is, never copied
             runCatching { resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
@@ -602,7 +598,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             sf2.delete() // free the copy older versions kept
         } else if (old != uri.toString()) releaseSf2(uri.toString())
         _state.update {
-            it.copy(soundLoaded = it.soundLoaded || ok, soundName = if (ok) name else it.soundName,
+            it.copy(soundLoaded = it.soundLoaded || ok, soundLoading = false, soundName = if (ok) name else it.soundName,
                 message = if (ok) "SoundFont loaded: ${name ?: "file"}" else "Could not read ${name ?: "that file"} as a SoundFont (.sf2).")
         }
     }
