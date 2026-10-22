@@ -206,6 +206,18 @@ class TheoryTest {
         assertTrue("Six-four chords" !in warnings(score(C, "E4 C4 G3 C3", "F4 C4 A3 F2", "E4 C4 G3 G2", "D4 B3 G3 G2")))
     }
 
+    @Test fun neapolitanFlatTwoMovesDown() {
+        val Cm = Key(-3, Mode.MINOR)
+        assertTrue(messages(score(Cm, "Db5 Ab4 F4 F3", "B4 G4 D4 G3", "C5 G4 Eb4 C4")).none { "Neapolitan" in it })
+        assertTrue(messages(score(Cm, "Db5 Ab4 F4 F3", "D5 G4 B3 G3")).any { "Neapolitan" in it })
+    }
+
+    @Test fun loweredChromaticNoteFalls() {
+        // iv in C major: A♭ falls to G, not up to A
+        assertTrue(messages(score(C, "C5 Ab4 F4 F3", "C5 G4 E4 C4")).none { it.contains("should fall") })
+        assertTrue(messages(score(C, "C5 Ab4 F4 F3", "D5 A4 F4 D4")).any { it.contains("should fall") })
+    }
+
     @Test fun innerLeadingTone() {
         // T: B3 → E3 (neither up nor a third down)
         val bad = score(C, "G4 D4 B3 G2", "G4 C4 E3 C3")

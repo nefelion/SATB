@@ -440,6 +440,25 @@ object VoiceLeading {
                 add(Severity.WARNING, i, Rule.TENDENCY, "${v.label}: the fifth of ${ca.roman} (${p.name}) should fall by step.", both(v))
         }
 
+        // Chromatic chord tones: the Neapolitan ♭2̂ moves down; other raised notes rise, lowered notes fall, by step.
+        // Leading tones, sevenths and augmented sixths have their own rules above.
+        val key = score.key
+        if (qa != null && !qa.isAug6 && cb.recognized && cb.root != ca.root) for (v in V) {
+            val p = a.notes[v.ordinal] ?: continue
+            if (key.isDiatonic(p.pc) || ca.member(p.pc) < 0 || p.pc == ca.leadingTone || p.pc == ca.seventh) continue
+            val q = nextNote(v) ?: continue
+            val step = q.diatonic - p.diatonic
+            if (q.pc == p.pc && cb.notes.any { it.pc == p.pc }) continue // common tone
+            if (ca.roman.startsWith("N") && p.pc == ca.root) {
+                if (step !in -2..-1)
+                    add(Severity.WARNING, i, Rule.TENDENCY, "${v.label}: ${p.name} (♭2̂) of the Neapolitan should move down to the leading tone or the tonic.", both(v))
+                continue
+            }
+            val dir = if (p.pc.alter > key.sigAlter(p.pc.step)) 1 else -1
+            if (step != dir)
+                add(Severity.WARNING, i, Rule.TENDENCY, "${v.label}: chromatic ${p.name} should ${if (dir > 0) "rise" else "fall"} by step.", both(v))
+        }
+
         val sev = ca.seventh
         if (sev != null && cb.recognized && cb.root != ca.root) {
             val passing43 = ca.inversion == 2 && ca.degree == 4 && cb.degree == 0 && cb.inversion == 1
