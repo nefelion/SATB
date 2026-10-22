@@ -252,8 +252,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             (measureOf(hit.time) == measureOf(end) - 1 && (end / ml).den == 1L)))
 
         when {
-            // In the slot for the next note, only a tap right on an existing note selects it.
+            // In the slot for the next note, only a tap right on an existing note selects it;
+            // on another voice's staff (where the input voice can't go) a tap near a note does too.
             appendSlot && hit.exact != null -> select(hit.exact, hit.exactAt)
+            appendSlot && hit.near != null && hit.staff != score.staffOf(v) -> select(hit.near, hit.nearAt)
             appendSlot -> {
                 val base = score.clefs[hit.staff].pitchAt(hit.position)
                 val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave))

@@ -83,7 +83,7 @@ class ScoreLayout(
         val pos = ((staffTop[staff] + 4 - y) * 2).roundToInt()
         val close = heads.filter { abs(it.x - x) < 1.5f }
         val exactH = close.firstOrNull { it.staff == staff && it.pos == pos }
-        val nearH = close.filter { abs(it.y - y) < 1.0f && abs(it.x - x) < 1.2f }
+        val nearH = close.filter { abs(it.y - y) < 1.3f && abs(it.x - x) < 1.2f }
             .minByOrNull { (it.x - x) * (it.x - x) + 2 * (it.y - y) * (it.y - y) }
         fun hit(t: Fraction, after: Boolean) = Hit(staff, pos, t, after, exactH?.ref, nearH?.ref, exactH?.at, nearH?.at)
         val m = measures.firstOrNull { x < it.x1 } ?: return hit(contentEnd, true)
