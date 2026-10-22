@@ -171,7 +171,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 score = new, selected = selected, voice = voice,
                 followTick = if (dragging) it.followTick else it.followTick + 1,
                 undo = if (dragging) it.undo else (it.undo + it.score).takeLast(200), redo = emptyList(),
-                analysis = it.analysis?.let { _ -> VoiceLeading.check(new, it.rules) }, focusedIssue = null,
+                // While dragging a pitch, check once on release (dragPitch(true)), not at every step
+                analysis = if (dragging) it.analysis else it.analysis?.let { _ -> VoiceLeading.check(new, it.rules) },
+                focusedIssue = if (dragging) it.focusedIssue else null,
             )
         }
         if (!dragging) checkOrder() // a dragged pitch may pass through a crossing on its way
@@ -347,7 +349,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             true -> {
                 val base = dragBase ?: return
                 dragBase = null
-                if (base != s.score) _state.update { it.copy(undo = (it.undo + base).takeLast(200), redo = emptyList()) }
+                if (base != s.score) _state.update {
+                    it.copy(undo = (it.undo + base).takeLast(200), redo = emptyList(),
+                        analysis = it.analysis?.let { _ -> VoiceLeading.check(it.score, it.rules) }, focusedIssue = null)
+                }
                 checkOrder()
             }
             false -> {
