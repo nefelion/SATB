@@ -3,6 +3,7 @@ package com.grothgarvc.fourpartwriting.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -549,6 +550,8 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
     val score = st.score
     var rulesOpen by remember { mutableStateOf(false) }
     if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
+    val ctx = LocalContext.current
+    val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty() }
     FullScreenPage("Score settings", onDismiss) {
         item {
             Group("Appearance") {
@@ -556,6 +559,7 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                     Text("Theme", Modifier.weight(1f))
                     Segmented(listOf("Light", "Dark"), if (st.dark) 1 else 0, itemWidth = 84.dp) { vm.setDark(it == 1) }
                 }
+                OutlinedButton(onClick = { onDismiss(); vm.showTutorial() }, shape = SHAPE) { Text("Show tutorial") }
             }
         }
         item {
@@ -621,7 +625,7 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
             }
         }
         item {
-            Text("Music font: Bravura © Steinberg Media Technologies, SIL Open Font License.",
+            Text("SATB $version · Music font: Bravura © Steinberg Media Technologies, SIL Open Font License.",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.widthIn(max = 640.dp).padding(horizontal = 4.dp, vertical = 8.dp))
         }

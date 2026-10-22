@@ -48,6 +48,8 @@ data class UiState(
     val dark: Boolean = false,
     /** False until the user has picked Light or Dark (the first-run picker shows until then). */
     val themeChosen: Boolean = true,
+    /** False until the welcome tutorial has been finished or skipped (Settings can show it again). */
+    val tutorialSeen: Boolean = true,
     val duration: Duration = Duration(4),
     /** Accidental armed for the next placed note (null = follow key signature). */
     val accidental: Int? = null,
@@ -116,6 +118,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             autoVoice = prefs.getBoolean("autoVoice", true),
             // Until the user picks, start in the phone's current mode
             themeChosen = prefs.contains("dark"),
+            tutorialSeen = prefs.getBoolean("tutorialSeen", false),
             dark = prefs.getBoolean("dark", app.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES),
             soundName = prefs.getString("sf2Name", null),
             voice = Voice.entries.getOrElse(prefs.getInt("voice", 0)) { Voice.SOPRANO },
@@ -336,6 +339,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         resumeVoice = null
         _state.update { it.copy(locked = v, voice = v, selected = null) }
     }
+
+    fun finishTutorial() {
+        _state.update { it.copy(tutorialSeen = true) }
+        prefs.edit().putBoolean("tutorialSeen", true).apply()
+    }
+
+    fun showTutorial() = _state.update { it.copy(tutorialSeen = false) }
 
     fun setDark(dark: Boolean) {
         _state.update { it.copy(dark = dark, themeChosen = true) }

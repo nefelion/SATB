@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import com.grothgarvc.fourpartwriting.audio.Synth
 import com.grothgarvc.fourpartwriting.ui.EditorScreen
 import com.grothgarvc.fourpartwriting.ui.ThemePicker
+import com.grothgarvc.fourpartwriting.ui.Tutorial
 import com.grothgarvc.fourpartwriting.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -42,13 +43,14 @@ class MainActivity : ComponentActivity() {
             val st = vm.state.collectAsState()
             val dark by remember { derivedStateOf { st.value.dark } }
             val chosen by remember { derivedStateOf { st.value.themeChosen } }
+            val seen by remember { derivedStateOf { st.value.tutorialSeen } }
             LaunchedEffect(dark, chosen) {
                 // Picker: light half on top / left, dark half below / right; bar icons suit each
                 if (chosen) barsFor(dark) else enableEdgeToEdge(barStyle(false), barStyle(true))
             }
             if (!chosen) ThemePicker(st.value, vm::setDark)
             else MyApplicationTheme(dark) {
-                EditorScreen(vm)
+                if (!seen) Tutorial(vm::finishTutorial) else EditorScreen(vm)
             }
         }
     }
