@@ -54,7 +54,6 @@ import kotlin.math.max
 import kotlin.math.min
 
 private const val INK = 0xFF161616.toInt()
-private const val SELECT = 0xFF1565C0.toInt()
 private const val ERROR = 0xFFD32F2F.toInt()
 private const val WARN = 0xFFE67700.toInt()
 private const val PLAY = 0xFF2E7D32.toInt()
@@ -137,7 +136,7 @@ fun ScoreCanvas(
             state.playTime?.let { t ->
                 for (v in Voice.entries) state.score.eventAt(v, t).takeIf { it >= 0 }?.let { m[NoteRef(v, it)] = PLAY }
             }
-            state.selected?.let { m[it] = SELECT }
+            state.selected?.let { m[it] = VOICE_COLORS[it.voice.ordinal].toArgb() }
             m
         }
 

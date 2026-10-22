@@ -30,6 +30,15 @@ class EditTest {
         assertEquals("C4:1/2 D4:1/4 E4:1/2", str(sc)) // written later as tied quarters
     }
 
+    @Test fun appendLaterFillsTheGapWithARest() {
+        // 3 quarters in 4/4, then a quarter on beat 2 of bar 2: rest from beat 4 of bar 1
+        val sc = Edit.append(s("C4:4", "D4:4", "E4:4"), S, q, Pitch.parse("F4"), Fraction.of(5, 4))
+        assertEquals("C4:1/4 D4:1/4 E4:1/4 r:1/2 F4:1/4", str(sc))
+        // a trailing rest merges with the gap; "at" before the end is ignored
+        assertEquals("C4:1/4 r:3/4 F4:1/4", str(Edit.append(s("C4:4", "r:4"), S, q, Pitch.parse("F4"), Fraction.of(1, 1))))
+        assertEquals("C4:1/4 F4:1/4", str(Edit.append(s("C4:4"), S, q, Pitch.parse("F4"), Fraction.ZERO)))
+    }
+
     @Test fun lengtheningTakesTimeFromFollowingNotes() {
         val sc = s("C4:4", "D4:4", "E4:4", "F4:4")
         assertEquals("C4:1/2 E4:1/4 F4:1/4", str(Edit.setLength(sc, S, 0, h)))

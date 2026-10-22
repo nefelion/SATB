@@ -183,7 +183,16 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 val base = score.clefs[hit.staff].pitchAt(hit.position)
                 val pitch = Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave)
                 val next = if (s.autoVoice) Voice.entries[(v.ordinal + 1) % 4] else v
-                edit(Edit.append(score, v, s.duration.value, pitch), NoteRef(v, score.voice(v).size), next)
+                // The note goes where it was tapped; the time skipped becomes a rest. A tap after the last
+                // column of a later bar means that bar's start; of the current bar, right after the end.
+                val at = when {
+                    hit.time <= end -> end
+                    !hit.afterLast -> hit.time
+                    measureOf(hit.time) > measureOf(end) -> (ml * Fraction.of(measureOf(hit.time), 1)).coerceAtLeast(end)
+                    else -> end
+                }
+                val new = Edit.append(score, v, s.duration.value, pitch, at)
+                edit(new, NoteRef(v, new.voice(v).lastIndex), next)
                 _state.update { it.copy(accidental = null) }
                 preview(pitch)
             }

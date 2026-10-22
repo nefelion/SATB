@@ -47,6 +47,15 @@ class LayoutTest {
         assertEquals(4, open.staffTop.size)
     }
 
+    @Test fun missingTimeShowsRests() {
+        // S: 2 bars of quarters; A: 3 quarters → A shows a quarter rest (beat 4) and a whole-bar rest
+        val s = Score(voices = listOf(notes(*Array(8) { "C5" }, base = 4), notes("A4", "A4", "A4", base = 4), emptyList(), emptyList()))
+        val restsA = Engraver.layout(s).marks.filterIsInstance<GlyphMark>().filter { it.ref == NoteRef(Voice.ALTO, 3) }
+        assertEquals(listOf(Smufl.RESTS[2], Smufl.REST_WHOLE), restsA.map { it.c })
+        // Empty voices get a rest in every bar
+        assertEquals(2, Engraver.layout(s).marks.filterIsInstance<GlyphMark>().count { it.ref == NoteRef(Voice.BASS, 0) })
+    }
+
     @Test fun oneStaffChordsShareAStem() {
         val voices = listOf(notes("E5", base = 4), notes("C5", base = 4), notes("G4", base = 4), notes("C4", base = 4))
         val l = Engraver.layout(Score(voices = voices).withArrangement(Arrangement.ONE))

@@ -6,8 +6,12 @@ package com.grothgarvc.fourpartwriting.model
  */
 object Edit {
 
-    fun append(s: Score, v: Voice, length: Fraction, pitch: Pitch?): Score =
-        s.withVoice(v, mergeRests(s.voice(v) + Event(length, pitch)))
+    /** Adds an event at the end of [v], or at [at] when that is later (the gap becomes a rest). */
+    fun append(s: Score, v: Voice, length: Fraction, pitch: Pitch?, at: Fraction? = null): Score {
+        val gap = at?.let { it - s.length(v) }?.takeIf { it > Fraction.ZERO }
+        val list = s.voice(v) + listOfNotNull(gap?.let { Event(it, null) }) + Event(length, pitch)
+        return s.withVoice(v, mergeRests(list))
+    }
 
     fun setPitch(s: Score, v: Voice, i: Int, pitch: Pitch?): Score {
         val list = s.voice(v).toMutableList()
