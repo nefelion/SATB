@@ -68,6 +68,9 @@ class ScoreLayout(
     val contentEnd: Fraction,
     /** Tempo mark bounds (x0, y0, x1, y1), tappable. */
     val tempoBox: FloatArray = FloatArray(4),
+    /** Highest / lowest point of any note or stem (staff-space y), for cursors that must clear them. */
+    val noteTop: Float = staffTop.first(),
+    val noteBottom: Float = staffTop.last() + 4,
 ) {
     val top get() = staffTop.first()
     val bottom get() = staffTop.last() + 4
@@ -294,7 +297,8 @@ object Engraver {
             marks += TextMark(lab, h.x + 1.1f, h.y - 0.9f, 1.0f, TextStyle.NCT)
         }
         val tempoBox = floatArrayOf(tx - 0.5f, tempoY - 3.2f, tx + 6.5f, tempoY + 0.8f)
-        return ScoreLayout(xEnd + TAIL, height, marks, st, boxes, heads, total, tempoBox)
+        return ScoreLayout(xEnd + TAIL, height, marks, st, boxes, heads, total, tempoBox,
+            noteTop = min(top, syf(0, maxP[0].toFloat())), noteBottom = max(bot, syf(n - 1, minP[n - 1].toFloat())))
     }
 
     // ---------- horizontal ----------

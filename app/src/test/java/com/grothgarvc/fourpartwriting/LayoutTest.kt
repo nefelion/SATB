@@ -47,6 +47,15 @@ class LayoutTest {
         assertEquals(4, open.staffTop.size)
     }
 
+    @Test fun noteExtentsCoverNotesAboveAndBelowTheStaves() {
+        val low = Engraver.layout(Score(voices = only(notes("G4", base = 1)))) // whole note: no stem
+        assertEquals(low.top, low.noteTop, 0f)
+        // E6 with an up stem rises well above the top line; the extent follows it
+        val high = Engraver.layout(Score(voices = listOf(notes("E6", base = 2), emptyList(), emptyList(), notes("E1", base = 2))))
+        assertTrue(high.noteTop < high.top - 2f)
+        assertTrue(high.noteBottom > high.bottom + 2f)
+    }
+
     @Test fun missingTimeShowsRests() {
         // S: 2 bars of quarters; A: 3 quarters → A shows a quarter rest (beat 4) and a whole-bar rest
         val s = Score(voices = listOf(notes(*Array(8) { "C5" }, base = 4), notes("A4", "A4", "A4", base = 4), emptyList(), emptyList()))

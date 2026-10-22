@@ -145,7 +145,9 @@ fun ScoreCanvas(
         }
 
         // Scroll to the note being worked on, but only when asked (edit, selection jump, issue, playback)
-        val caretX = layout.xFor(state.score.length(state.voice))
+        // Over the dragged note while dragging; otherwise where the next note of the voice goes
+        val dragged = state.selected?.takeIf { state.dragging }?.let { r -> state.score.onsets(r.voice).getOrNull(r.index) }
+        val caretX = layout.xFor(dragged ?: state.score.length(state.shownVoice))
         suspend fun follow(x: Float) {
             val px = x * sp + offX
             val margin = vw * 0.18f
@@ -258,19 +260,21 @@ fun ScoreCanvas(
                 state.playTime?.let { t ->
                     layout.locate(t)?.let { x ->
                         paints.fill.color = 0x302E7D32
-                        nc.drawRect((x - 0.5f) * sp, (layout.top - 1.5f) * sp, (x + 1.7f) * sp, (layout.bottom + 1.5f) * sp, paints.fill)
+                        nc.drawRect((x - 0.5f) * sp, (layout.noteTop - 1.5f) * sp, (x + 1.7f) * sp, (layout.noteBottom + 1.5f) * sp, paints.fill)
                     }
                 }
                 // Insertion caret for the active voice
                 if (!state.playing) {
-                    val col = VOICE_COLORS[state.voice.ordinal]
+                    val col = VOICE_COLORS[state.shownVoice.ordinal]
                     paints.fill.color = col.copy(alpha = 0.22f).toArgb()
-                    nc.drawRect((caretX - 0.3f) * sp, (layout.top - 2f) * sp, (caretX + 1.5f) * sp, (layout.bottom + 2f) * sp, paints.fill)
+                    // From above the highest note to below the lowest, so the voice letter never sits under a note
+                    val cTop = min(layout.top - 2f, layout.noteTop - 1f)
+                    nc.drawRect((caretX - 0.3f) * sp, cTop * sp, (caretX + 1.5f) * sp, max(layout.bottom + 2f, layout.noteBottom + 1f) * sp, paints.fill)
                     paints.text.color = col.toArgb()
                     paints.text.textSize = 1.4f * sp
                     paints.text.typeface = paints.bold
                     paints.text.textAlign = Paint.Align.CENTER
-                    nc.drawText(state.voice.label, (caretX + 0.6f) * sp, (layout.top - 2.4f) * sp, paints.text)
+                    nc.drawText(state.shownVoice.label, (caretX + 0.6f) * sp, (cTop - 0.4f) * sp, paints.text)
                 }
                 val visL = -offX / sp - 6f
                 val visR = (-offX + vw) / sp + 6f

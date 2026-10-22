@@ -273,8 +273,8 @@ private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings:
 private fun RowScope.VoiceButtons(st: UiState, vm: EditorViewModel) {
     for (v in Voice.entries) {
         val col = VOICE_COLORS[v.ordinal]
-        Tool(st.voice == v, { vm.selectVoice(v) }, color = col, hold = HoldTarget("🔒  ${v.label} only", below = false) { vm.lockVoice(v) }) {
-            Text(v.label + if (st.locked == v) "🔒" else "", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (st.voice == v) Color.White else col)
+        Tool(st.shownVoice == v, { vm.selectVoice(v) }, color = col, hold = HoldTarget("🔒  ${v.label} only", below = false) { vm.lockVoice(v) }) {
+            Text(v.label + if (st.locked == v) "🔒" else "", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (st.shownVoice == v) Color.White else col)
         }
     }
 }

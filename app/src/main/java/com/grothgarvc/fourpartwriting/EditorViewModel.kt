@@ -61,7 +61,11 @@ data class UiState(
     val reorder: List<Fraction> = emptyList(),
     /** Voice locked for input (hold a voice button): every new note goes to it. */
     val locked: Voice? = null,
+    /** A selected note's pitch is being dragged. */
+    val dragging: Boolean = false,
 ) {
+    /** Voice shown on the caret and voice buttons: while dragging, the dragged note's voice, not the next input voice. */
+    val shownVoice: Voice get() = selected?.voice?.takeIf { dragging } ?: voice
     val selectedEvent: Event? get() = selected?.let { score.voice(it.voice).getOrNull(it.index) }
     /** Duration shown on the palette: the selected note's written value if it has one. */
     val shownDuration: Duration get() = selectedEvent?.let { Notation.representable(it.length) } ?: duration
@@ -345,10 +349,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Pitch drag: null = started, true = finished (one undo step), false = cancelled (restore). */
     fun dragPitch(done: Boolean?) {
         when (done) {
-            null -> dragBase = s.score
+            null -> { dragBase = s.score; _state.update { it.copy(dragging = true) } }
             true -> {
                 val base = dragBase ?: return
                 dragBase = null
+                _state.update { it.copy(dragging = false) }
                 if (base != s.score) _state.update {
                     it.copy(undo = (it.undo + base).takeLast(200), redo = emptyList(),
                         analysis = it.analysis?.let { _ -> VoiceLeading.check(it.score, it.rules) }, focusedIssue = null)
@@ -358,7 +363,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             false -> {
                 val base = dragBase ?: return
                 dragBase = null
-                _state.update { it.copy(score = base, analysis = it.analysis?.let { _ -> VoiceLeading.check(base, it.rules) }) }
+                _state.update { it.copy(score = base, dragging = false, analysis = it.analysis?.let { _ -> VoiceLeading.check(base, it.rules) }) }
                 checkOrder()
             }
         }
