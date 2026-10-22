@@ -28,6 +28,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Ask for the fastest refresh rate at the current resolution; some OEMs cap apps at 60 Hz otherwise.
+        @Suppress("DEPRECATION") val display = windowManager.defaultDisplay
+        display.supportedModes
+            .filter { it.physicalWidth == display.mode.physicalWidth && it.physicalHeight == display.mode.physicalHeight }
+            .maxByOrNull { it.refreshRate }
+            ?.let { m -> window.attributes = window.attributes.apply { preferredDisplayModeId = m.modeId } }
         barsFor(vm.state.value.dark)
         // Landscape is full screen: no status or navigation bar cutting into the score.
         // A swipe from the edge shows them for a moment. (Rotation recreates the activity, so this runs again.)

@@ -189,6 +189,7 @@ fun EditorScreen(vm: EditorViewModel) {
     }
     if (settings) SettingsDialog(st, vm, onUndoable = { undoable = it }) { settings = false }
     if (tempoDialog) Dialog(onDismissRequest = { tempoDialog = false }) {
+        KeepRefreshRate()
         Surface(Modifier.clearFocusOnTap(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Tempo", style = MaterialTheme.typography.titleLarge)
@@ -334,6 +335,7 @@ private fun RowScope.Tool(
         if (shown && hold != null) {
             val gap = with(LocalDensity.current) { 52.dp.roundToPx() }
             Popup(alignment = if (below) Alignment.BottomCenter else Alignment.TopCenter, offset = IntOffset(0, if (below) gap else -gap)) {
+                KeepRefreshRate()
                 Surface(
                     shape = RoundedCornerShape(14.dp), shadowElevation = 8.dp,
                     color = if (over) MaterialTheme.colorScheme.errorContainer.takeIf { hold.danger } ?: MaterialTheme.colorScheme.primaryContainer
@@ -455,6 +457,7 @@ private fun RowScope.PickTool(
         // A plain popup right above the button: a menu keeps a wide gap, too far for slide-to-pick
         if (open) Popup(popupPositionProvider = AboveAnchor(with(LocalDensity.current) { 4.dp.roundToPx() }),
             onDismissRequest = { open = false }, properties = PopupProperties(focusable = true)) {
+            KeepRefreshRate()
             Surface(shape = SHAPE, shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surfaceVariant) {
                 Row(Modifier.padding(4.dp)) {
                     for (i in 0 until count) Box(Modifier.size(48.dp).onGloballyPositioned { items[i] = it }.clip(SHAPE)
@@ -642,9 +645,34 @@ private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
 }
 
 /** Full-screen page with a back arrow, drawn under the status bar like the editor. */
+/** Call inside a Dialog or Popup: its window does not inherit the refresh rate MainActivity asked for. */
+@Composable
+private fun KeepRefreshRate() {
+    val view = LocalView.current
+    SideEffect {
+        val activity = generateSequence(view.context) { (it as? android.content.ContextWrapper)?.baseContext }
+            .filterIsInstance<android.app.Activity>().firstOrNull() ?: return@SideEffect
+        val modeId = activity.window.attributes.preferredDisplayModeId
+        if (modeId == 0) return@SideEffect
+        val dialogWindow = (view.parent as? DialogWindowProvider)?.window
+        if (dialogWindow != null) {
+            if (dialogWindow.attributes.preferredDisplayModeId != modeId) dialogWindow.attributes = dialogWindow.attributes.apply { preferredDisplayModeId = modeId }
+        } else {
+            // A Popup is a bare view added to the WindowManager; its params object is the one the popup keeps updating
+            val root = view.rootView
+            val lp = root.layoutParams as? android.view.WindowManager.LayoutParams ?: return@SideEffect
+            if (lp.preferredDisplayModeId != modeId && root.isAttachedToWindow) {
+                lp.preferredDisplayModeId = modeId
+                activity.windowManager.updateViewLayout(root, lp)
+            }
+        }
+    }
+}
+
 @Composable
 private fun FullScreenPage(title: String, onDismiss: () -> Unit, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        KeepRefreshRate()
         // The dialog has its own window: status bar icons that suit the page, and full screen in landscape like the editor
         val view = LocalView.current
         val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
