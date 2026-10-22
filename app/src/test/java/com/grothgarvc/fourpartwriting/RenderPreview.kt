@@ -78,6 +78,7 @@ class RenderPreview {
     @Test fun preview() {
         assumeTrue(out != null)
         render(EXAMPLE, "example")
+        render(Score(), "empty")
         val tricky = Score(
             key = Key(-3, Mode.MAJOR), time = TimeSig(6, 8), tempo = 66,
             voices = listOf(

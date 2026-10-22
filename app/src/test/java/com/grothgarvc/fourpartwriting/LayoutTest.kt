@@ -52,6 +52,9 @@ class LayoutTest {
         val s = Score(voices = listOf(notes(*Array(8) { "C5" }, base = 4), notes("A4", "A4", "A4", base = 4), emptyList(), emptyList()))
         val restsA = Engraver.layout(s).marks.filterIsInstance<GlyphMark>().filter { it.ref == NoteRef(Voice.ALTO, 3) }
         assertEquals(listOf(Smufl.RESTS[2], Smufl.REST_WHOLE), restsA.map { it.c })
+        // An empty score: one whole-bar rest per voice
+        val empty = Engraver.layout(Score()).marks.filterIsInstance<GlyphMark>().filter { it.c == Smufl.REST_WHOLE }
+        assertEquals(Voice.entries.map { NoteRef(it, 0) }.toSet(), empty.map { it.ref }.toSet())
         // Empty voices get a rest in every bar
         assertEquals(2, Engraver.layout(s).marks.filterIsInstance<GlyphMark>().count { it.ref == NoteRef(Voice.BASS, 0) })
     }

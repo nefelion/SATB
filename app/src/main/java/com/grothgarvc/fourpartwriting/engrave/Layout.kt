@@ -164,16 +164,15 @@ object Engraver {
         val total = score.length
         val barCount = max(1, ceil(total.toDouble() / ml.toDouble() - 1e-9).toInt())
         // Where a voice has no notes up to the end of the last bar, show rests (display only:
-        // their index is past the voice's last event, so they cannot be selected or edited)
-        if (total > Fraction.ZERO) {
-            val barEnd = ml * Fraction.of(barCount.toLong(), 1)
-            for (v in Voice.entries) {
-                val t = score.length(v)
-                if (t >= barEnd) continue
-                val staff = score.staffOf(v)
-                for ((k, s) in Notation.split(t, barEnd - t, score.time, true).withIndex())
-                    all += Item(v, score.voice(v).size, s, k, false, staff, null)
-            }
+        // their index is past the voice's last event, so they cannot be selected or edited).
+        // An empty score is one bar of rests.
+        val barEnd = ml * Fraction.of(barCount.toLong(), 1)
+        for (v in Voice.entries) {
+            val t = score.length(v)
+            if (t >= barEnd) continue
+            val staff = score.staffOf(v)
+            for ((k, s) in Notation.split(t, barEnd - t, score.time, true).withIndex())
+                all += Item(v, score.voice(v).size, s, k, false, staff, null)
         }
         val measures = (0 until barCount).map { m ->
             val start = ml * Fraction.of(m.toLong(), 1)
