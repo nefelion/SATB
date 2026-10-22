@@ -79,6 +79,7 @@ import com.grothgarvc.fourpartwriting.model.TimeSig
 import com.grothgarvc.fourpartwriting.model.Voice
 import com.grothgarvc.fourpartwriting.theory.Rule
 import com.grothgarvc.fourpartwriting.theory.Severity
+import kotlin.math.roundToInt
 
 private val BASES = listOf(1, 2, 4, 8, 16, 32, 64)
 
@@ -152,7 +153,8 @@ private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("♩ =", style = MaterialTheme.typography.titleMedium)
-            OutlinedButton(onClick = { commit(tempo - 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+            // Steps of 5, snapping to the 5-grid (83 -> 80 / 85); any value can still be typed
+            OutlinedButton(onClick = { commit((tempo - 1) / 5 * 5) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
                 modifier = Modifier.size(40.dp)) { Text("−") }
             androidx.compose.material3.OutlinedTextField(
                 value = text,
@@ -164,11 +166,11 @@ private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                 modifier = Modifier.width(84.dp),
             )
-            OutlinedButton(onClick = { commit(tempo + 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+            OutlinedButton(onClick = { commit((tempo / 5 + 1) * 5) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
                 modifier = Modifier.size(40.dp)) { Text("+") }
         }
-        Slider(value = tempo.toFloat(), onValueChange = { vm.setTempo(it.toInt()) }, onValueChangeFinished = vm::commitTempo,
-            valueRange = 30f..240f, modifier = Modifier.width(260.dp))
+        Slider(value = tempo.toFloat(), onValueChange = { vm.setTempo((it / 5).roundToInt() * 5) }, onValueChangeFinished = vm::commitTempo,
+            valueRange = 30f..240f, steps = (240 - 30) / 5 - 1, modifier = Modifier.width(260.dp))
     }
 }
 
