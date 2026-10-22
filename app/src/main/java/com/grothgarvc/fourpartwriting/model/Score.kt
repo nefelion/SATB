@@ -1,35 +1,65 @@
 package com.grothgarvc.fourpartwriting.model
 
-/** A note (pitch != null) or a rest. */
-data class Event(val duration: Duration, val pitch: Pitch?)
+/**
+ * A note (pitch != null) or a rest of any [length]. How it is written (tied values,
+ * split at barlines and beats) is decided by the engraver, not stored here.
+ */
+data class Event(val length: Fraction, val pitch: Pitch?) {
+    constructor(d: Duration, pitch: Pitch?) : this(d.value, pitch)
+}
 
-enum class Voice(val label: String, val staff: Int, val stemUp: Boolean) {
-    SOPRANO("S", 0, true), ALTO("A", 0, false), TENOR("T", 1, true), BASS("B", 1, false)
+enum class Voice(val label: String) { SOPRANO("S"), ALTO("A"), TENOR("T"), BASS("B") }
+
+/**
+ * How the four voices sit on staves. [stems] per voice: 1 = up, -1 = down, 0 = from note position
+ * (a voice alone on its staff).
+ */
+enum class Arrangement(val label: String, val staffOf: IntArray, val stems: IntArray, val defaultClefs: List<Clef>) {
+    ONE("1 staff", intArrayOf(0, 0, 0, 0), intArrayOf(1, 1, -1, -1), listOf(Clef.TREBLE)),
+    CLOSED("2 staves", intArrayOf(0, 0, 1, 1), intArrayOf(1, -1, 1, -1), listOf(Clef.TREBLE, Clef.BASS)),
+    THREE("3 staves", intArrayOf(0, 0, 1, 2), intArrayOf(1, -1, 0, 0), listOf(Clef.TREBLE, Clef.TREBLE_8VB, Clef.BASS)),
+    OPEN("4 staves", intArrayOf(0, 1, 2, 3), intArrayOf(0, 0, 0, 0), listOf(Clef.TREBLE, Clef.TREBLE, Clef.TREBLE_8VB, Clef.BASS));
+
+    val staves get() = defaultClefs.size
 }
 
 /**
- * Four independent voice lines on a two-staff system. Homophonic writing is the case where
- * all voices share one rhythm, but nothing here assumes it.
+ * Four independent SATB voice lines. Homophonic writing is the case where all voices share
+ * one rhythm, but nothing here assumes it.
  */
 data class Score(
     val key: Key = Key(0, Mode.MAJOR),
     val time: TimeSig = TimeSig(4, 4),
     val tempo: Int = 80,
-    val clefs: List<Clef> = listOf(Clef.TREBLE, Clef.BASS),
+    val arrangement: Arrangement = Arrangement.CLOSED,
+    val clefs: List<Clef> = arrangement.defaultClefs,
     val voices: List<List<Event>> = List(4) { emptyList() },
 ) {
+    init { require(clefs.size == arrangement.staves) }
+
     fun voice(v: Voice) = voices[v.ordinal]
+    fun staffOf(v: Voice) = arrangement.staffOf[v.ordinal]
+    fun voicesOn(staff: Int) = Voice.entries.filter { staffOf(it) == staff }
 
     fun withVoice(v: Voice, events: List<Event>) =
         copy(voices = voices.toMutableList().also { it[v.ordinal] = events })
 
+    fun withArrangement(a: Arrangement) = copy(arrangement = a, clefs = a.defaultClefs)
+
     fun onsets(v: Voice): List<Fraction> {
         var t = Fraction.ZERO
-        return voice(v).map { e -> t.also { t += e.duration.value } }
+        return voice(v).map { e -> t.also { t += e.length } }
     }
 
-    fun length(v: Voice): Fraction = voice(v).fold(Fraction.ZERO) { a, e -> a + e.duration.value }
+    fun length(v: Voice): Fraction = voice(v).fold(Fraction.ZERO) { a, e -> a + e.length }
     val length get() = Voice.entries.maxOf { length(it) }
+
+    /** Index of the event of [v] sounding at [t], or -1. */
+    fun eventAt(v: Voice, t: Fraction): Int {
+        val on = onsets(v)
+        val i = on.indexOfLast { it <= t }
+        return if (i >= 0 && t < on[i] + voice(v)[i].length) i else -1
+    }
 
     /** Vertical sonorities: one per distinct onset in any voice. */
     fun slices(): List<Slice> {
@@ -44,7 +74,7 @@ data class Score(
                 val evs = voice(v)
                 // last event starting at or before t that is still sounding
                 val i = on.indexOfLast { it <= t }
-                if (i >= 0 && t < on[i] + evs[i].duration.value) {
+                if (i >= 0 && t < on[i] + evs[i].length) {
                     notes[v.ordinal] = evs[i].pitch
                     idx[v.ordinal] = i
                     attack[v.ordinal] = on[i] == t

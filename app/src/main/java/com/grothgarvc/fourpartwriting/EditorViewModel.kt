@@ -1,22 +1,29 @@
 package com.grothgarvc.fourpartwriting
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.grothgarvc.fourpartwriting.audio.Synth
+import com.grothgarvc.fourpartwriting.engrave.Hit
 import com.grothgarvc.fourpartwriting.engrave.NoteRef
+import com.grothgarvc.fourpartwriting.engrave.Notation
+import com.grothgarvc.fourpartwriting.export.MusicXml
+import com.grothgarvc.fourpartwriting.model.Arrangement
 import com.grothgarvc.fourpartwriting.model.Clef
 import com.grothgarvc.fourpartwriting.model.Duration
+import com.grothgarvc.fourpartwriting.model.Edit
 import com.grothgarvc.fourpartwriting.model.Event
 import com.grothgarvc.fourpartwriting.model.Fraction
 import com.grothgarvc.fourpartwriting.model.Key
 import com.grothgarvc.fourpartwriting.model.Pitch
 import com.grothgarvc.fourpartwriting.model.Score
+import com.grothgarvc.fourpartwriting.model.ScoreCodec
 import com.grothgarvc.fourpartwriting.model.TimeSig
 import com.grothgarvc.fourpartwriting.model.Voice
-import com.grothgarvc.fourpartwriting.engrave.Hit
 import com.grothgarvc.fourpartwriting.theory.Analysis
+import com.grothgarvc.fourpartwriting.theory.Rule
 import com.grothgarvc.fourpartwriting.theory.VoiceLeading
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -36,6 +43,7 @@ data class UiState(
     /** Accidental armed for the next placed note (null = follow key signature). */
     val accidental: Int? = null,
     val selected: NoteRef? = null,
+    val rules: Set<Rule> = Rule.entries.toSet(),
     val analysis: Analysis? = null,
     val focusedIssue: Int? = null,
     val playing: Boolean = false,
@@ -45,7 +53,13 @@ data class UiState(
     val message: String? = null,
     val undo: List<Score> = emptyList(),
     val redo: List<Score> = emptyList(),
-)
+    /** Bumped when the view should scroll to the current note (edits, selection jumps). */
+    val followTick: Int = 0,
+) {
+    val selectedEvent: Event? get() = selected?.let { score.voice(it.voice).getOrNull(it.index) }
+    /** Duration shown on the palette: the selected note's written value if it has one. */
+    val shownDuration: Duration get() = selectedEvent?.let { Notation.representable(it.length) } ?: duration
+}
 
 private fun chorale(vararg chords: String): List<List<Event>> {
     val parsed = chords.map { it.split(" ") }
@@ -68,17 +82,62 @@ val EXAMPLE = Score(
 )
 
 class EditorViewModel(app: Application) : AndroidViewModel(app) {
-    private val _state = MutableStateFlow(UiState())
+    private val prefs = app.getSharedPreferences("satb", Context.MODE_PRIVATE)
+    private val scoreFile = File(app.filesDir, "score.txt")
+    private val _state = MutableStateFlow(
+        UiState(
+            score = runCatching { scoreFile.readText() }.getOrNull()?.let(ScoreCodec::decode) ?: EXAMPLE,
+            // Stored as the rules switched OFF, so rules added in later versions start on
+            rules = Rule.entries.toSet() - prefs.getStringSet("rulesOff", emptySet())!!.mapNotNull { n -> Rule.entries.firstOrNull { it.name == n } }.toSet(),
+            autoVoice = prefs.getBoolean("autoVoice", true),
+            voice = Voice.entries.getOrElse(prefs.getInt("voice", 0)) { Voice.SOPRANO },
+            duration = runCatching { Duration(prefs.getInt("durBase", 4), prefs.getInt("durDots", 0)) }.getOrDefault(Duration(4)),
+        )
+    )
     val state: StateFlow<UiState> = _state
     private val sf2 = File(app.filesDir, "piano.sf2")
     private var playJob: Job? = null
+    private var saveJob: Job? = null
+    private var tempoBase: Score? = null
+
+    /** Last zoom (px per staff space) and horizontal offset, restored on the next start. */
+    var viewport: Pair<Float, Float>? = prefs.getFloat("viewSp", -1f).takeIf { it > 0 }?.let { it to prefs.getFloat("viewX", 0f) }
+        private set
 
     init {
         if (sf2.exists()) viewModelScope.launch(Dispatchers.IO) {
             val ok = Synth.load(sf2.path)
             _state.update { it.copy(soundLoaded = ok) }
         }
+        // Save the score shortly after it changes
+        viewModelScope.launch {
+            var last = s.score
+            state.collect { st ->
+                if (st.score != last) {
+                    last = st.score
+                    saveJob?.cancel()
+                    saveJob = launch { delay(500); withContext(Dispatchers.IO) { writeScore(st.score) } }
+                }
+            }
+        }
     }
+
+    private fun writeScore(score: Score) = runCatching {
+        val tmp = File(scoreFile.path + ".tmp")
+        tmp.writeText(ScoreCodec.encode(score))
+        tmp.renameTo(scoreFile)
+    }
+
+    /** Called when the app goes to the background. */
+    fun saveNow() {
+        writeScore(s.score)
+        prefs.edit().putInt("voice", s.voice.ordinal).putInt("durBase", s.duration.base).putInt("durDots", s.duration.dots)
+            .apply {
+                viewport?.let { (sp, x) -> putFloat("viewSp", sp).putFloat("viewX", x) }
+            }.apply()
+    }
+
+    fun rememberViewport(sp: Float, offX: Float) { viewport = sp to offX }
 
     private val s get() = _state.value
     private fun msg(m: String) = _state.update { it.copy(message = m) }
@@ -87,161 +146,231 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Applies a score edit with undo; re-runs the check if results are shown. */
     private fun edit(new: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice) {
         if (new == s.score) { _state.update { it.copy(selected = selected, voice = voice) }; return }
+        val dragging = dragBase != null
         _state.update {
             it.copy(
                 score = new, selected = selected, voice = voice,
-                undo = (it.undo + it.score).takeLast(200), redo = emptyList(),
-                analysis = it.analysis?.let { VoiceLeading.check(new) }, focusedIssue = null,
+                followTick = if (dragging) it.followTick else it.followTick + 1,
+                undo = if (dragging) it.undo else (it.undo + it.score).takeLast(200), redo = emptyList(),
+                analysis = it.analysis?.let { _ -> VoiceLeading.check(new, it.rules) }, focusedIssue = null,
             )
         }
     }
+
+    /** The event of [v] sounding at [t] in [score], as a selection. */
+    private fun refAt(score: Score, v: Voice, t: Fraction) = score.eventAt(v, t).takeIf { it >= 0 }?.let { NoteRef(v, it) }
+
+    private fun onsetOf(r: NoteRef) = s.score.onsets(r.voice)[r.index]
 
     // ---------- input ----------
 
     fun tap(hit: Hit) {
         val score = s.score
         val v = s.voice
-        val events = score.voice(v)
-        val onsets = score.onsets(v)
         val end = score.length(v)
         val ml = score.time.measure
-        val base = score.clefs[hit.staff].pitchAt(hit.position)
-        val pitch = Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave)
-        val idx = onsets.indexOf(hit.time)
-
         fun measureOf(t: Fraction) = (t / ml).let { it.num / it.den }
-        val append = hit.time >= end || (hit.afterLast && (measureOf(hit.time) == measureOf(end) ||
+        val appendSlot = hit.time >= end || (hit.afterLast && (measureOf(hit.time) == measureOf(end) ||
             (measureOf(hit.time) == measureOf(end) - 1 && (end / ml).den == 1L)))
 
         when {
-            append -> {
-                if (s.duration.value > roomAfter(end, ml)) { msg("Not enough room in this bar for that note value."); return }
-                val ref = NoteRef(v, events.size)
+            // In the slot for the next note, only a tap right on an existing note selects it.
+            appendSlot && hit.exact != null -> select(hit.exact)
+            appendSlot -> {
+                val base = score.clefs[hit.staff].pitchAt(hit.position)
+                val pitch = Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave)
                 val next = if (s.autoVoice) Voice.entries[(v.ordinal + 1) % 4] else v
-                edit(score.withVoice(v, events + Event(s.duration, pitch)), ref, next)
+                edit(Edit.append(score, v, s.duration.value, pitch), NoteRef(v, score.voice(v).size), next)
                 _state.update { it.copy(accidental = null) }
                 preview(pitch)
             }
-            idx >= 0 && !hit.afterLast -> {
-                val old = events[idx]
-                edit(score.withVoice(v, events.toMutableList().also { it[idx] = old.copy(pitch = pitch) }), NoteRef(v, idx))
-                _state.update { it.copy(accidental = null) }
-                preview(pitch)
-            }
-            else -> {
-                val i = onsets.indexOfLast { it <= hit.time }
-                if (i >= 0) _state.update { it.copy(selected = NoteRef(v, i)) }
-            }
+            // Tapping the selected note again, or empty space, clears the selection
+            hit.near == null || hit.near == s.selected -> deselect()
+            else -> select(hit.near)
         }
     }
 
-    fun selectVoice(v: Voice) = _state.update { it.copy(voice = v, selected = null) }
-    fun toggleAutoVoice() = _state.update { it.copy(autoVoice = !it.autoVoice) }
-    fun select(ref: NoteRef?) = _state.update { it.copy(selected = ref, voice = ref?.voice ?: it.voice) }
+    fun select(ref: NoteRef?) {
+        _state.update { it.copy(selected = ref, voice = ref?.voice ?: it.voice) }
+        ref?.let { r -> s.score.voice(r.voice).getOrNull(r.index)?.pitch?.let(::preview) }
+    }
 
-    private fun selectedEvent(): Pair<NoteRef, Event>? =
-        s.selected?.let { r -> s.score.voice(r.voice).getOrNull(r.index)?.let { r to it } }
+    /** Selects the previous (-1) or next (+1) event of the active voice and plays it. */
+    fun step(dir: Int) {
+        val v = s.voice
+        val n = s.score.voice(v).size
+        if (n == 0) return
+        val cur = s.selected?.takeIf { it.voice == v }?.index
+        val i = when {
+            cur == null -> if (dir > 0) 0 else n - 1
+            else -> (cur + dir).coerceIn(0, n - 1)
+        }
+        select(NoteRef(v, i))
+        _state.update { it.copy(followTick = it.followTick + 1) }
+    }
 
-    private fun replaceSelected(f: (Event) -> Event): Boolean {
-        val (r, e) = selectedEvent() ?: return false
-        val list = s.score.voice(r.voice).toMutableList().also { it[r.index] = f(e) }
-        if (!fitsBars(list, s.score.time)) { msg("That does not fit in the bar."); return true }
-        edit(s.score.withVoice(r.voice, list))
+    /** With a note selected, jumps to voice [v]'s note at the same time; otherwise sets the input voice. */
+    fun selectVoice(v: Voice) {
+        val sel = s.selected
+        if (sel == null) { _state.update { it.copy(voice = v) }; return }
+        val ref = refAt(s.score, v, onsetOf(sel))
+        if (ref != null) { select(ref); _state.update { it.copy(followTick = it.followTick + 1) } }
+        else _state.update { it.copy(voice = v, selected = null) }
+    }
+
+    fun deselect() = _state.update { it.copy(selected = null) }
+
+    fun toggleAutoVoice() {
+        _state.update { it.copy(autoVoice = !it.autoVoice) }
+        prefs.edit().putBoolean("autoVoice", s.autoVoice).apply()
+    }
+
+    /** Applies [f] to the selected event and keeps the selection on the event at the same onset. */
+    private fun editSelected(f: (Score, Voice, Int) -> Score): Boolean {
+        val r = s.selected ?: return false
+        if (s.score.voice(r.voice).getOrNull(r.index) == null) return false
+        val t = onsetOf(r)
+        val new = f(s.score, r.voice, r.index)
+        edit(new, refAt(new, r.voice, t))
         return true
     }
 
     fun setDuration(base: Int) {
-        _state.update { it.copy(duration = Duration(base, it.duration.dots)) }
-        replaceSelected { it.copy(duration = Duration(base, it.duration.dots)) }
+        val d = Duration(base, s.duration.dots)
+        _state.update { it.copy(duration = d) }
+        editSelected { sc, v, i -> Edit.setLength(sc, v, i, d.value) }
     }
 
-    /** Cycles 0 → 1 → 2 dots on the selected note, or on the palette value. */
+    /** Cycles 0 → 1 → 2 dots on the palette value (and the selected note). */
     fun toggleDot() {
-        fun next(d: Duration) = Duration(d.base, (d.dots + 1) % 3)
-        if (!replaceSelected { it.copy(duration = next(it.duration)) })
-            _state.update { it.copy(duration = next(it.duration)) }
-    }
-
-    private fun roomAfter(end: Fraction, ml: Fraction): Fraction {
-        val bar = (end / ml).let { it.num / it.den }
-        return ml - (end - ml * Fraction.of(bar, 1))
+        val cur = s.shownDuration
+        val d = Duration(cur.base, (cur.dots + 1) % 3)
+        _state.update { it.copy(duration = d) }
+        editSelected { sc, v, i -> Edit.setLength(sc, v, i, d.value) }
     }
 
     fun setAccidental(alter: Int) {
-        val sel = selectedEvent()
-        if (sel != null && sel.second.pitch != null) {
-            val p = sel.second.pitch!!
+        val e = s.selectedEvent
+        val p = e?.pitch
+        if (p != null) {
             val newAlter = if (p.alter == alter) s.score.key.sigAlter(p.step) else alter
-            replaceSelected { it.copy(pitch = p.copy(alter = newAlter)) }
+            editSelected { sc, v, i -> Edit.setPitch(sc, v, i, p.copy(alter = newAlter)) }
             preview(p.copy(alter = newAlter))
         } else _state.update { it.copy(accidental = if (it.accidental == alter) null else alter) }
     }
 
+    private var dragBase: Score? = null
+
+    /** Pitch drag: null = started, true = finished (one undo step), false = cancelled (restore). */
+    fun dragPitch(done: Boolean?) {
+        when (done) {
+            null -> dragBase = s.score
+            true -> {
+                val base = dragBase ?: return
+                dragBase = null
+                if (base != s.score) _state.update { it.copy(undo = (it.undo + base).takeLast(200), redo = emptyList()) }
+            }
+            false -> {
+                val base = dragBase ?: return
+                dragBase = null
+                _state.update { it.copy(score = base, analysis = it.analysis?.let { _ -> VoiceLeading.check(base, it.rules) }) }
+            }
+        }
+    }
+
     /** Moves the selected note by diatonic steps, spelling it by the key signature. */
     fun nudge(steps: Int) {
-        val (_, e) = selectedEvent() ?: return
-        val p = e.pitch ?: return
+        val p = s.selectedEvent?.pitch ?: return
         val q = p.shiftDiatonic(steps).let { it.copy(alter = s.score.key.sigAlter(it.step)) }
-        replaceSelected { it.copy(pitch = q) }
+        if (q.midi !in 21..108) return
+        editSelected { sc, v, i -> Edit.setPitch(sc, v, i, q) }
         preview(q)
     }
 
     fun rest() {
-        if (replaceSelected { it.copy(pitch = null) }) return
+        if (editSelected { sc, v, i -> Edit.setPitch(sc, v, i, null) }) return
         val v = s.voice
-        val score = s.score
-        if (s.duration.value > roomAfter(score.length(v), score.time.measure)) { msg("Not enough room in this bar for that rest."); return }
         val next = if (s.autoVoice) Voice.entries[(v.ordinal + 1) % 4] else v
-        edit(score.withVoice(v, score.voice(v) + Event(s.duration, null)), NoteRef(v, score.voice(v).size), next)
+        edit(Edit.append(s.score, v, s.duration.value, null), null, next)
+    }
+
+    fun tie() {
+        val r = s.selected ?: run { msg("Select a note to tie it to the next one."); return }
+        val e = s.selectedEvent ?: return
+        if (e.pitch == null || r.index == s.score.voice(r.voice).lastIndex) { msg("Nothing to tie to."); return }
+        editSelected { sc, v, i -> Edit.tie(sc, v, i) }
     }
 
     fun delete() {
-        val sel = selectedEvent()
+        val r = s.selected
         val score = s.score
-        if (sel == null) {
+        if (r == null) {
             val v = s.voice
             val list = score.voice(v)
             if (list.isNotEmpty()) edit(score.withVoice(v, list.dropLast(1)), null)
             return
         }
-        val (r, e) = sel
         val list = score.voice(r.voice)
-        when {
-            r.index == list.lastIndex -> edit(score.withVoice(r.voice, list.dropLast(1)), null)
-            e.pitch != null -> edit(score.withVoice(r.voice, list.toMutableList().also { it[r.index] = e.copy(pitch = null) }))
-            else -> msg("Only the last note of a voice can be removed; others become rests.")
-        }
+        if (r.index !in list.indices) return
+        val t = onsetOf(r)
+        val new = Edit.delete(score, r.voice, r.index)
+        // Keep deleting backwards from the end; otherwise stay at the same time
+        val sel = if (r.index == list.lastIndex) new.voice(r.voice).lastIndex.takeIf { it >= 0 }?.let { NoteRef(r.voice, it) }
+        else refAt(new, r.voice, t)
+        edit(new, sel)
     }
 
     fun undo() = _state.update {
         val prev = it.undo.lastOrNull() ?: return@update it
         it.copy(score = prev, undo = it.undo.dropLast(1), redo = it.redo + it.score, selected = null,
-            analysis = it.analysis?.let { VoiceLeading.check(prev) })
+            analysis = it.analysis?.let { _ -> VoiceLeading.check(prev, it.rules) })
     }
 
     fun redo() = _state.update {
         val next = it.redo.lastOrNull() ?: return@update it
         it.copy(score = next, redo = it.redo.dropLast(1), undo = it.undo + it.score, selected = null,
-            analysis = it.analysis?.let { VoiceLeading.check(next) })
+            analysis = it.analysis?.let { _ -> VoiceLeading.check(next, it.rules) })
     }
 
     // ---------- score settings ----------
 
     fun setKey(k: Key) = edit(s.score.copy(key = k))
-    fun setTempo(t: Int) = edit(s.score.copy(tempo = t.coerceIn(20, 300)))
-    fun setClef(staff: Int, c: Clef) = edit(s.score.copy(clefs = s.score.clefs.toMutableList().also { it[staff] = c }))
-    fun setTime(t: TimeSig) {
-        if (s.score.voices.any { !fitsBars(it, t) }) { msg("The existing notes do not fit that meter."); return }
-        edit(s.score.copy(time = t))
+
+    /** Live tempo change while dragging; one undo step is added in [commitTempo]. */
+    fun setTempo(t: Int) {
+        if (tempoBase == null) tempoBase = s.score
+        _state.update { it.copy(score = it.score.copy(tempo = t.coerceIn(20, 300))) }
     }
+
+    fun commitTempo() {
+        val base = tempoBase ?: return
+        tempoBase = null
+        if (base != s.score) _state.update { it.copy(undo = (it.undo + base).takeLast(200), redo = emptyList()) }
+    }
+
+    fun setClef(staff: Int, c: Clef) = edit(s.score.copy(clefs = s.score.clefs.toMutableList().also { it[staff] = c }))
+    fun setArrangement(a: Arrangement) = edit(s.score.withArrangement(a))
+    fun setTime(t: TimeSig) = edit(s.score.copy(time = t))
     fun clearScore() = edit(s.score.copy(voices = List(4) { emptyList() }), null, Voice.SOPRANO)
-    fun loadExample() = edit(EXAMPLE, null, Voice.SOPRANO)
+    fun loadExample() = edit(EXAMPLE.withArrangement(s.score.arrangement), null, Voice.SOPRANO)
 
     // ---------- analysis ----------
 
-    fun check() = _state.update { it.copy(analysis = VoiceLeading.check(it.score), focusedIssue = null) }
+    /** ✓ button: show results, or hide them when they are shown. */
+    fun check() = _state.update {
+        if (it.analysis != null) it.copy(analysis = null, focusedIssue = null)
+        else it.copy(analysis = VoiceLeading.check(it.score, it.rules), focusedIssue = null)
+    }
     fun closeAnalysis() = _state.update { it.copy(analysis = null, focusedIssue = null) }
     fun focusIssue(i: Int?) = _state.update { it.copy(focusedIssue = if (it.focusedIssue == i) null else i) }
+
+    fun toggleRule(r: Rule) {
+        _state.update {
+            val rules = if (r in it.rules) it.rules - r else it.rules + r
+            it.copy(rules = rules, analysis = it.analysis?.let { _ -> VoiceLeading.check(it.score, rules) }, focusedIssue = null)
+        }
+        prefs.edit().putStringSet("rulesOff", (Rule.entries - s.rules).map { it.name }.toSet()).apply()
+    }
 
     // ---------- sound ----------
 
@@ -288,18 +417,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
         _state.update { it.copy(soundLoaded = it.soundLoaded || ok, message = if (ok) "SoundFont loaded." else "Could not read that file as a SoundFont (.sf2).") }
     }
-}
 
-/** No event may cross a barline (ties are not supported yet). */
-fun fitsBars(events: List<Event>, time: TimeSig): Boolean {
-    val ml = time.measure
-    var t = Fraction.ZERO
-    for (e in events) {
-        val end = t + e.duration.value
-        val startBar = (t / ml).let { it.num / it.den }
-        val endBar = (end / ml).let { (it.num + it.den - 1) / it.den } // ceil
-        if (endBar - startBar > 1) return false
-        t = end
+    fun exportMusicXml(uri: Uri) = viewModelScope.launch {
+        val xml = MusicXml.export(s.score)
+        val ok = withContext(Dispatchers.IO) {
+            runCatching {
+                getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(xml.toByteArray()) }
+            }.isSuccess
+        }
+        msg(if (ok) "MusicXML exported." else "Could not write the file.")
     }
-    return true
 }

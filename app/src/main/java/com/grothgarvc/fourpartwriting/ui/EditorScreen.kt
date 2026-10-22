@@ -4,41 +4,39 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -53,85 +51,221 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.grothgarvc.fourpartwriting.EditorViewModel
 import com.grothgarvc.fourpartwriting.UiState
 import com.grothgarvc.fourpartwriting.engrave.Smufl
+import com.grothgarvc.fourpartwriting.model.Arrangement as StaffArrangement
 import com.grothgarvc.fourpartwriting.model.Clef
 import com.grothgarvc.fourpartwriting.model.Fraction
 import com.grothgarvc.fourpartwriting.model.Key
 import com.grothgarvc.fourpartwriting.model.Mode
 import com.grothgarvc.fourpartwriting.model.TimeSig
 import com.grothgarvc.fourpartwriting.model.Voice
+import com.grothgarvc.fourpartwriting.theory.Rule
 import com.grothgarvc.fourpartwriting.theory.Severity
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val BASES = listOf(1, 2, 4, 8, 16, 32, 64)
+
 @Composable
 fun EditorScreen(vm: EditorViewModel) {
     val st by vm.state.collectAsState()
     val snack = remember { SnackbarHostState() }
     var settings by remember { mutableStateOf(false) }
+    var tempoDialog by remember { mutableStateOf(false) }
     LaunchedEffect(st.message) {
         st.message?.let { snack.showSnackbar(it); vm.clearMessage() }
     }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("SATB", fontWeight = FontWeight.Bold)
-                        Text("${st.score.key.name} · ${st.score.time.label} · ♩=${st.score.tempo}", style = MaterialTheme.typography.labelSmall)
-                    }
-                },
-                actions = {
-                    TextButton(onClick = vm::check) { Text("Check") }
-                    TextButton(onClick = vm::togglePlay) { Text(if (st.playing) "■ Stop" else "▶ Play") }
-                    TextButton(onClick = { settings = true }) { Text("⚙", fontSize = 20.sp) }
-                },
-            )
-        },
-        snackbarHost = { SnackbarHost(snack) },
-    ) { pad ->
-        Column(Modifier.padding(pad).fillMaxSize()) {
-            Box(Modifier.weight(1f).fillMaxWidth().background(Color.White).verticalScroll(rememberScrollState())) {
-                ScoreCanvas(st, vm::tap, vm::nudge)
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            val wide = maxWidth >= 600.dp
+            Column(Modifier.fillMaxSize()) {
+                if (!wide) Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ActionButtons(st, vm, onSettings = { settings = true }, leading = true)
+                    Spacer(Modifier.weight(1f))
+                    ActionButtons(st, vm, onSettings = { settings = true }, leading = false)
+                }
+                Box(Modifier.weight(1f).fillMaxWidth().background(Color.White)) {
+                    ScoreCanvas(
+                        st, vm::tap, vm::nudge, vm::dragPitch,
+                        onTempoTap = { tempoDialog = true },
+                        savedViewport = vm.viewport, onViewport = vm::rememberViewport,
+                    )
+                }
+                st.analysis?.let { IssuesStrip(st, vm) }
+                HorizontalDivider()
+                Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (wide) { ActionButtons(st, vm, onSettings = { settings = true }, leading = true); Gap() }
+                    VoiceButtons(st, vm)
+                    Gap()
+                    NoteTools(st, vm)
+                    if (wide) { Gap(); ActionButtons(st, vm, onSettings = { settings = true }, leading = false) }
+                }
             }
-            st.analysis?.let { IssuesPanel(st, vm) }
-            HorizontalDivider()
-            Palette(st, vm)
+            SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp))
         }
     }
-    if (settings) SettingsSheet(st, vm) { settings = false }
+    if (settings) SettingsDialog(st, vm) { settings = false }
+    if (tempoDialog) Dialog(onDismissRequest = { tempoDialog = false }) {
+        Surface(shape = RoundedCornerShape(20.dp), tonalElevation = 6.dp) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Tempo", style = MaterialTheme.typography.titleMedium)
+                TempoEditor(st.score.tempo, vm)
+                TextButton(onClick = { tempoDialog = false }, modifier = Modifier.align(Alignment.End)) { Text("Done") }
+            }
+        }
+    }
+}
+
+/** Quarter-note tempo: type it, step it, or slide it. One undo step per change. */
+@Composable
+private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
+    var text by remember(tempo) { mutableStateOf(tempo.toString()) }
+    fun commit(v: Int) { vm.setTempo(v); vm.commitTempo() }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("♩ =", style = MaterialTheme.typography.titleMedium)
+            OutlinedButton(onClick = { commit(tempo - 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                modifier = Modifier.size(40.dp)) { Text("−") }
+            androidx.compose.material3.OutlinedTextField(
+                value = text,
+                onValueChange = { s ->
+                    text = s.filter { it.isDigit() }.take(3)
+                    text.toIntOrNull()?.takeIf { it in 20..300 }?.let(::commit)
+                },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                modifier = Modifier.width(84.dp),
+            )
+            OutlinedButton(onClick = { commit(tempo + 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                modifier = Modifier.size(40.dp)) { Text("+") }
+        }
+        Slider(value = tempo.toFloat(), onValueChange = { vm.setTempo(it.toInt()) }, onValueChangeFinished = vm::commitTempo,
+            valueRange = 30f..240f, modifier = Modifier.width(260.dp))
+    }
+}
+
+@Composable private fun Gap() = Spacer(Modifier.width(6.dp))
+
+/** A square-ish toolbar button that grows to share the row. */
+@Composable
+private fun RowScope.Tool(
+    selected: Boolean = false,
+    onClick: () -> Unit,
+    color: Color = MaterialTheme.colorScheme.primaryContainer,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        Modifier.weight(1f).height(46.dp).padding(2.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (selected) color else Color.Transparent)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { content() }
 }
 
 @Composable
-private fun IssuesPanel(st: UiState, vm: EditorViewModel) {
+private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings: () -> Unit, leading: Boolean) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    if (leading) {
+        Tool(st.playing, vm::togglePlay) { Text(if (st.playing) "■" else "▶", fontSize = 20.sp, color = ink) }
+        Tool(st.analysis != null, vm::check) { Text("✓", fontSize = 22.sp, color = ink, fontWeight = FontWeight.Bold) }
+        Tool(onClick = { vm.step(-1) }) { Text("‹", fontSize = 30.sp, color = ink) }
+        Tool(onClick = { vm.step(1) }) { Text("›", fontSize = 30.sp, color = ink) }
+    } else {
+        Tool(onClick = vm::undo) { Text("↶", fontSize = 22.sp, color = ink) }
+        Tool(onClick = vm::redo) { Text("↷", fontSize = 22.sp, color = ink) }
+        Tool(onClick = vm::delete) { Text("⌫", fontSize = 20.sp, color = ink) }
+        Tool(onClick = onSettings) { Text("⚙", fontSize = 20.sp, color = ink) }
+    }
+}
+
+@Composable
+private fun RowScope.VoiceButtons(st: UiState, vm: EditorViewModel) {
+    for (v in Voice.entries) {
+        val col = VOICE_COLORS[v.ordinal]
+        Tool(st.voice == v, { vm.selectVoice(v) }, color = col) {
+            Text(v.label, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (st.voice == v) Color.White else col)
+        }
+    }
+}
+
+@Composable
+private fun RowScope.NoteTools(st: UiState, vm: EditorViewModel) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    val d = st.shownDuration
+    val idx = BASES.indexOf(d.base)
+    var durOpen by remember { mutableStateOf(false) }
+    var accOpen by remember { mutableStateOf(false) }
+    val sel = st.selectedEvent
+
+    Box(Modifier.weight(1f)) {
+        Row { Tool(true, { durOpen = true }) { GlyphIcon(Smufl.MET_NOTES[idx], 40, ink) } }
+        DropdownMenu(durOpen, { durOpen = false }) {
+            Row {
+                BASES.forEachIndexed { i, b ->
+                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                        .background(if (b == d.base) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                        .clickable { vm.setDuration(b); durOpen = false }, contentAlignment = Alignment.Center) {
+                        GlyphIcon(Smufl.MET_NOTES[i], 42, ink)
+                    }
+                }
+            }
+        }
+    }
+    Tool(d.dots > 0, vm::toggleDot) { Text(if (d.dots == 2) "··" else "·", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ink) }
+    Tool(sel != null && sel.pitch == null, vm::rest) { GlyphIcon(Smufl.RESTS[idx], 40, ink) }
+    val p = sel?.pitch
+    val shownAlter = if (p != null) p.alter.takeIf { it != st.score.key.sigAlter(p.step) } else st.accidental
+    Box(Modifier.weight(1f)) {
+        Row {
+            Tool(shownAlter != null, { accOpen = true }) {
+                GlyphIcon(Smufl.accidental(shownAlter ?: 0), 40, if (shownAlter == null) ink.copy(alpha = 0.35f) else ink)
+            }
+        }
+        DropdownMenu(accOpen, { accOpen = false }) {
+            Row {
+                for (a in listOf(-2, -1, 0, 1, 2)) Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                    .background(if (a == shownAlter) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                    .clickable { vm.setAccidental(a); accOpen = false }, contentAlignment = Alignment.Center) {
+                    GlyphIcon(Smufl.accidental(a), 42, ink)
+                }
+            }
+        }
+    }
+    Tool(onClick = vm::tie) { Text("⁀", fontSize = 30.sp, color = ink) }
+}
+
+@Composable
+private fun IssuesStrip(st: UiState, vm: EditorViewModel) {
     val a = st.analysis ?: return
+    var open by remember { mutableStateOf(true) }
     val errors = a.issues.count { it.severity == Severity.ERROR }
     val warnings = a.issues.size - errors
-    Surface(tonalElevation = 2.dp) {
-        Column(Modifier.fillMaxWidth().heightIn(max = 190.dp)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Surface(tonalElevation = 3.dp) {
+        Column(Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    if (a.issues.isEmpty()) "No problems found ✓" else "$errors error${if (errors == 1) "" else "s"} · $warnings warning${if (warnings == 1) "" else "s"}",
+                    if (a.issues.isEmpty()) "No problems found ✓"
+                    else "$errors error${if (errors == 1) "" else "s"} · $warnings warning${if (warnings == 1) "" else "s"}  ${if (open) "▾" else "▴"}",
                     fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = vm::closeAnalysis) { Text("Hide") }
+                TextButton(onClick = vm::closeAnalysis) { Text("✕") }
             }
-            LazyColumn {
+            if (open && a.issues.isNotEmpty()) LazyColumn(Modifier.heightIn(max = 200.dp)) {
                 itemsIndexed(a.issues) { i, issue ->
                     val t = a.slices.getOrNull(issue.slice)?.time ?: Fraction.ZERO
-                    val focused = st.focusedIssue == i
                     Row(
                         Modifier.fillMaxWidth()
-                            .background(if (focused) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                            .background(if (st.focusedIssue == i) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
                             .clickable { vm.focusIssue(i) }
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         Text("●", color = if (issue.severity == Severity.ERROR) Color(0xFFD32F2F) else Color(0xFFE67700))
                         Spacer(Modifier.width(8.dp))
                         Column {
-                            Text("${where(t, st.score.time)} · ${issue.rule}", style = MaterialTheme.typography.labelMedium)
+                            Text("${where(t, st.score.time)} · ${issue.rule.label}", style = MaterialTheme.typography.labelMedium)
                             Text(issue.message, style = MaterialTheme.typography.bodySmall)
                         }
                     }
@@ -149,128 +283,177 @@ private fun where(t: Fraction, time: TimeSig): String {
     return "Bar ${bar + 1}, beat $b"
 }
 
-@Composable
-private fun Chip(selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-    Box(
-        modifier.padding(2.dp).size(42.dp).clip(RoundedCornerShape(8.dp)).background(bg).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) { content() }
-}
-
-@Composable
-private fun Palette(st: UiState, vm: EditorViewModel) {
-    val ink = MaterialTheme.colorScheme.onSurface
-    val sel = st.selected?.let { st.score.voice(it.voice).getOrNull(it.index) }
-    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(4.dp)) {
-        Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-            for (v in Voice.entries) Chip(st.voice == v, { vm.selectVoice(v) }) {
-                Text(v.label, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-            Chip(st.autoVoice, vm::toggleAutoVoice, Modifier.width(56.dp)) { Text("auto", fontSize = 12.sp) }
-            Spacer(Modifier.width(6.dp))
-            Chip(false, { vm.nudge(1) }) { Text("▲") }
-            Chip(false, { vm.nudge(-1) }) { Text("▼") }
-            Chip(false, vm::undo) { Text("↶", fontSize = 20.sp) }
-            Chip(false, vm::redo) { Text("↷", fontSize = 20.sp) }
-            Chip(false, vm::delete) { Text("⌫", fontSize = 18.sp) }
-        }
-        Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-            val activeBase = sel?.duration?.base ?: st.duration.base
-            val activeDots = sel?.duration?.dots ?: st.duration.dots
-            listOf(1, 2, 4, 8, 16, 32, 64).forEachIndexed { i, b ->
-                Chip(activeBase == b, { vm.setDuration(b) }) { GlyphIcon(Smufl.MET_NOTES[i], 38, ink) }
-            }
-            Chip(activeDots > 0, vm::toggleDot) {
-                Text(if (activeDots == 2) "··" else "·", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            }
-            Chip(sel != null && sel.pitch == null, vm::rest) { GlyphIcon(Smufl.RESTS[2], 38, ink) }
-        }
-        Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-            val activeAlter = if (sel?.pitch != null) sel.pitch.alter.takeIf { it != st.score.key.sigAlter(sel.pitch.step) } else st.accidental
-            for (a in listOf(-2, -1, 0, 1, 2)) Chip(activeAlter == a, { vm.setAccidental(a) }) {
-                GlyphIcon(Smufl.accidental(a), 38, ink)
-            }
-        }
-    }
-}
-
 // ---------- settings ----------
 
-private fun keyLabel(f: Int, m: Mode) = Key(f, m).name + when {
-    f > 0 -> "  ($f♯)"; f < 0 -> "  (${-f}♭)"; else -> ""
+private fun keyLabel(k: Key) = k.name + when {
+    k.fifths > 0 -> "  ·  ${k.fifths}♯"; k.fifths < 0 -> "  ·  ${-k.fifths}♭"; else -> ""
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsSheet(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importSf2) }
+private fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
+    val sf2Picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importSf2) }
+    val xmlSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.recordare.musicxml+xml")) { uri ->
+        uri?.let(vm::exportMusicXml)
+    }
     val score = st.score
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Key", style = MaterialTheme.typography.titleSmall)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = { if (score.key.fifths > -7) vm.setKey(score.key.copy(fifths = score.key.fifths - 1)) }) { Text("♭") }
-                Text(keyLabel(score.key.fifths, score.key.mode), Modifier.weight(1f).padding(horizontal = 8.dp))
-                OutlinedButton(onClick = { if (score.key.fifths < 7) vm.setKey(score.key.copy(fifths = score.key.fifths + 1)) }) { Text("♯") }
+    var rulesOpen by remember { mutableStateOf(false) }
+    if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            Column {
+                Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onDismiss) { Text("←", fontSize = 22.sp) }
+                    Text("Score settings", style = MaterialTheme.typography.titleMedium)
+                }
+                HorizontalDivider()
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    item { Section("Key") }
+                    item {
+                        val k = score.key
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Small("♭", enabled = k.fifths > -7) { vm.setKey(k.copy(fifths = k.fifths - 1)) }
+                            Text(keyLabel(k), Modifier.width(150.dp), fontWeight = FontWeight.Medium)
+                            Small("♯", enabled = k.fifths < 7) { vm.setKey(k.copy(fifths = k.fifths + 1)) }
+                            Spacer(Modifier.width(8.dp))
+                            Segmented(listOf("maj", "min"), if (k.mode == Mode.MAJOR) 0 else 1) { vm.setKey(k.copy(mode = Mode.entries[it])) }
+                        }
+                    }
+                    item { Section("Time signature") }
+                    item {
+                        val t = score.time
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Small("−", enabled = t.beats > 1) { vm.setTime(TimeSig(t.beats - 1, t.beatUnit)) }
+                            Text("${t.beats}", Modifier.width(24.dp), fontWeight = FontWeight.Bold)
+                            Small("+", enabled = t.beats < 16) { vm.setTime(TimeSig(t.beats + 1, t.beatUnit)) }
+                            Text("/", style = MaterialTheme.typography.titleMedium)
+                            Segmented(listOf("2", "4", "8", "16"), listOf(2, 4, 8, 16).indexOf(t.beatUnit)) { vm.setTime(TimeSig(t.beats, listOf(2, 4, 8, 16)[it])) }
+                        }
+                    }
+                    item { Section("Tempo") }
+                    item { TempoEditor(score.tempo, vm) }
+                    item { Section("Staves") }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (a in StaffArrangement.entries) Choice(score.arrangement == a, "${a.staves}") { vm.setArrangement(a) }
+                        }
+                    }
+                    item {
+                        val names = when (score.arrangement) {
+                            StaffArrangement.ONE -> listOf("SATB")
+                            StaffArrangement.CLOSED -> listOf("S/A", "T/B")
+                            StaffArrangement.THREE -> listOf("S/A", "T", "B")
+                            StaffArrangement.OPEN -> listOf("S", "A", "T", "B")
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            for (i in score.clefs.indices) Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Staff ${i + 1} (${names[i]})", Modifier.weight(1f))
+                                Picker(score.clefs[i].label, Clef.entries, { it.label }) { vm.setClef(i, it) }
+                            }
+                        }
+                    }
+                    item { Section("Entry") }
+                    item { SwitchRow("After each note, move to the next voice (S→A→T→B)", st.autoVoice, vm::toggleAutoVoice) }
+                    item { Section("Check") }
+                    item {
+                        Row(Modifier.fillMaxWidth().clickable { rulesOpen = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Rules to check", Modifier.weight(1f))
+                            Text("${st.rules.size} of ${Rule.entries.size} on  ›", color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    item { Section("Sound") }
+                    item {
+                        Text(if (st.soundLoaded) "Piano SoundFont loaded." else "No SoundFont loaded. Pick a piano .sf2 file.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    item { FilledTonalButton(onClick = { sf2Picker.launch(arrayOf("*/*")) }) { Text("Load .sf2 file…") } }
+                    item { Section("Score") }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { xmlSaver.launch("satb.musicxml") }) { Text("Export MusicXML…") }
+                        }
+                    }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { vm.clearScore(); onDismiss() }) { Text("Clear") }
+                            OutlinedButton(onClick = { vm.loadExample(); onDismiss() }) { Text("Example") }
+                        }
+                    }
+                    item {
+                        Text("Music font: Bravura © Steinberg Media Technologies, SIL Open Font License.",
+                            style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 12.dp))
+                    }
+                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (m in Mode.entries) FilterButton(score.key.mode == m, m.name.lowercase()) { vm.setKey(score.key.copy(mode = m)) }
-            }
-
-            Text("Time signature", style = MaterialTheme.typography.titleSmall)
-            val t = score.time
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(onClick = { if (t.beats > 1) vm.setTime(TimeSig(t.beats - 1, t.beatUnit)) }) { Text("−") }
-                Text("${t.beats}", Modifier.width(28.dp), fontWeight = FontWeight.Bold)
-                OutlinedButton(onClick = { if (t.beats < 16) vm.setTime(TimeSig(t.beats + 1, t.beatUnit)) }) { Text("+") }
-                Text("/")
-                for (u in listOf(2, 4, 8, 16)) FilterButton(t.beatUnit == u && t.symbol == TimeSig.Symbol.NUMERIC, "$u") { vm.setTime(TimeSig(t.beats, u)) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterButton(t.symbol == TimeSig.Symbol.COMMON, "C (4/4)") { vm.setTime(TimeSig(4, 4, TimeSig.Symbol.COMMON)) }
-                FilterButton(t.symbol == TimeSig.Symbol.CUT, "¢ (2/2)") { vm.setTime(TimeSig(2, 2, TimeSig.Symbol.CUT)) }
-            }
-
-            Text("Tempo: ♩ = ${score.tempo}", style = MaterialTheme.typography.titleSmall)
-            Slider(value = score.tempo.toFloat(), onValueChange = { vm.setTempo(it.toInt()) }, valueRange = 30f..240f)
-
-            Text("Clefs", style = MaterialTheme.typography.titleSmall)
-            ClefPicker("Upper staff (S/A)", score.clefs[0]) { vm.setClef(0, it) }
-            ClefPicker("Lower staff (T/B)", score.clefs[1]) { vm.setClef(1, it) }
-
-            Text("Sound", style = MaterialTheme.typography.titleSmall)
-            Text(if (st.soundLoaded) "Piano SoundFont loaded." else "No SoundFont loaded. Pick a piano .sf2 file.",
-                style = MaterialTheme.typography.bodySmall)
-            Button(onClick = { picker.launch(arrayOf("*/*")) }) { Text("Load .sf2 file…") }
-
-            Text("Score", style = MaterialTheme.typography.titleSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { vm.clearScore(); onDismiss() }) { Text("Clear") }
-                OutlinedButton(onClick = { vm.loadExample(); onDismiss() }) { Text("Example") }
-            }
-            Text("Music font: Bravura © Steinberg Media Technologies, SIL Open Font License.",
-                style = MaterialTheme.typography.labelSmall)
         }
     }
 }
 
 @Composable
-private fun FilterButton(selected: Boolean, label: String, onClick: () -> Unit) {
+private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            Column {
+                Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onDismiss) { Text("←", fontSize = 22.sp) }
+                    Text("Rules to check", style = MaterialTheme.typography.titleMedium)
+                }
+                HorizontalDivider()
+                LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
+                    for (r in Rule.entries) item(key = r.name) { SwitchRow(r.label, r in st.rules) { vm.toggleRule(r) } }
+                }
+            }
+        }
+    }
+}
+
+/** Small square button for steppers. */
+@Composable
+private fun Small(label: String, enabled: Boolean = true, onClick: () -> Unit) =
+    OutlinedButton(onClick = onClick, enabled = enabled, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+        modifier = Modifier.size(40.dp)) { Text(label, fontSize = 18.sp) }
+
+/** Compact connected toggle buttons. */
+@Composable
+private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    Row(Modifier.clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+        options.forEachIndexed { i, o ->
+            Box(Modifier.height(40.dp).width(46.dp)
+                .background(if (i == selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                .clickable { onSelect(i) }, contentAlignment = Alignment.Center) {
+                Text(o, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Normal)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Section(title: String) =
+    Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
+
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, onToggle: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onToggle), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = { onToggle() })
+    }
+}
+
+@Composable
+private fun Choice(selected: Boolean, label: String, onClick: () -> Unit) {
     if (selected) FilledTonalButton(onClick = onClick) { Text(label) } else OutlinedButton(onClick = onClick) { Text(label) }
 }
 
 @Composable
-private fun ClefPicker(label: String, clef: Clef, onPick: (Clef) -> Unit) {
+private fun <T> Picker(current: String, options: List<T>, label: (T) -> String, onPick: (T) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f))
-        Box {
-            OutlinedButton(onClick = { open = true }) { Text(clef.label) }
-            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                for (c in Clef.entries) DropdownMenuItem(text = { Text(c.label) }, onClick = { onPick(c); open = false })
-            }
+    Box {
+        OutlinedButton(onClick = { open = true }) { Text("$current  ▾") }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            for (o in options) DropdownMenuItem(text = { Text(label(o)) }, onClick = { onPick(o); open = false })
         }
     }
 }

@@ -27,7 +27,7 @@ object Synth {
         for (v in Voice.entries) {
             var t = Fraction.ZERO
             for (e in score.voice(v)) {
-                val end = t + e.duration.value
+                val end = t + e.length
                 e.pitch?.let { p ->
                     ev += frames(t, score.tempo, rate); ev += p.midi; ev += 90
                     ev += frames(end, score.tempo, rate) - rate / 100; ev += p.midi; ev += 0 // release 10 ms early

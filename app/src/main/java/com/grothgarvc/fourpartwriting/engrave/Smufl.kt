@@ -8,6 +8,8 @@ import com.grothgarvc.fourpartwriting.model.Clef
  */
 object Smufl {
     const val BRACE = ''
+    const val BRACKET_TOP = ''
+    const val BRACKET_BOTTOM = ''
     const val G_CLEF = ''
     const val G_CLEF_8VB = ''
     const val G_CLEF_8VA = ''

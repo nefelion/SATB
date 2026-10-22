@@ -128,7 +128,15 @@ class TheoryTest {
         return s
     }
 
-    private fun rules(s: Score) = VoiceLeading.check(s).issues.filter { it.severity == Severity.ERROR }.map { it.rule }
+    private fun rules(s: Score) = VoiceLeading.check(s).issues.filter { it.severity == Severity.ERROR }.map { it.rule.label }
+
+    @Test fun disabledRulesAreNotReported() {
+        val s = score(C, "G4 E4 C4 C3", "A4 F4 D4 D3")
+        val all = VoiceLeading.check(s).issues.map { it.rule }
+        assertTrue(com.grothgarvc.fourpartwriting.theory.Rule.PARALLEL_FIFTHS in all)
+        val some = VoiceLeading.check(s, com.grothgarvc.fourpartwriting.theory.Rule.entries.toSet() - com.grothgarvc.fourpartwriting.theory.Rule.PARALLEL_FIFTHS).issues.map { it.rule }
+        assertTrue(com.grothgarvc.fourpartwriting.theory.Rule.PARALLEL_FIFTHS !in some)
+    }
 
     @Test fun cleanProgressionHasNoErrors() {
         val s = score(C, "E4 C4 G3 C3", "F4 C4 A3 F3", "D4 B3 G3 G2", "E4 C4 G3 C3")

@@ -118,8 +118,11 @@ object ChordAnalyzer {
     }
 
     /** Analyzes a progression and applies context labels (cadential 6/4, Picardy third). */
-    fun analyzeAll(slices: List<List<Pitch>>, key: Key): List<Chord> {
-        val chords = slices.map { analyze(it, key) }.toMutableList()
+    fun analyzeAll(slices: List<List<Pitch>>, key: Key): List<Chord> = withContext(slices.map { analyze(it, key) }, key)
+
+    /** Context labels on a chord sequence: cadential 6/4, Picardy third. */
+    fun withContext(list: List<Chord>, key: Key): List<Chord> {
+        val chords = list.toMutableList()
         for (i in chords.indices) {
             val c = chords[i]
             val next = chords.getOrNull(i + 1)

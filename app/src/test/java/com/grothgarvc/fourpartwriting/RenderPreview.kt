@@ -6,6 +6,8 @@ import com.grothgarvc.fourpartwriting.engrave.Engraver
 import com.grothgarvc.fourpartwriting.engrave.GlyphMark
 import com.grothgarvc.fourpartwriting.engrave.LineMark
 import com.grothgarvc.fourpartwriting.engrave.TextMark
+import com.grothgarvc.fourpartwriting.engrave.TieMark
+import com.grothgarvc.fourpartwriting.model.Arrangement
 import com.grothgarvc.fourpartwriting.model.Clef
 import com.grothgarvc.fourpartwriting.model.Duration
 import com.grothgarvc.fourpartwriting.model.Event
@@ -39,9 +41,9 @@ class RenderPreview {
         Event(Duration(d.trimEnd('.').toInt(), d.count { it == '.' }), if (p == "r") null else Pitch.parse(p))
     }
 
-    private fun render(score: Score, name: String, widthSp: Float = 56f) {
+    private fun render(score: Score, name: String) {
         val a = VoiceLeading.check(score)
-        val l = Engraver.layout(score, widthSp, chordLabels(a))
+        val l = Engraver.layout(score, chordLabels(a), a.ncts.mapValues { it.value.label })
         val sp = 16f
         val img = BufferedImage((l.width * sp).toInt(), (l.height * sp).toInt() + 10, BufferedImage.TYPE_INT_RGB)
         val g = img.createGraphics()
@@ -55,6 +57,13 @@ class RenderPreview {
             is GlyphMark -> { g.font = bravura.deriveFont(4f * sp * m.scale); g.drawString(m.c.toString(), m.x * sp, m.y * sp) }
             is BeamMark -> g.fill(Path2D.Float().apply {
                 moveTo(m.x1 * sp, m.y1 * sp); lineTo(m.x2 * sp, m.y2 * sp); lineTo(m.x2 * sp, (m.y2 + m.h) * sp); lineTo(m.x1 * sp, (m.y1 + m.h) * sp); closePath()
+            })
+            is TieMark -> g.fill(Path2D.Float().apply {
+                val w = m.x2 - m.x1; val s = if (m.above) -1f else 1f; val hh = minOf(0.25f + 0.06f * w, 0.9f)
+                moveTo(m.x1 * sp, m.y * sp)
+                curveTo((m.x1 + w * 0.25f) * sp, (m.y + s * hh * 1.33f) * sp, (m.x2 - w * 0.25f) * sp, (m.y + s * hh * 1.33f) * sp, m.x2 * sp, m.y * sp)
+                curveTo((m.x2 - w * 0.25f) * sp, (m.y + s * (hh - 0.22f) * 1.33f) * sp, (m.x1 + w * 0.25f) * sp, (m.y + s * (hh - 0.22f) * 1.33f) * sp, m.x1 * sp, m.y * sp)
+                closePath()
             })
             is TextMark -> {
                 g.font = Font(Font.SERIF, Font.PLAIN, (m.size * sp).toInt())
@@ -80,5 +89,20 @@ class RenderPreview {
         )
         render(tricky, "tricky")
         render(Score(key = Key(5, Mode.MINOR), clefs = listOf(Clef.ALTO, Clef.TENOR), voices = EXAMPLE.voices), "clefs")
+        for (a in Arrangement.entries) render(EXAMPLE.withArrangement(a), "arr_${a.name}")
+        // Ties and metric splitting: 4/4 syncopation, notes over barlines, dotted rhythms
+        render(Score(voices = listOf(
+            line("C5:4 D5:2 C5:4 B4:8 C5:4 D5:8 E5:2 G5:2. F5:2"),
+            line("A4:2. G4:2 F4:2. E4:2 r:2"),
+            line("E4:8 F4:8 G4:2 A4:4 G4:1 r:2 C4:2 r:4"),
+            line("A3:1 E3:1 C3:2. G2:4 A2:2"),
+        )), "ties")
+        // Polyphonic: passing tones, 4-3 suspension, neighbour, anticipation
+        render(Score(voices = listOf(
+            line("E5:8 D5:8 C5:4 C5:4. B4:8 C5:8 D5:8 C5:2."),
+            line("G4:4 A4:4 G4:4 G4:4 G4:8 F4:8 E4:2"),
+            line("C4:4 C4:4 E4:4 D4:4 C4:2 G3:4"),
+            line("C3:8 D3:8 E3:4 C3:4 G2:4 A2:4 F2:4 C3:2"),
+        )), "poly")
     }
 }
