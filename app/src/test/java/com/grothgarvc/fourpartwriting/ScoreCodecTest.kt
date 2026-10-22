@@ -34,6 +34,12 @@ class ScoreCodecTest {
         assertEquals(EXAMPLE, ScoreCodec.decode(ScoreCodec.encode(EXAMPLE).replace("arr 0 0 1 1", "arr CLOSED")))
     }
 
+    @Test fun historyRoundTrip() {
+        val a = EXAMPLE; val b = EXAMPLE.copy(tempo = 120); val c = EXAMPLE.withArrangement(Arrangement.OPEN)
+        assertEquals(listOf(a, b) to listOf(c), ScoreCodec.decodeHistory(ScoreCodec.encodeHistory(listOf(a, b), listOf(c))))
+        assertEquals(emptyList<Score>() to emptyList<Score>(), ScoreCodec.decodeHistory(""))
+    }
+
     @Test fun arrangements() {
         assertEquals(8, Arrangement.entries.distinct().size)
         val kb = Arrangement.KEYBOARD

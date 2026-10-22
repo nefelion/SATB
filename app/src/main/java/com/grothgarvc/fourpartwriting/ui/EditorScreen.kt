@@ -3,6 +3,15 @@ package com.grothgarvc.fourpartwriting.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -85,7 +94,7 @@ fun EditorScreen(vm: EditorViewModel) {
                 if (!wide) Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                     ActionButtons(st, vm, onSettings = { settings = true }, leading = true)
                     Spacer(Modifier.weight(1f))
-                    ActionButtons(st, vm, onSettings = { settings = true }, leading = false)
+                    ActionButtons(st, vm, onSettings = { settings = true }, leading = false, below = true)
                 }
                 Box(Modifier.weight(1f).fillMaxWidth().background(Color.White)) {
                     ScoreCanvas(
@@ -165,24 +174,69 @@ private fun ReorderPrompt(st: UiState, vm: EditorViewModel, modifier: Modifier) 
     }
 }
 
-/** A square-ish toolbar button that grows to share the row. */
+/**
+ * A square-ish toolbar button that grows to share the row. With [hold], holding it shows a drop
+ * target ([hold].label) above it, or below when [below]; sliding onto it and letting go runs [hold].onDrop.
+ */
 @Composable
 private fun RowScope.Tool(
     selected: Boolean = false,
     onClick: () -> Unit,
     color: Color = MaterialTheme.colorScheme.primaryContainer,
+    hold: HoldTarget? = null,
     content: @Composable () -> Unit,
 ) {
+    var shown by remember { mutableStateOf(false) }
+    var over by remember { mutableStateOf(false) }
+    val click by rememberUpdatedState(onClick)
+    val drop by rememberUpdatedState(hold?.onDrop)
+    val below = hold?.below == true
     Box(
         Modifier.weight(1f).height(46.dp).padding(2.dp).clip(RoundedCornerShape(10.dp))
             .background(if (selected) color else Color.Transparent)
-            .clickable(onClick = onClick),
+            .then(if (hold == null) Modifier.clickable(onClick = onClick) else Modifier.pointerInput(below) {
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    var released = false
+                    val up = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                        waitForUpOrCancellation().also { released = true }
+                    }
+                    if (released) { if (up != null) { up.consume(); click() }; return@awaitEachGesture }
+                    shown = true
+                    val reach = 14.dp.toPx()
+                    while (true) {
+                        val ch = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                        over = if (below) ch.position.y > size.height + reach else ch.position.y < -reach
+                        ch.consume()
+                        if (!ch.pressed) break
+                    }
+                    if (over) drop?.invoke()
+                    shown = false; over = false
+                }
+            }),
         contentAlignment = Alignment.Center,
-    ) { content() }
+    ) {
+        content()
+        if (shown && hold != null) {
+            val gap = with(LocalDensity.current) { 52.dp.roundToPx() }
+            Popup(alignment = if (below) Alignment.BottomCenter else Alignment.TopCenter, offset = IntOffset(0, if (below) gap else -gap)) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp), shadowElevation = 8.dp,
+                    color = if (over) MaterialTheme.colorScheme.errorContainer.takeIf { hold.danger } ?: MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Text(hold.label, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+                }
+            }
+        }
+    }
 }
 
+/** What a held toolbar button offers: slide onto [label] and let go to run [onDrop]. */
+private class HoldTarget(val label: String, val below: Boolean, val danger: Boolean = false, val onDrop: () -> Unit)
+
 @Composable
-private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings: () -> Unit, leading: Boolean) {
+private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings: () -> Unit, leading: Boolean, below: Boolean = false) {
     val ink = MaterialTheme.colorScheme.onSurface
     if (leading) {
         Tool(st.playing, vm::togglePlay) { Text(if (st.playing) "■" else "▶", fontSize = 20.sp, color = ink) }
@@ -192,7 +246,10 @@ private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings:
     } else {
         Tool(onClick = vm::undo) { Text("↶", fontSize = 22.sp, color = ink) }
         Tool(onClick = vm::redo) { Text("↷", fontSize = 22.sp, color = ink) }
-        Tool(onClick = vm::delete) { Text("⌫", fontSize = 20.sp, color = ink) }
+        val bar = st.selected?.let { r -> st.score.onsets(r.voice).getOrNull(r.index) }?.let { (it / st.score.time.measure).let { f -> f.num / f.den + 1 } }
+        Tool(onClick = vm::delete, hold = HoldTarget(if (bar != null) "🗑  Delete bar $bar" else "🗑  Select a note first", below, danger = true, onDrop = vm::deleteMeasure)) {
+            Text("⌫", fontSize = 20.sp, color = ink)
+        }
         Tool(onClick = onSettings) { Text("⚙", fontSize = 20.sp, color = ink) }
     }
 }
@@ -201,8 +258,8 @@ private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings:
 private fun RowScope.VoiceButtons(st: UiState, vm: EditorViewModel) {
     for (v in Voice.entries) {
         val col = VOICE_COLORS[v.ordinal]
-        Tool(st.voice == v, { vm.selectVoice(v) }, color = col) {
-            Text(v.label, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (st.voice == v) Color.White else col)
+        Tool(st.voice == v, { vm.selectVoice(v) }, color = col, hold = HoldTarget("🔒  ${v.label} only", below = false) { vm.lockVoice(v) }) {
+            Text(v.label + if (st.locked == v) "🔒" else "", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (st.voice == v) Color.White else col)
         }
     }
 }

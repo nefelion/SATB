@@ -21,6 +21,27 @@ object ScoreCodec {
         }
     }
 
+    /** Undo and redo stacks: each score follows a "#U" or "#R" line. */
+    fun encodeHistory(undo: List<Score>, redo: List<Score>): String = buildString {
+        for (sc in undo) { appendLine("#U"); append(encode(sc)) }
+        for (sc in redo) { appendLine("#R"); append(encode(sc)) }
+    }
+
+    /** Entries that do not decode are skipped. */
+    fun decodeHistory(text: String): Pair<List<Score>, List<Score>> {
+        val undo = mutableListOf<Score>(); val redo = mutableListOf<Score>()
+        var target: MutableList<Score>? = null
+        val buf = StringBuilder()
+        fun flush() { target?.let { t -> decode(buf.toString())?.let(t::add) }; buf.clear() }
+        for (line in text.lines()) when (line.trim()) {
+            "#U" -> { flush(); target = undo }
+            "#R" -> { flush(); target = redo }
+            else -> buf.appendLine(line)
+        }
+        flush()
+        return undo to redo
+    }
+
     private fun alterCode(a: Int) = when (a) { -2 -> "bb"; -1 -> "b"; 1 -> "#"; 2 -> "x"; else -> "" }
 
     /** Returns null for anything that is not a valid score file. */

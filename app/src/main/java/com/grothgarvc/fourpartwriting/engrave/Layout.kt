@@ -14,6 +14,9 @@ import kotlin.math.sqrt
 
 data class NoteRef(val voice: Voice, val index: Int)
 
+/** Staff positions a note may be entered or moved to: up to 4 ledger lines below and above the staff. */
+val NOTE_POSITIONS = -8..16
+
 /** Drawing primitives in staff-space units, y down. */
 sealed interface Mark { val ref: NoteRef?; val x: Float }
 data class GlyphMark(val c: Char, override val x: Float, val y: Float, override val ref: NoteRef? = null, val scale: Float = 1f) : Mark

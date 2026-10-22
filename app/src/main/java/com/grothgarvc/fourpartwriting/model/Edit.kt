@@ -67,6 +67,60 @@ object Edit {
     }
 
     /**
+     * Removes bar [bar] (0-based) from every voice; later music moves left. A note sounding across
+     * the bar keeps its parts before and after it.
+     */
+    fun deleteMeasure(s: Score, bar: Int): Score {
+        val ml = s.time.measure
+        val b0 = ml * Fraction.of(bar.toLong(), 1)
+        val b1 = b0 + ml
+        var out = s
+        for (v in Voice.entries) {
+            val list = mutableListOf<Event>()
+            var t = Fraction.ZERO
+            for (e in s.voice(v)) {
+                val end = t + e.length
+                val before = minOf(end, b0) - t
+                val after = end - maxOf(t, b1)
+                val keep = maxOf(before, Fraction.ZERO) + maxOf(after, Fraction.ZERO)
+                if (keep > Fraction.ZERO) list += e.copy(length = keep)
+                t = end
+            }
+            out = out.withVoice(v, mergeRests(list))
+        }
+        return out
+    }
+
+    /** Drops last bars in which no voice has a note sounding (only rests), cutting the voices there. */
+    fun dropEmptyLastBars(s: Score): Score {
+        var sc = s
+        val ml = s.time.measure
+        while (sc.length > Fraction.ZERO) {
+            val bars = (sc.length / ml).let { (it.num + it.den - 1) / it.den }
+            val barStart = ml * Fraction.of(bars - 1, 1)
+            val sounding = Voice.entries.any { v ->
+                var t = Fraction.ZERO
+                sc.voice(v).any { e -> val end = t + e.length; (e.pitch != null && end > barStart).also { t = end } }
+            }
+            if (sounding) break
+            sc = Voice.entries.fold(sc) { acc, v ->
+                var t = Fraction.ZERO
+                val cut = acc.voice(v).mapNotNull { e ->
+                    val start = t
+                    t += e.length
+                    when {
+                        start >= barStart -> null
+                        t > barStart -> e.copy(length = barStart - start)
+                        else -> e
+                    }
+                }
+                acc.withVoice(v, cut)
+            }
+        }
+        return sc
+    }
+
+    /**
      * Onsets where all four voices start a note of the same length (a block chord) but the pitches
      * are not ordered S ≥ A ≥ T ≥ B, so they can be swapped without touching the rhythm.
      */

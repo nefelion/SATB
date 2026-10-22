@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.grothgarvc.fourpartwriting.audio.Synth
 import com.grothgarvc.fourpartwriting.engrave.Hit
+import com.grothgarvc.fourpartwriting.engrave.NOTE_POSITIONS
 import com.grothgarvc.fourpartwriting.engrave.NoteRef
 import com.grothgarvc.fourpartwriting.engrave.Notation
 import com.grothgarvc.fourpartwriting.export.MusicXml
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.math.abs
 
 data class UiState(
     val score: Score = EXAMPLE,
@@ -57,6 +59,8 @@ data class UiState(
     val followTick: Int = 0,
     /** Onsets of block chords whose voices look entered in the wrong order (shown as a prompt). */
     val reorder: List<Fraction> = emptyList(),
+    /** Voice locked for input (hold a voice button): every new note goes to it. */
+    val locked: Voice? = null,
 ) {
     val selectedEvent: Event? get() = selected?.let { score.voice(it.voice).getOrNull(it.index) }
     /** Duration shown on the palette: the selected note's written value if it has one. */
@@ -86,9 +90,14 @@ val EXAMPLE = Score(
 class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("satb", Context.MODE_PRIVATE)
     private val scoreFile = File(app.filesDir, "score.txt")
+    /** Undo/redo stacks, written when the app goes to the background. */
+    private val historyFile = File(app.filesDir, "history.txt")
+    private val history = runCatching { ScoreCodec.decodeHistory(historyFile.readText()) }.getOrNull()
     private val _state = MutableStateFlow(
         UiState(
-            score = runCatching { scoreFile.readText() }.getOrNull()?.let(ScoreCodec::decode) ?: EXAMPLE,
+            score = runCatching { scoreFile.readText() }.getOrNull()?.let(ScoreCodec::decode)?.let(Edit::dropEmptyLastBars) ?: EXAMPLE,
+            undo = history?.first.orEmpty(),
+            redo = history?.second.orEmpty(),
             // Stored as the rules switched OFF, so rules added in later versions start on
             rules = Rule.entries.toSet() - prefs.getStringSet("rulesOff", emptySet())!!.mapNotNull { n -> Rule.entries.firstOrNull { it.name == n } }.toSet(),
             autoVoice = prefs.getBoolean("autoVoice", true),
@@ -136,6 +145,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Called when the app goes to the background. */
     fun saveNow() {
         writeScore(s.score)
+        runCatching {
+            val tmp = File(historyFile.path + ".tmp")
+            tmp.writeText(ScoreCodec.encodeHistory(s.undo, s.redo))
+            tmp.renameTo(historyFile)
+        }
         prefs.edit().putInt("voice", s.voice.ordinal).putInt("durBase", s.duration.base).putInt("durDots", s.duration.dots)
             .apply {
                 viewport?.let { (sp, x) -> putFloat("viewSp", sp).putFloat("viewX", x) }
@@ -192,7 +206,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun tap(hit: Hit) {
         val score = s.score
-        val v = s.voice
+        val v = s.locked ?: s.voice
         val end = score.length(v)
         val ml = score.time.measure
         fun measureOf(t: Fraction) = (t / ml).let { it.num / it.den }
@@ -204,8 +218,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             appendSlot && hit.exact != null -> select(hit.exact)
             appendSlot -> {
                 val base = score.clefs[hit.staff].pitchAt(hit.position)
-                val pitch = Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave)
-                val next = if (s.autoVoice) Voice.entries[(v.ordinal + 1) % 4] else v
+                val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave))
+                val next = nextVoice(v)
                 // The note goes where it was tapped; the time skipped becomes a rest. A tap after the last
                 // column of a later bar means that bar's start; of the current bar, right after the end.
                 val at = when {
@@ -216,6 +230,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 val new = Edit.append(score, v, s.duration.value, pitch, at)
                 edit(new, NoteRef(v, new.voice(v).lastIndex), next)
+                resumeVoice = null
                 _state.update { it.copy(accidental = null) }
                 preview(pitch)
             }
@@ -225,7 +240,24 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Voice for the next new note: the locked one, else the next voice in auto mode. */
+    private fun nextVoice(v: Voice) = s.locked ?: if (s.autoVoice) Voice.entries[(v.ordinal + 1) % 4] else v
+
+    /** Keeps [p] within [NOTE_POSITIONS] on [v]'s own staff (a far tap must not make a tower of ledger lines). */
+    private fun onStaff(sc: Score, v: Voice, p: Pitch): Pitch {
+        val clef = sc.clefs[sc.staffOf(v)]
+        val pos = clef.position(p)
+        if (pos in NOTE_POSITIONS) return p
+        val b = clef.pitchAt(pos.coerceIn(NOTE_POSITIONS))
+        return Pitch(b.step, sc.key.sigAlter(b.step), b.octave)
+    }
+
+    /** Input voice to return to when the selection is cleared (selecting a note switches to its voice). */
+    private var resumeVoice: Voice? = null
+
     fun select(ref: NoteRef?) {
+        if (ref == null) { deselect(); return }
+        if (resumeVoice == null) resumeVoice = s.voice
         _state.update { it.copy(selected = ref, voice = ref?.voice ?: it.voice) }
         ref?.let { r -> s.score.voice(r.voice).getOrNull(r.index)?.pitch?.let(::preview) }
     }
@@ -247,13 +279,25 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** With a note selected, jumps to voice [v]'s note at the same time; otherwise sets the input voice. */
     fun selectVoice(v: Voice) {
         val sel = s.selected
-        if (sel == null) { _state.update { it.copy(voice = v) }; return }
+        // Any other voice button unlocks
+        if (s.locked != null && s.locked != v) _state.update { it.copy(locked = null) }
+        if (sel == null) { resumeVoice = null; _state.update { it.copy(voice = v) }; return }
         val ref = refAt(s.score, v, onsetOf(sel))
         if (ref != null) { select(ref); _state.update { it.copy(followTick = it.followTick + 1) } }
         else _state.update { it.copy(voice = v, selected = null) }
     }
 
-    fun deselect() = _state.update { it.copy(selected = null) }
+    fun deselect() {
+        val back = s.locked ?: resumeVoice?.takeIf { s.autoVoice }
+        _state.update { it.copy(selected = null, voice = back ?: it.voice) }
+        resumeVoice = null
+    }
+
+    /** Hold a voice button: all new notes go to [v] until another voice button is tapped. */
+    fun lockVoice(v: Voice) {
+        resumeVoice = null
+        _state.update { it.copy(locked = v, voice = v, selected = null) }
+    }
 
     fun toggleAutoVoice() {
         _state.update { it.copy(autoVoice = !it.autoVoice) }
@@ -320,15 +364,19 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val p = s.selectedEvent?.pitch ?: return
         val q = p.shiftDiatonic(steps).let { it.copy(alter = s.score.key.sigAlter(it.step)) }
         if (q.midi !in 21..108) return
+        // Stay within the ledger-line limit, but a note already beyond it may still move back
+        val clef = s.score.clefs[s.score.staffOf(s.selected!!.voice)]
+        val pos = clef.position(q)
+        if (pos !in NOTE_POSITIONS && abs(pos - 4) >= abs(clef.position(p) - 4)) return
         editSelected { sc, v, i -> Edit.setPitch(sc, v, i, q) }
         preview(q)
     }
 
     fun rest() {
-        if (editSelected { sc, v, i -> Edit.setPitch(sc, v, i, null) }) return
-        val v = s.voice
-        val next = if (s.autoVoice) Voice.entries[(v.ordinal + 1) % 4] else v
-        edit(Edit.append(s.score, v, s.duration.value, null), null, next)
+        if (editSelected { sc, v, i -> Edit.dropEmptyLastBars(Edit.setPitch(sc, v, i, null)) }) return
+        val v = s.locked ?: s.voice
+        edit(Edit.append(s.score, v, s.duration.value, null), null, nextVoice(v))
+        resumeVoice = null
     }
 
     fun tie() {
@@ -342,19 +390,28 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val r = s.selected
         val score = s.score
         if (r == null) {
-            val v = s.voice
+            val v = s.locked ?: s.voice
             val list = score.voice(v)
-            if (list.isNotEmpty()) edit(score.withVoice(v, list.dropLast(1)), null)
+            if (list.isNotEmpty()) edit(Edit.dropEmptyLastBars(score.withVoice(v, list.dropLast(1))), null)
             return
         }
         val list = score.voice(r.voice)
         if (r.index !in list.indices) return
         val t = onsetOf(r)
-        val new = Edit.delete(score, r.voice, r.index)
+        val new = Edit.dropEmptyLastBars(Edit.delete(score, r.voice, r.index))
         // Keep deleting backwards from the end; otherwise stay at the same time
         val sel = if (r.index == list.lastIndex) new.voice(r.voice).lastIndex.takeIf { it >= 0 }?.let { NoteRef(r.voice, it) }
         else refAt(new, r.voice, t)
         edit(new, sel)
+    }
+
+    /** Hold delete and drop on the bin: removes the whole bar of the selected note, in all voices. */
+    fun deleteMeasure() {
+        val r = s.selected
+        if (r == null || s.selectedEvent == null) { msg("Select a note in the bar you want to delete."); return }
+        val bar = (onsetOf(r) / s.score.time.measure).let { (it.num / it.den).toInt() }
+        edit(Edit.dropEmptyLastBars(Edit.deleteMeasure(s.score, bar)), null)
+        msg("Bar ${bar + 1} deleted.")
     }
 
     fun undo() {

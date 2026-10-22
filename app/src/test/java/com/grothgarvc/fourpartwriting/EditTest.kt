@@ -57,6 +57,22 @@ class EditTest {
         assertEquals(emptyList<Fraction>(), Edit.misorderedChords(uneven))
     }
 
+    @Test fun deleteMeasureClosesTheGap() {
+        // bar 1: C D E F, bar 2: G (whole), bar 3: A B (halves)
+        val sc = s("C4:4", "D4:4", "E4:4", "F4:4", "G4:1", "A4:2", "B4:2")
+        assertEquals("C4:1/4 D4:1/4 E4:1/4 F4:1/4 A4:1/2 B4:1/2", str(Edit.deleteMeasure(sc, 1)))
+        // C4 held from bar 1 into bar 2: deleting bar 1 keeps its part in bar 2
+        val held = Score().withVoice(S, listOf(Event(Fraction.of(3, 2), Pitch.parse("C4")), Event(q, Pitch.parse("D4"))))
+        assertEquals("C4:1/2 D4:1/4", str(Edit.deleteMeasure(held, 0)))
+    }
+
+    @Test fun emptyLastBarsAreDropped() {
+        // bars 2 and 3 only have rests
+        assertEquals("C4:1/1", str(Edit.dropEmptyLastBars(s("C4:1", "r:1", "r:2", "r:2"))))
+        // the rest finishing bar 1 stays; bar 2 goes
+        assertEquals("C4:1/2 r:1/2", str(Edit.dropEmptyLastBars(s("C4:2", "r:2", "r:1"))))
+    }
+
     @Test fun lengtheningTakesTimeFromFollowingNotes() {
         val sc = s("C4:4", "D4:4", "E4:4", "F4:4")
         assertEquals("C4:1/2 E4:1/4 F4:1/4", str(Edit.setLength(sc, S, 0, h)))
