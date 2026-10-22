@@ -62,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -95,6 +96,8 @@ fun EditorScreen(vm: EditorViewModel) {
         val safe = WindowInsets.safeDrawing
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val wide = maxWidth >= 600.dp
+            // Issues list: a fifth of the screen at most, so the score stays the main thing in landscape
+            val listMax = (maxHeight * 0.2f).coerceIn(60.dp, 200.dp)
             val dir = LocalLayoutDirection.current
             val density = LocalDensity.current
             val edges = safe.getLeft(density, dir).toFloat() to safe.getRight(density, dir).toFloat()
@@ -115,7 +118,7 @@ fun EditorScreen(vm: EditorViewModel) {
                     )
                     if (st.reorder.isNotEmpty()) ReorderPrompt(st, vm, Modifier.align(Alignment.TopCenter).padding(8.dp))
                 }
-                st.analysis?.let { Box(Modifier.windowInsetsPadding(safe.only(WindowInsetsSides.Horizontal))) { IssuesStrip(st, vm) } }
+                st.analysis?.let { IssuesStrip(st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide) }
                 HorizontalDivider()
                 Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
                     .height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -323,13 +326,13 @@ private fun RowScope.NoteTools(st: UiState, vm: EditorViewModel) {
 }
 
 @Composable
-private fun IssuesStrip(st: UiState, vm: EditorViewModel) {
+private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, maxList: Dp, oneLine: Boolean) {
     val a = st.analysis ?: return
     var open by remember { mutableStateOf(true) }
     val errors = a.issues.count { it.severity == Severity.ERROR }
     val warnings = a.issues.size - errors
     Surface(tonalElevation = 3.dp) {
-        Column(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().windowInsetsPadding(insets)) {
             Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -339,7 +342,7 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel) {
                 )
                 TextButton(onClick = vm::closeAnalysis) { Text("✕") }
             }
-            if (open && a.issues.isNotEmpty()) LazyColumn(Modifier.heightIn(max = 200.dp)) {
+            if (open && a.issues.isNotEmpty()) LazyColumn(Modifier.heightIn(max = maxList)) {
                 itemsIndexed(a.issues) { i, issue ->
                     val t = a.slices.getOrNull(issue.slice)?.time ?: Fraction.ZERO
                     Row(
@@ -350,8 +353,13 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel) {
                     ) {
                         Text("●", color = if (issue.severity == Severity.ERROR) Color(0xFFD32F2F) else Color(0xFFE67700))
                         Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text("${where(t, st.score.time)} · ${issue.rule.label}", style = MaterialTheme.typography.labelMedium)
+                        val head = "${where(t, st.score.time)} · ${issue.rule.label}"
+                        if (oneLine) Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(head, style = MaterialTheme.typography.labelMedium)
+                            Spacer(Modifier.width(10.dp))
+                            Text(issue.message, style = MaterialTheme.typography.bodySmall)
+                        } else Column {
+                            Text(head, style = MaterialTheme.typography.labelMedium)
                             Text(issue.message, style = MaterialTheme.typography.bodySmall)
                         }
                     }
