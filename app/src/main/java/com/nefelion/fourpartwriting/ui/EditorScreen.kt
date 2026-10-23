@@ -54,9 +54,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.ui.window.Popup
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
@@ -126,6 +123,7 @@ import com.nefelion.fourpartwriting.model.Mode
 import com.nefelion.fourpartwriting.model.TimeSig
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Rule
+import com.nefelion.fourpartwriting.theory.VoiceLeading
 import com.nefelion.fourpartwriting.theory.Severity
 import kotlin.math.roundToInt
 
@@ -433,7 +431,7 @@ private fun RowScope.PickTool(
     label: String, selected: Boolean, count: Int, current: Int, onPick: (Int) -> Unit,
     icon: @Composable () -> Unit, item: @Composable (Int) -> Unit,
 ) {
-    var open by remember { mutableStateOf(false) }
+    var open by rememberSaveable { mutableStateOf(false) }
     var hover by remember { mutableIntStateOf(-1) }
     val items = remember(count) { arrayOfNulls<LayoutCoordinates>(count) }
     fun at(p: Offset) = items.indexOfFirst { c ->
@@ -481,10 +479,20 @@ private fun RowScope.PickTool(
 private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, maxList: Dp, oneLine: Boolean, onUndoable: (String) -> Unit) {
     val a = st.analysis ?: return
     // Landscape has little height: start with just the summary line
-    var open by remember { mutableStateOf(!oneLine) }
+    var open by rememberSaveable { mutableStateOf(!oneLine) }
     val errors = a.issues.count { it.severity == Severity.ERROR }
     val warnings = a.issues.size - errors
     val sc = LocalScoreColors.current
+    // The issue's ignore key ("RULE@time|message"): saveable, and it still names the rule once the issue is gone
+    var info by rememberSaveable { mutableStateOf<String?>(null) }
+    info?.let { key ->
+        val r = Rule.valueOf(key.substringBefore('@'))
+        val i = a.issues.indexOfFirst { VoiceLeading.ignoreKey(it, a.slices) == key }
+        RuleInfoDialog(r, r in st.rules, onToggle = { vm.toggleRule(r) },
+            onIgnoreHere = if (i < 0) null else ({ info = null; vm.ignoreIssue(i); onUndoable("Issue ignored") }),
+            onIgnoreInScore = { info = null; vm.ignoreRuleInScore(r); onUndoable("${r.label} ignored in this score") },
+        ) { info = null }
+    }
     Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(Modifier.fillMaxWidth().windowInsetsPadding(insets)) {
             HorizontalDivider()
@@ -504,26 +512,14 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
                 itemsIndexed(a.issues) { i, issue ->
                     val t = a.slices.getOrNull(issue.slice)?.time ?: Fraction.ZERO
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    var menu by remember { mutableStateOf(false) }
-                    val haptic = LocalHapticFeedback.current
-                    // Press and hold: ignore this issue, ignore the rule in this score, or switch the rule off
-                    Box { DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, shape = SHAPE) {
-                        DropdownMenuItem(text = { Text("Ignore here") }, onClick = { menu = false; vm.ignoreIssue(i); onUndoable("Issue ignored") })
-                        DropdownMenuItem(text = { Text("Ignore in this score") },
-                            onClick = { menu = false; vm.ignoreRuleInScore(issue.rule); onUndoable("${issue.rule.label} ignored in this score") })
-                        DropdownMenuItem(text = { Text("Disable everywhere") }, onClick = { menu = false; vm.toggleRule(issue.rule) })
-                    } }
                     Row(
                         Modifier.fillMaxWidth().height(IntrinsicSize.Min)
                             .background(if (st.focusedIssue == i) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                            .combinedClickable(
-                                onClick = { vm.focusIssue(i) },
-                                onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menu = true },
-                            ),
+                            .clickable { vm.focusIssue(i) },
                     ) {
                         Box(Modifier.width(4.dp).fillMaxHeight().background(if (issue.severity == Severity.ERROR) sc.errorText else sc.warnText))
                         val head = "${where(t, st.score.time)} · ${issue.rule.label}"
-                        val pad = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        val pad = Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 6.dp)
                         if (oneLine) Row(pad, verticalAlignment = Alignment.CenterVertically) {
                             Text(head, style = MaterialTheme.typography.labelLarge)
                             Spacer(Modifier.width(10.dp))
@@ -532,6 +528,8 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
                             Text(head, style = MaterialTheme.typography.labelLarge)
                             Text(issue.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        Box(Modifier.width(44.dp).fillMaxHeight().clickable { info = VoiceLeading.ignoreKey(issue, a.slices) }.semantics { contentDescription = "About ${issue.rule.label}" },
+                            contentAlignment = Alignment.Center) { Text("ⓘ", fontSize = 20.sp, color = MaterialTheme.colorScheme.primary) }
                     }
                 }
             }
@@ -797,7 +795,7 @@ private fun Segmented(options: List<String>, selected: Int, itemWidth: Dp = 48.d
 
 @Composable
 private fun <T> Picker(current: String, options: List<T>, label: (T) -> String, onPick: (T) -> Unit) {
-    var open by remember { mutableStateOf(false) }
+    var open by rememberSaveable { mutableStateOf(false) }
     Box {
         OutlinedButton(onClick = { open = true }, shape = SHAPE) { Text("$current  ▾") }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = SHAPE) {

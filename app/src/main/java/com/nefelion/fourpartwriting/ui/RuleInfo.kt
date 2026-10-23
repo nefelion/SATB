@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -251,7 +253,11 @@ private fun phase(t: Float, a: Float, b: Float) = ((t - a) / (b - a)).coerceIn(0
  * Arrows show the motion, brackets the interval, and the offending notes glide to their right place.
  */
 @Composable
-fun RuleInfoDialog(rule: Rule, enabled: Boolean, onToggle: () -> Unit, onDismiss: () -> Unit) {
+fun RuleInfoDialog(
+    rule: Rule, enabled: Boolean, onToggle: () -> Unit,
+    onIgnoreHere: (() -> Unit)? = null, onIgnoreInScore: (() -> Unit)? = null,
+    onDismiss: () -> Unit,
+) {
     val demo = remember(rule) { RuleExamples.ALL[rule]?.let { Demo(rule, it) } }
     Dialog(onDismissRequest = onDismiss) {
         KeepRefreshRate()
@@ -263,6 +269,11 @@ fun RuleInfoDialog(rule: Rule, enabled: Boolean, onToggle: () -> Unit, onDismiss
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Check this rule", Modifier.weight(1f))
                     Switch(checked = enabled, onCheckedChange = { onToggle() })
+                }
+                // Opened from an issue in check mode
+                if (onIgnoreHere != null || onIgnoreInScore != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    onIgnoreHere?.let { OutlinedButton(onClick = it, Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Ignore here", maxLines = 1) } }
+                    onIgnoreInScore?.let { OutlinedButton(onClick = it, Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Ignore in this score", maxLines = 1) } }
                 }
                 TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Close") }
             }
