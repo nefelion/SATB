@@ -141,19 +141,11 @@ fun ScoreCanvas(
             }.distinct().groupBy { it.ref.voice }.mapValues { (_, hs) -> hs.sortedBy { it.x } }
         }
 
-        val colors = remember(analysis, flagged, state.selected, state.voice, state.moving, state.highlightVoice, state.playTime, state.score, sc, paper) {
+        val colors = remember(analysis, flagged, state.selected, state.playTime, state.score, sc, paper) {
             val play = sc.play.toArgb()
             val m = HashMap<NoteRef, Int>()
-            // Outside the check, the active voice stands out (theme's activeInk/otherInk); fading mixes ink toward paper, opaque so staff lines don't show through.
-            // Movement mode has no active voice, so nothing fades; the setting turns it off entirely.
-            if (analysis == null) {
-                if (state.highlightVoice && !state.moving) {
-                    val faded = lerp(paper, sc.ink, sc.otherInk).toArgb()
-                    val active = sc.activeInk.toArgb()
-                    for (v in Voice.entries) for (i in state.score.voice(v).indices) m[NoteRef(v, i)] = if (v == state.voice) active else faded
-                }
-            } else if (flagged.isNotEmpty()) {
-                // Check with an issue picked: its notes stay plain ink (rings mark them), the rest fades
+            if (analysis != null && flagged.isNotEmpty()) {
+                // Check with an issue picked: its notes stay plain ink (rings mark them), the rest fades toward paper, opaque so staff lines don't show through
                 val keep = flagged.values.flatten().map { it.ref }.toSet()
                 val faded = lerp(paper, sc.ink, sc.otherInk).toArgb()
                 for (v in Voice.entries) for (i in state.score.voice(v).indices) NoteRef(v, i).let { if (it !in keep) m[it] = faded }

@@ -45,8 +45,6 @@ data class UiState(
     val voice: Voice = Voice.SOPRANO,
     /** Dark theme on; chosen in Settings. */
     val dark: Boolean = false,
-    /** Fade the other voices so the active one stands out (Settings → Appearance). */
-    val highlightVoice: Boolean = true,
     /** False until the user has picked Light or Dark (the first-run picker shows until then). */
     val themeChosen: Boolean = true,
     /** False until the welcome tutorial has been finished or skipped. */
@@ -131,7 +129,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             themeChosen = prefs.contains("dark"),
             tutorialSeen = prefs.getBoolean("tutorialSeen", false),
             dark = prefs.getBoolean("dark", app.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES),
-            highlightVoice = prefs.getBoolean("highlightVoice", true),
             soundName = prefs.getString("sf2Name", null),
             voice = Voice.entries.getOrElse(prefs.getInt("voice", 0)) { Voice.SOPRANO },
             duration = runCatching { Duration(prefs.getInt("durBase", 4), prefs.getInt("durDots", 0)) }.getOrDefault(Duration(4)),
@@ -372,11 +369,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun finishTutorial() {
         _state.update { it.copy(tutorialSeen = true) }
         prefs.edit().putBoolean("tutorialSeen", true).apply()
-    }
-
-    fun setHighlightVoice(on: Boolean) {
-        _state.update { it.copy(highlightVoice = on) }
-        prefs.edit().putBoolean("highlightVoice", on).apply()
     }
 
     fun setDark(dark: Boolean) {
