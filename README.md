@@ -2,24 +2,15 @@
 
 An Android app for writing four-part (SATB) harmony and checking it against common-practice voice-leading rules.
 
-Tap notes onto the staff, hear them, and let the app point out parallel fifths, bad spacing, unresolved tendency tones and more.
-
 ## Features
 
-- **Fast note entry**: pick a voice (S, A, T, B) and tap the staff. Input moves to the voice that is furthest behind, so chords fill left to right.
-- **Voice lock**: hold a voice button to write one whole line (for example a melody or a bass line) before the others.
-- **Movement mode**: tap the active voice button again to scroll, zoom and select without adding notes.
-- **Editing**: drag a note to change its pitch, change lengths and accidentals, tie and untie notes, delete single tied heads or whole bars, undo/redo.
-- **Engraving**: real music notation (SMuFL / Bravura font): ties across barlines and beats, beams, ledger lines, chord symbols and Roman numerals.
-- **Harmony check** (✓): highlights problems in the score. Each rule can be turned off:
-  parallel and direct fifths/octaves, unequal fifths, voice crossing and overlap, spacing, range, melodic intervals, leap handling,
-  cross relations, all voices in one direction, tendency tones, leading tone, seventh resolution, six-four chords, harmonic rhythm,
-  doubling, missing third, non-chord tones, unrecognized chords, missing voices.
-- **Voice order help**: finds block chords whose voices were entered in the wrong order and offers to swap them.
-- **Playback** (▶): low-latency native synth (AAudio) with any SoundFont (`.sf2`) you pick.
-- **Score settings**: key, time signature, tempo, clefs and staff layout (SATB on 1–4 staves, including keyboard style).
-- **Export**: MusicXML, for MuseScore, Sibelius, Dorico and other notation programs.
-- Light and dark theme, welcome tutorial.
+- Write four voices (S, A, T, B) by tapping notes onto the staff.
+- Edit pitch, length, accidentals and ties, with undo/redo.
+- Harmony check (✓) marks voice-leading mistakes such as parallel fifths, bad spacing or unresolved tendency tones. Each rule can be turned off.
+- Playback (▶) with any SoundFont (`.sf2`) you pick.
+- Choose key, time signature, tempo and staff layout.
+- Export to MusicXML (MuseScore, Sibelius, Dorico and others).
+- Light and dark theme.
 
 ## Install
 
@@ -34,19 +25,6 @@ Requirements: Android Studio with Android SDK 37, NDK `27.0.12077973`, CMake `3.
 ```sh
 ./gradlew assembleDebug            # APK in app/build/outputs/apk/debug/
 ./gradlew testDebugUnitTest        # unit tests
-```
-
-## Project layout
-
-```
-app/src/main/java/com/nefelion/fourpartwriting/
-  model/     Score, events, pure edit functions
-  engrave/   Note splitting (Notation) and layout of the score
-  theory/    Chord analysis and voice-leading rules
-  audio/     Kotlin side of the native synth
-  export/    MusicXML export
-  ui/        Jetpack Compose screens and the score canvas
-app/src/main/cpp/   Native SoundFont synth (AAudio)
 ```
 
 ## License
