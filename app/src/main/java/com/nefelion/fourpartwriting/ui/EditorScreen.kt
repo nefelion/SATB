@@ -100,6 +100,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -131,8 +132,8 @@ private val BASES = listOf(1, 2, 4, 8, 16, 32, 64)
 fun EditorScreen(vm: EditorViewModel) {
     val st by vm.state.collectAsState()
     val snack = remember { SnackbarHostState() }
-    var settings by remember { mutableStateOf(false) }
-    var tempoDialog by remember { mutableStateOf(false) }
+    var settings by rememberSaveable { mutableStateOf(false) }
+    var tempoDialog by rememberSaveable { mutableStateOf(false) }
     // Score-wide actions (clear, example) run at once and offer Undo instead of asking first
     var undoable by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(st.message) {
@@ -551,7 +552,7 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
         uri?.let(vm::exportMusicXml)
     }
     val score = st.score
-    var rulesOpen by remember { mutableStateOf(false) }
+    var rulesOpen by rememberSaveable { mutableStateOf(false) }
     if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
     val ctx = LocalContext.current
     val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty() }
