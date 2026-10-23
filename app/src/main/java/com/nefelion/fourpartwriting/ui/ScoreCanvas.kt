@@ -45,7 +45,9 @@ import com.nefelion.fourpartwriting.engrave.Engraver
 import com.nefelion.fourpartwriting.engrave.GlyphMark
 import com.nefelion.fourpartwriting.engrave.Hit
 import com.nefelion.fourpartwriting.engrave.LineMark
+import com.nefelion.fourpartwriting.engrave.Mark
 import com.nefelion.fourpartwriting.engrave.NoteRef
+import com.nefelion.fourpartwriting.engrave.Smufl
 import com.nefelion.fourpartwriting.engrave.TextMark
 import com.nefelion.fourpartwriting.engrave.TextStyle
 import com.nefelion.fourpartwriting.engrave.TieMark
@@ -129,8 +131,18 @@ fun ScoreCanvas(
         LaunchedEffect(viewKey) { snapshotFlow { sp to offX }.collect { (a, b) -> onViewport(a, b) } }
 
         // Highlight colours per note
-        val colors = remember(analysis, state.focusedIssue, state.selected, state.voice, state.moving, state.highlightVoice, state.playTime, state.score, sc, paper) {
-            val error = sc.errorNote.toArgb(); val warn = sc.warnNote.toArgb(); val play = sc.play.toArgb()
+        // Focused issue: its flagged heads (one per issue note; a tied note picks the head sounding at that slice), by voice
+        val flagged = remember(layout, analysis, state.focusedIssue) {
+            val issue = state.focusedIssue?.let { analysis?.issues?.getOrNull(it) } ?: return@remember emptyMap()
+            issue.notes.mapNotNull { (si, v) ->
+                val sl = analysis!!.slices.getOrNull(si) ?: return@mapNotNull null
+                val ref = sl.eventIndex[v.ordinal].takeIf { it >= 0 }?.let { NoteRef(v, it) } ?: return@mapNotNull null
+                layout.heads.filter { it.ref == ref }.sortedBy { it.x }.let { hs -> hs.lastOrNull { it.at <= sl.time } ?: hs.firstOrNull() }
+            }.distinct().groupBy { it.ref.voice }.mapValues { (_, hs) -> hs.sortedBy { it.x } }
+        }
+
+        val colors = remember(analysis, flagged, state.selected, state.voice, state.moving, state.highlightVoice, state.playTime, state.score, sc, paper) {
+            val play = sc.play.toArgb()
             val m = HashMap<NoteRef, Int>()
             // Outside the check, the active voice stands out (theme's activeInk/otherInk); fading mixes ink toward paper, opaque so staff lines don't show through.
             // Movement mode has no active voice, so nothing fades; the setting turns it off entirely.
@@ -140,12 +152,11 @@ fun ScoreCanvas(
                     val active = sc.activeInk.toArgb()
                     for (v in Voice.entries) for (i in state.score.voice(v).indices) m[NoteRef(v, i)] = if (v == state.voice) active else faded
                 }
-            } else {
-                fun refs(i: Int) = analysis.issues[i].notes.mapNotNull { (si, v) ->
-                    analysis.slices.getOrNull(si)?.eventIndex?.get(v.ordinal)?.takeIf { it >= 0 }?.let { NoteRef(v, it) }
-                }
-                val shown = state.focusedIssue?.let { listOf(it) } ?: analysis.issues.indices.sortedBy { analysis.issues[it].severity == Severity.ERROR }
-                for (i in shown) for (r in refs(i)) m[r] = if (analysis.issues[i].severity == Severity.ERROR) error else warn
+            } else if (flagged.isNotEmpty()) {
+                // Check with an issue picked: its notes stay plain ink (rings mark them), the rest fades
+                val keep = flagged.values.flatten().map { it.ref }.toSet()
+                val faded = lerp(paper, sc.ink, sc.otherInk).toArgb()
+                for (v in Voice.entries) for (i in state.score.voice(v).indices) NoteRef(v, i).let { if (it !in keep) m[it] = faded }
             }
             state.playTime?.let { t ->
                 for (v in Voice.entries) state.score.eventAt(v, t).takeIf { it >= 0 }?.let { m[NoteRef(v, it)] = play }
@@ -300,49 +311,100 @@ fun ScoreCanvas(
                 }
                 val visL = -offX / sp - 6f
                 val visR = (-offX + vw) / sp + 6f
-                // Two passes: plain marks, then coloured ones on top (a selected unison stays visible)
                 paints.ink = ink; paints.nct = sc.nct.toArgb()
-                for (pass in 0..1) for (mk in layout.marks) {
+                val focused = state.focusedIssue?.let { analysis?.issues?.getOrNull(it) }
+                if (focused != null && flagged.isNotEmpty()) {
+                    // Soft halo behind each flagged head and a band joining each voice's heads (parallels read as parallel bands).
+                    // Drawn opaque into one layer, then blended once, so overlaps don't darken.
+                    nc.saveLayerAlpha(-offX, -offY, -offX + vw, -offY + vh, 0x50) // bounds = the visible view
+                    val pr = paints.ring
+                    pr.color = (if (focused.severity == Severity.ERROR) sc.errorNote else sc.warnNote).toArgb()
+                    for (hs in flagged.values) {
+                        pr.style = Paint.Style.FILL
+                        for (h in hs) nc.drawOval((h.x - 1.05f) * sp, (h.y - 0.85f) * sp, (h.x + 1.05f) * sp, (h.y + 0.85f) * sp, pr)
+                        pr.style = Paint.Style.STROKE
+                        pr.strokeWidth = 0.6f * sp
+                        for ((h1, h2) in hs.zipWithNext()) nc.drawLine(h1.x * sp, h1.y * sp, h2.x * sp, h2.y * sp, pr)
+                    }
+                    nc.restore()
+                }
+                drawMarks(nc, layout.marks, sp, paints, visL, visR) { mk ->
                     val color = mk.ref?.let { colors[it] }
-                    if ((pass == 0) != (color == null)) continue
-                    if (mk.x > visR) continue
-                    if (mk is LineMark && max(mk.x1, mk.x2) < visL) continue
-                    if (mk is TieMark && mk.x2 < visL) continue
-                    if (mk !is LineMark && mk !is TieMark && mk.x < visL - 6f) continue
-                    val markInk = when {
-                        color == null -> ink
+                    when {
+                        color == null -> null
                         headRange != null && mk.ref == state.selected && mk.x !in headRange -> (color and 0xFFFFFF) or (0x59 shl 24)
                         else -> color
                     }
-                    when (mk) {
-                        is LineMark -> {
-                            paints.line.color = markInk
-                            paints.line.strokeWidth = mk.width * sp
-                            nc.drawLine(mk.x1 * sp, mk.y1 * sp, mk.x2 * sp, mk.y2 * sp, paints.line)
-                        }
-                        is GlyphMark -> {
-                            paints.glyph.color = markInk
-                            paints.glyph.textSize = 4f * sp * mk.scale
-                            nc.drawText(mk.c.toString(), mk.x * sp, mk.y * sp, paints.glyph)
-                        }
-                        is BeamMark -> {
-                            paints.fill.color = markInk
+                }
+                analysis?.let { a ->
+                    if (focused == null) {
+                        // Nothing picked: a small tick above the system where each problem is, errors drawn last
+                        // Above the chord names (SYMBOL text, baseline y) so they never overlap
+                        val y = layout.marks.filter { it is TextMark && it.style == TextStyle.SYMBOL }
+                            .minOfOrNull { (it as TextMark).let { t -> t.y - t.size } } ?.minus(0.4f)
+                            ?: (min(layout.top, layout.noteTop) - 1f)
+                        for (issue in a.issues.sortedBy { it.severity == Severity.ERROR }) {
+                            val x = a.slices.getOrNull(issue.slice)?.time?.let { layout.locate(it) } ?: continue
+                            val cx = x + Smufl.HEAD_W / 2
+                            val pt = paints.tick
+                            pt.color = (if (issue.severity == Severity.ERROR) sc.errorNote else sc.warnNote).toArgb()
+                            pt.strokeWidth = 0.25f * sp // round-joined stroke = rounded corners
                             val p = paints.path
                             p.reset()
-                            p.moveTo(mk.x1 * sp, mk.y1 * sp); p.lineTo(mk.x2 * sp, mk.y2 * sp)
-                            p.lineTo(mk.x2 * sp, (mk.y2 + mk.h) * sp); p.lineTo(mk.x1 * sp, (mk.y1 + mk.h) * sp)
+                            p.moveTo((cx - 0.45f) * sp, (y - 0.85f) * sp); p.lineTo((cx + 0.45f) * sp, (y - 0.85f) * sp); p.lineTo(cx * sp, (y - 0.15f) * sp)
                             p.close()
-                            nc.drawPath(p, paints.fill)
+                            nc.drawPath(p, pt)
                         }
-                        is TieMark -> {
-                            paints.fill.color = markInk
-                            nc.drawPath(tiePath(mk, sp, paints.path), paints.fill)
-                        }
-                        is TextMark -> drawText(nc, mk, sp, paints)
                     }
                 }
                 nc.restore()
             }
+        }
+    }
+}
+
+/**
+ * Draws engraved [marks] at [sp] px per staff space. [colorOf] gives a mark's colour, or null for plain ink.
+ * Two passes: plain marks, then coloured ones on top (a selected unison stays visible).
+ * Marks outside [visL]..[visR] (staff spaces) are skipped.
+ */
+internal fun drawMarks(
+    nc: android.graphics.Canvas, marks: List<Mark>, sp: Float, paints: Paints,
+    visL: Float = Float.NEGATIVE_INFINITY, visR: Float = Float.POSITIVE_INFINITY, colorOf: (Mark) -> Int?,
+) {
+    for (pass in 0..1) for (mk in marks) {
+        val color = colorOf(mk)
+        if ((pass == 0) != (color == null)) continue
+        if (mk.x > visR) continue
+        if (mk is LineMark && max(mk.x1, mk.x2) < visL) continue
+        if (mk is TieMark && mk.x2 < visL) continue
+        if (mk !is LineMark && mk !is TieMark && mk.x < visL - 6f) continue
+        val markInk = color ?: paints.ink
+        when (mk) {
+            is LineMark -> {
+                paints.line.color = markInk
+                paints.line.strokeWidth = mk.width * sp
+                nc.drawLine(mk.x1 * sp, mk.y1 * sp, mk.x2 * sp, mk.y2 * sp, paints.line)
+            }
+            is GlyphMark -> {
+                paints.glyph.color = markInk
+                paints.glyph.textSize = 4f * sp * mk.scale
+                nc.drawText(mk.c.toString(), mk.x * sp, mk.y * sp, paints.glyph)
+            }
+            is BeamMark -> {
+                paints.fill.color = markInk
+                val p = paints.path
+                p.reset()
+                p.moveTo(mk.x1 * sp, mk.y1 * sp); p.lineTo(mk.x2 * sp, mk.y2 * sp)
+                p.lineTo(mk.x2 * sp, (mk.y2 + mk.h) * sp); p.lineTo(mk.x1 * sp, (mk.y1 + mk.h) * sp)
+                p.close()
+                nc.drawPath(p, paints.fill)
+            }
+            is TieMark -> {
+                paints.fill.color = markInk
+                nc.drawPath(tiePath(mk, sp, paints.path), paints.fill)
+            }
+            is TextMark -> drawText(nc, mk, sp, paints)
         }
     }
 }
@@ -361,10 +423,12 @@ private fun tiePath(t: TieMark, sp: Float, p: Path): Path {
     return p
 }
 
-private class Paints(bravura: Typeface) {
+internal class Paints(bravura: Typeface) {
     val glyph = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = bravura }
     val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.BUTT }
     val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
+    val tick = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL_AND_STROKE; strokeJoin = Paint.Join.ROUND }
     val path = Path()
     val text = Paint(Paint.ANTI_ALIAS_FLAG)
     /** Plain text and non-chord-tone label colours for the current theme, set before each draw. */
