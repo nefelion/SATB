@@ -152,13 +152,24 @@ object Engraver {
         val width get() = if (cols.isEmpty()) EMPTY_MEASURE else lead + adv.sum()
     }
 
-    fun layout(score: Score, labels: Map<Fraction, ChordLabel> = emptyMap(), nctLabels: Map<NoteRef, String> = emptyMap()): ScoreLayout {
+    /**
+     * [show]: draw only these voices, bare (no clef, key, time, tempo, bar numbers or final bar), for small examples.
+     * Null: the full editor score.
+     */
+    fun layout(
+        score: Score, labels: Map<Fraction, ChordLabel> = emptyMap(), nctLabels: Map<NoteRef, String> = emptyMap(),
+        show: Set<Voice>? = null,
+    ): ScoreLayout {
         val ml = score.time.measure
         val n = score.arrangement.staves
+        val bare = show != null
+        val shown = show ?: Voice.entries.toSet()
+        val stems = score.arrangement.stems(shown)
 
         // Written segments of every event
         val all = mutableListOf<Item>()
         for (v in Voice.entries) {
+            if (v !in shown) continue
             var t = Fraction.ZERO
             for ((i, e) in score.voice(v).withIndex()) {
                 val segs = Notation.split(t, e.length, score.time, e.pitch == null)
@@ -174,7 +185,7 @@ object Engraver {
         // their index is past the voice's last event, so they cannot be selected or edited).
         // An empty score is one bar of rests.
         val barEnd = ml * Fraction.of(barCount.toLong(), 1)
-        for (v in Voice.entries) {
+        if (!bare) for (v in Voice.entries) {
             val t = score.length(v)
             if (t >= barEnd) continue
             val staff = score.staffOf(v)
@@ -184,7 +195,7 @@ object Engraver {
         val measures = (0 until barCount).map { m ->
             val start = ml * Fraction.of(m.toLong(), 1)
             val end = start + ml
-            buildMeasure(score, m, start, end, all.filter { it.seg.onset >= start && it.seg.onset < end })
+            buildMeasure(score, stems, m, start, end, all.filter { it.seg.onset >= start && it.seg.onset < end })
         }
 
         // Vertical extents per staff (note positions incl. stems)
@@ -210,7 +221,7 @@ object Engraver {
         val marks = ArrayList<Mark>(2048)
         val heads = mutableListOf<HeadBox>()
         val x0 = LEFT_MARGIN
-        val header = headerWidth(score)
+        val header = if (!bare) headerWidth(score) else if (n > 1) 0.8f + Smufl.CLEF_W + 0.8f else 0f
         var x = x0 + header
         val boxes = mutableListOf<MeasureBox>()
         for (m in measures) {
@@ -225,38 +236,41 @@ object Engraver {
         val top = sy(0, 8); val bot = sy(n - 1, 0)
         for (s in 0 until n) for (l in 0..4) marks += LineMark(x0, sy(s, l * 2), xEnd, sy(s, l * 2), Smufl.STAFF_LINE)
         // Two staves (piano style) get a brace, more (choir style) a bracket
-        if (n == 2) {
+        if (!bare && n == 2) {
             val braceScale = (bot - top) / Smufl.BRACE_H
             marks += GlyphMark(Smufl.BRACE, x0 - 0.35f - Smufl.BRACE_W * braceScale, bot, scale = braceScale)
-        } else if (n > 2) {
+        } else if (!bare && n > 2) {
             val bx = x0 - 1.0f
             marks += LineMark(bx + 0.25f, top - 0.5f, bx + 0.25f, bot + 0.5f, Smufl.THICK_BAR)
             marks += GlyphMark(Smufl.BRACKET_TOP, bx, top - 0.5f)
             marks += GlyphMark(Smufl.BRACKET_BOTTOM, bx, bot + 0.5f)
         }
-        if (n > 1) marks += LineMark(x0, top, x0, bot, Smufl.THIN_BAR)
+        if (n > 1 && !bare) marks += LineMark(x0, top, x0, bot, Smufl.THIN_BAR)
 
         // Header: clef, key signature, time signature, tempo
         var hx = x0 + 0.8f
-        for (s in 0 until n) marks += GlyphMark(Smufl.clefGlyph(score.clefs[s]), hx, sy(s, (score.clefs[s].line - 1) * 2))
-        hx += Smufl.CLEF_W + 0.8f
-        val f = score.key.fifths
-        if (f != 0) {
-            val alter = if (f > 0) 1 else -1
-            for (s in 0 until n) {
-                var kx = hx
-                for (p in score.clefs[s].keySigPositions(f)) {
-                    marks += GlyphMark(Smufl.accidental(alter), kx, sy(s, p))
-                    kx += Smufl.accidentalWidth(alter) + 0.12f
-                }
-            }
-            hx += keySigWidth(f) + 0.6f
-        }
-        for (s in 0 until n) timeSig(score.time, hx, ::sy, s, marks)
         val tempoY = top - max(2.2f, (maxP[0] - 8) * 0.5f + 1.2f) - (if (hasLabels) 2.8f else 0f)
         val tx = x0 + if (n > 2) 1.6f else 0.8f // clear the bracket hook
-        marks += GlyphMark(Smufl.MET_QUARTER, tx, tempoY, scale = 0.75f)
-        marks += TextMark("= ${score.tempo}", tx + 1.2f, tempoY, 1.6f, TextStyle.TEMPO)
+        // Bare: clefs only on two staves, where the notes cannot be read without them
+        if (!bare || n > 1) for (s in 0 until n) marks += GlyphMark(Smufl.clefGlyph(score.clefs[s]), hx, sy(s, (score.clefs[s].line - 1) * 2))
+        hx += Smufl.CLEF_W + 0.8f
+        if (!bare) {
+            val f = score.key.fifths
+            if (f != 0) {
+                val alter = if (f > 0) 1 else -1
+                for (s in 0 until n) {
+                    var kx = hx
+                    for (p in score.clefs[s].keySigPositions(f)) {
+                        marks += GlyphMark(Smufl.accidental(alter), kx, sy(s, p))
+                        kx += Smufl.accidentalWidth(alter) + 0.12f
+                    }
+                }
+                hx += keySigWidth(f) + 0.6f
+            }
+            for (s in 0 until n) timeSig(score.time, hx, ::sy, s, marks)
+            marks += GlyphMark(Smufl.MET_QUARTER, tx, tempoY, scale = 0.75f)
+            marks += TextMark("= ${score.tempo}", tx + 1.2f, tempoY, 1.6f, TextStyle.TEMPO)
+        }
 
         // Measures
         val symRight = floatArrayOf(-99f, -99f)
@@ -267,14 +281,15 @@ object Engraver {
         for ((mi, m) in measures.withIndex()) {
             val box = boxes[mi]
             val isFinal = mi == measures.lastIndex && total > Fraction.ZERO && (total / ml).den == 1L
-            if (isFinal) {
+            if (bare) { if (mi < measures.lastIndex) marks += LineMark(box.x1, top, box.x1, bot, Smufl.THIN_BAR) }
+            else if (isFinal) {
                 val tx = box.x1 - Smufl.THICK_BAR / 2
                 marks += LineMark(tx, top, tx, bot, Smufl.THICK_BAR)
                 val nx = box.x1 - Smufl.THICK_BAR - Smufl.BAR_SEP - Smufl.THIN_BAR / 2
                 marks += LineMark(nx, top, nx, bot, Smufl.THIN_BAR)
             } else marks += LineMark(box.x1, top, box.x1, bot, Smufl.THIN_BAR)
-            if (mi > 0) marks += TextMark("${mi + 1}", box.x0 + 0.2f, top - 0.6f, 1.0f, TextStyle.MEASURE_NO)
-            drawMeasure(score, m, box, ::sy, ::syf, marks, heads, headAt)
+            if (mi > 0 && !bare) marks += TextMark("${mi + 1}", box.x0 + 0.2f, top - 0.6f, 1.0f, TextStyle.MEASURE_NO)
+            drawMeasure(score, shown, m, box, ::sy, ::syf, marks, heads, headAt)
             for (c in m.cols) labels[c.time]?.let { lab ->
                 val cx = c.x + Smufl.HEAD_W / 2
                 // Labels that would collide with the previous one move to a second row.
@@ -292,7 +307,7 @@ object Engraver {
                 marks += TextMark(lab.roman, cx, labelBot + r * 2.0f, 1.6f, TextStyle.ROMAN)
             }
         }
-        drawTies(score, headAt, marks)
+        drawTies(score, shown, headAt, marks)
         // Non-chord-tone labels, next to the first written head of the note
         val labelled = HashSet<NoteRef>()
         for (h in heads) {
@@ -339,24 +354,24 @@ object Engraver {
     private fun idealSpace(dt: Fraction) = max(2.4f, 3.4f * sqrt(dt.toDouble().toFloat() * 4f))
 
     /** Stem direction of [voice] for a note at staff position [pos] (or a beam group's mean). */
-    private fun dirFor(score: Score, voice: Voice, pos: Float): Int {
-        val d = score.arrangement.stems[voice.ordinal]
+    private fun dirFor(stems: List<Int>, voice: Voice, pos: Float): Int {
+        val d = stems[voice.ordinal]
         return if (d != 0) d else if (pos >= 4f) -1 else 1
     }
 
-    private fun buildMeasure(score: Score, index: Int, start: Fraction, end: Fraction, items: List<Item>): Meas {
+    private fun buildMeasure(score: Score, stems: List<Int>, index: Int, start: Fraction, end: Fraction, items: List<Item>): Meas {
         // Stem directions: fixed per voice, or per beam group / note for a voice alone on its staff
         for (v in Voice.entries) {
             val notes = items.filter { it.voice == v && it.isNote }.sortedBy { it.seg.onset }
             val groups = beamGroups(notes, start, score.time)
             val grouped = HashSet<Item>()
             for (g in groups) {
-                val dir = dirFor(score, v, g.map { it.pos!!.toFloat() }.average().toFloat())
+                val dir = dirFor(stems, v, g.map { it.pos!!.toFloat() }.average().toFloat())
                 g.forEach { it.dir = dir; grouped += it }
             }
-            for (it in notes) if (it !in grouped) it.dir = dirFor(score, v, it.pos!!.toFloat())
+            for (it in notes) if (it !in grouped) it.dir = dirFor(stems, v, it.pos!!.toFloat())
         }
-        for (it in items) if (!it.isNote) it.dir = score.arrangement.stems[it.voice.ordinal].let { d -> if (d == 0) 1 else d }
+        for (it in items) if (!it.isNote) it.dir = stems[it.voice.ordinal].let { d -> if (d == 0) 1 else d }
 
         val times = items.map { it.seg.onset }.distinct().sorted()
         val state = HashMap<Pair<Int, Int>, Int>() // (staff, diatonic) -> alter shown in this bar
@@ -448,7 +463,7 @@ object Engraver {
     // ---------- drawing a measure ----------
 
     private fun drawMeasure(
-        score: Score, m: Meas, box: MeasureBox,
+        score: Score, shown: Set<Voice>, m: Meas, box: MeasureBox,
         sy: (Int, Int) -> Float, syf: (Int, Float) -> Float, marks: MutableList<Mark>,
         heads: MutableList<HeadBox>, headAt: MutableMap<Triple<Voice, Int, Int>, Pair<Item, Pair<Float, Float>>>,
     ) {
@@ -456,7 +471,7 @@ object Engraver {
             for (s in c.items.map { it.staff }.distinct()) {
                 val items = c.items.filter { it.staff == s }
                 val dotX = c.x + c.headRight(s) + 0.3f
-                drawRests(score, m, box, c, s, items.filter { !it.isNote }, sy, marks)
+                drawRests(score, shown, m, box, c, s, items.filter { !it.isNote }, sy, marks)
                 for (it in items.filter { it.isNote }) {
                     val p = it.pos!!
                     val hx = c.x + it.xOff
@@ -499,20 +514,21 @@ object Engraver {
     }
 
     private fun drawRests(
-        score: Score, m: Meas, box: MeasureBox, c: Col, s: Int, rests: List<Item>,
+        score: Score, shown: Set<Voice>, m: Meas, box: MeasureBox, c: Col, s: Int, rests: List<Item>,
         sy: (Int, Int) -> Float, marks: MutableList<Mark>,
     ) {
         if (rests.isEmpty()) return
+        val on = score.voicesOn(s).filter { it in shown }
         // Every voice of the staff rests here with the same value: draw one rest, centred
         val groups = rests.groupBy { it.dir to it.d }
-        val allSame = rests.size == score.voicesOn(s).size && rests.map { it.d to it.seg.fullBar }.distinct().size == 1
+        val allSame = rests.size == on.size && rests.map { it.d to it.seg.fullBar }.distinct().size == 1
         for ((key, g) in groups) {
             val it = g.first()
             if (allSame && it !== rests.first()) continue
             val d = it.d
             val ri = Integer.numberOfTrailingZeros(d.base)
             val hangs = ri == 0 || it.seg.fullBar
-            val others = score.voicesOn(s).filter { v -> v !in g.map { r -> r.voice } }
+            val others = on.filter { v -> v !in g.map { r -> r.voice } }
             val alone = allSame || others.none { v -> m.items.any { o -> o.voice == v } }
             // Notes of the other stem direction at this point: keep the rest clear of them (≥ 2 spaces)
             val otherPos = c.items.filter { o -> o.staff == s && o.isNote && o.dir != key.first }.mapNotNull { o -> o.pos }
@@ -625,14 +641,14 @@ object Engraver {
 
     // ---------- ties ----------
 
-    private fun drawTies(score: Score, headAt: Map<Triple<Voice, Int, Int>, Pair<Item, Pair<Float, Float>>>, marks: MutableList<Mark>) {
+    private fun drawTies(score: Score, shown: Set<Voice>, headAt: Map<Triple<Voice, Int, Int>, Pair<Item, Pair<Float, Float>>>, marks: MutableList<Mark>) {
         for ((key, v) in headAt) {
             val (it, xy) = v
             if (!it.tieNext) continue
             val next = headAt[Triple(key.first, key.second, key.third + 1)] ?: continue
             val (hx, hy) = xy
             val (nx, _) = next.second
-            val multi = score.voicesOn(it.staff).size > 1
+            val multi = score.voicesOn(it.staff).count { v -> v in shown } > 1
             // Shared staff: ties go outward from the voice; alone: opposite the stem.
             val above = if (multi) it.dir > 0 else it.dir < 0
             val y = hy + if (above) -0.55f else 0.55f

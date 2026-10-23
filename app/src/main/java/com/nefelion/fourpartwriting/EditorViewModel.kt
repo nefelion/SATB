@@ -571,7 +571,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setClef(staff: Int, c: Clef) = edit(s.score.copy(clefs = s.score.clefs.toMutableList().also { it[staff] = c }))
     fun setArrangement(a: Arrangement) = edit(s.score.withArrangement(a))
     fun setTime(t: TimeSig) = edit(s.score.copy(time = t))
-    fun clearScore() = edit(s.score.copy(voices = List(4) { emptyList() }), null, Voice.SOPRANO)
+    fun clearScore() = edit(s.score.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet()), null, Voice.SOPRANO)
     fun loadExample() = edit(EXAMPLE.withArrangement(s.score.arrangement), null, Voice.SOPRANO)
 
     // ---------- analysis ----------
@@ -592,6 +592,15 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         toMovement()
         _state.update { it.copy(focusedIssue = if (it.focusedIssue == i) null else i) }
     }
+
+    /** Long-press menu on an issue: hide just this one. */
+    fun ignoreIssue(i: Int) {
+        val a = s.analysis ?: return
+        val issue = a.issues.getOrNull(i) ?: return
+        edit(s.score.copy(ignored = s.score.ignored + VoiceLeading.ignoreKey(issue, a.slices)))
+    }
+    fun ignoreRuleInScore(r: Rule) = edit(s.score.copy(rulesOff = s.score.rulesOff + r.name))
+    fun resetIgnores() = edit(s.score.copy(rulesOff = emptySet(), ignored = emptySet()))
 
     fun toggleRule(r: Rule) {
         _state.update {

@@ -22,10 +22,10 @@ data class Arrangement(val staffOf: List<Int>) {
 
     /**
      * Stem direction per voice: 1 = up, -1 = down, 0 = from note position (a voice alone on its staff).
-     * On a shared staff the top voice stems up (the top two of four), the rest down.
+     * On a shared staff the top voice stems up (the top two of four), the rest down. Only [shown] voices count.
      */
-    val stems: List<Int> get() = Voice.entries.map { v ->
-        val on = voicesOn(staffOf[v.ordinal])
+    fun stems(shown: Collection<Voice> = Voice.entries): List<Int> = Voice.entries.map { v ->
+        val on = voicesOn(staffOf[v.ordinal]).filter { it in shown }
         when {
             on.size == 1 -> 0
             on.indexOf(v) < maxOf(1, on.size / 2) -> 1
@@ -70,6 +70,10 @@ data class Score(
     val arrangement: Arrangement = Arrangement.CLOSED,
     val clefs: List<Clef> = arrangement.defaultClefs,
     val voices: List<List<Event>> = List(4) { emptyList() },
+    /** Names of rules switched off for this score only. */
+    val rulesOff: Set<String> = emptySet(),
+    /** Issues ignored one by one (see VoiceLeading.ignoreKey). */
+    val ignored: Set<String> = emptySet(),
 ) {
     init { require(clefs.size == arrangement.staves) }
 

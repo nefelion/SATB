@@ -126,7 +126,7 @@ object MusicXml {
             repeat(w.seg.dur.dots) { sb.append("<dot/>") }
         }
         if (acc != null) sb.append("<accidental>${when (acc) { -2 -> "flat-flat"; -1 -> "flat"; 1 -> "sharp"; 2 -> "double-sharp"; else -> "natural" }}</accidental>")
-        val stem = score.arrangement.stems[w.voice.ordinal]
+        val stem = score.arrangement.stems()[w.voice.ordinal]
         if (p != null && stem != 0 && w.seg.dur.base > 1) sb.append("<stem>${if (stem > 0) "up" else "down"}</stem>")
         sb.append("<staff>${score.staffOf(w.voice) + 1}</staff>")
         if (tieStart || tieStop) {

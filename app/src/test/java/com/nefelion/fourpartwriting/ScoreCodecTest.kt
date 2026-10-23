@@ -34,6 +34,11 @@ class ScoreCodecTest {
         assertEquals(EXAMPLE, ScoreCodec.decode(ScoreCodec.encode(EXAMPLE).replace("arr 0 0 1 1", "arr CLOSED")))
     }
 
+    @Test fun ignoresRoundTrip() {
+        val s = EXAMPLE.copy(rulesOff = setOf("SPACING", "RANGE"), ignored = setOf("DOUBLING@1/4|Doubled third in a major triad (E); double the root."))
+        assertEquals(s, ScoreCodec.decode(ScoreCodec.encode(s)))
+    }
+
     @Test fun historyRoundTrip() {
         val a = EXAMPLE; val b = EXAMPLE.copy(tempo = 120); val c = EXAMPLE.withArrangement(Arrangement.OPEN)
         assertEquals(listOf(a, b) to listOf(c), ScoreCodec.decodeHistory(ScoreCodec.encodeHistory(listOf(a, b), listOf(c))))
@@ -44,10 +49,10 @@ class ScoreCodecTest {
         assertEquals(8, Arrangement.entries.distinct().size)
         val kb = Arrangement.KEYBOARD
         assertEquals("SAT/B", kb.label)
-        assertEquals(listOf(1, -1, -1, 0), kb.stems)
+        assertEquals(listOf(1, -1, -1, 0), kb.stems())
         assertEquals(listOf(Clef.TREBLE, Clef.BASS), kb.defaultClefs)
         assertEquals(listOf(Clef.TREBLE, Clef.TREBLE_8VB, Clef.BASS), Arrangement.THREE.defaultClefs)
-        assertEquals(listOf(1, 1, -1, -1), Arrangement.ONE.stems)
+        assertEquals(listOf(1, 1, -1, -1), Arrangement.ONE.stems())
     }
 
     @Test fun garbageIsRejected() {

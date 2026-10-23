@@ -10,6 +10,8 @@ object ScoreCodec {
         appendLine("tempo ${s.tempo}")
         appendLine("arr " + s.arrangement.staffOf.joinToString(" "))
         appendLine("clefs " + s.clefs.joinToString(" ") { it.name })
+        if (s.rulesOff.isNotEmpty()) appendLine("off " + s.rulesOff.joinToString(" "))
+        for (k in s.ignored) appendLine("ignore " + k.replace('\n', ' '))
         for (v in Voice.entries) {
             append(v.label)
             for (e in s.voice(v)) {
@@ -49,6 +51,8 @@ object ScoreCodec {
         val lines = text.lines().filter { it.isNotBlank() }
         require(lines.first().trim() == "v1")
         val map = lines.drop(1).associate { l -> l.substringBefore(' ') to l.substringAfter(' ', "") }
+        // Optional lines; "ignore" repeats, so it is not read from the map
+        val ignored = lines.filter { it.startsWith("ignore ") }.map { it.removePrefix("ignore ") }.toSet()
         val k = map.getValue("key").split(" ")
         val t = map.getValue("time").split(" ")
         val arrText = map.getValue("arr").trim()
@@ -71,6 +75,8 @@ object ScoreCodec {
             arrangement = arr,
             clefs = clefs,
             voices = voices,
+            rulesOff = map["off"].orEmpty().split(" ").filter { it.isNotBlank() }.toSet(),
+            ignored = ignored,
         )
     }.getOrNull()
 }

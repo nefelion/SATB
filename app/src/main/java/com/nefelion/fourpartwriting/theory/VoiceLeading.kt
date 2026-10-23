@@ -15,33 +15,33 @@ import kotlin.math.sign
 
 enum class Severity { ERROR, WARNING }
 
-/** Checks the user can switch on or off. */
-enum class Rule(val label: String) {
-    PARALLEL_FIFTHS("Parallel fifths"),
-    PARALLEL_OCTAVES("Parallel octaves"),
-    DIRECT("Direct fifths/octaves"),
-    UNEQUAL_FIFTHS("Unequal fifths"),
-    CROSSING("Voice crossing"),
-    OVERLAP("Voice overlap"),
-    SPACING("Spacing"),
-    RANGE("Range"),
-    MELODIC("Melodic interval"),
-    LEAPS("Leap handling"),
-    CROSS_RELATION("Cross relation"),
-    SIMILAR_MOTION("All voices in one direction"),
-    TENDENCY("Tendency tones"),
-    SIX_FOUR("Six-four chords"),
-    PROGRESSION("Chord progression"),
-    CADENCE("Final cadence"),
-    HARMONIC_RHYTHM("Harmonic rhythm"),
-    LEADING_TONE("Leading tone"),
-    SEVENTH("Seventh"),
-    DOUBLING("Doubling"),
-    MISSING_THIRD("Missing third"),
-    UNRESOLVED_NCT("Non-chord tones"),
-    UNRECOGNIZED("Chord"),
-    MISSING_VOICE("Missing voice"),
-    STRUCTURE("Structure"),
+/** Checks the user can switch on or off, most important first. */
+enum class Rule(val label: String, val desc: String) {
+    PARALLEL_OCTAVES("Parallel octaves", "Two voices an octave or unison apart must not move to another octave or unison."),
+    PARALLEL_FIFTHS("Parallel fifths", "Two voices a fifth apart must not move to another fifth."),
+    LEADING_TONE("Leading tone", "In V–I the leading tone rises by step to the tonic."),
+    SEVENTH("Seventh", "The chordal seventh resolves down by step."),
+    CROSSING("Voice crossing", "A lower voice must not sound above a higher one."),
+    MISSING_THIRD("Missing third", "Every chord needs its third."),
+    DOUBLING("Doubling", "Never double the leading tone or the seventh; in major triads double the root."),
+    SPACING("Spacing", "Keep upper neighbouring voices within an octave; tenor and bass within a twelfth."),
+    MELODIC("Melodic interval", "No augmented intervals, sevenths or leaps beyond an octave within a voice."),
+    OVERLAP("Voice overlap", "A voice must not move past the previous note of its neighbour."),
+    DIRECT("Direct fifths/octaves", "Outer voices may not leap in similar motion into a fifth or octave."),
+    TENDENCY("Tendency tones", "Chromatic notes keep their pull: raised notes rise, lowered notes fall."),
+    UNRESOLVED_NCT("Non-chord tones", "A dissonance must be a passing, neighbour, suspension or other standard figure."),
+    CADENCE("Final cadence", "End on the tonic in root position after V or IV."),
+    PROGRESSION("Chord progression", "Move tonic → predominant → dominant → tonic; avoid going backwards."),
+    SIX_FOUR("Six-four chords", "Use a ⁶₄ chord only as cadential, passing, pedal or arpeggiated."),
+    RANGE("Range", "Keep each voice inside its usual range."),
+    LEAPS("Leap handling", "After a big leap turn back by step; no tritone outlines."),
+    CROSS_RELATION("Cross relation", "A note and its chromatic version should not appear in different voices in a row."),
+    UNEQUAL_FIFTHS("Unequal fifths", "A diminished fifth over the bass should not move to a perfect fifth."),
+    HARMONIC_RHYTHM("Harmonic rhythm", "Do not repeat a chord from a weak beat to the downbeat."),
+    SIMILAR_MOTION("All voices in one direction", "Keep at least one voice moving against or holding against the others."),
+    MISSING_VOICE("Missing voice", "Every voice should sound in every chord."),
+    UNRECOGNIZED("Chord", "The notes should form a recognizable chord."),
+    STRUCTURE("Structure", "All voices equal in length; the last bar complete."),
 }
 
 /** A rule violation. [notes] are (slice index, voice) pairs to highlight. */
@@ -77,7 +77,12 @@ object VoiceLeading {
 
     private val V = Voice.entries
 
-    fun check(score: Score, enabled: Set<Rule> = Rule.entries.toSet()): Analysis {
+    /** Key for "ignore here": changes when the notes it names change, so an edited spot is checked again. */
+    fun ignoreKey(issue: Issue, slices: List<Slice>) =
+        "${issue.rule.name}@${slices.getOrNull(issue.slice)?.time}|${issue.message}"
+
+    fun check(score: Score, rules: Set<Rule> = Rule.entries.toSet()): Analysis {
+        val enabled = rules.filterTo(HashSet()) { it.name !in score.rulesOff }
         val slices = score.slices()
         val harmony = HarmonyAnalyzer.analyze(score, slices)
         val points = harmony.points
@@ -259,6 +264,7 @@ object VoiceLeading {
             }
         }
         // Errors first, then warnings; each by position in the score (slices are in time order)
+        out.removeAll { ignoreKey(it, slices) in score.ignored }
         return Analysis(slices, chords, out.sortedWith(compareBy({ it.severity }, { it.slice })), points, ncts)
     }
 

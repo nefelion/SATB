@@ -54,6 +54,9 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.ui.window.Popup
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
@@ -173,7 +176,7 @@ fun EditorScreen(vm: EditorViewModel) {
                     )
                     if (st.reorder.isNotEmpty()) ReorderPrompt(st, vm, Modifier.align(Alignment.TopCenter).padding(8.dp))
                 }
-                st.analysis?.let { IssuesStrip(st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide) }
+                st.analysis?.let { IssuesStrip(st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide, onUndoable = { undoable = it }) }
                 HorizontalDivider()
                 Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
                     .height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -475,7 +478,7 @@ private fun RowScope.PickTool(
 }
 
 @Composable
-private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, maxList: Dp, oneLine: Boolean) {
+private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, maxList: Dp, oneLine: Boolean, onUndoable: (String) -> Unit) {
     val a = st.analysis ?: return
     // Landscape has little height: start with just the summary line
     var open by remember { mutableStateOf(!oneLine) }
@@ -501,10 +504,22 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
                 itemsIndexed(a.issues) { i, issue ->
                     val t = a.slices.getOrNull(issue.slice)?.time ?: Fraction.ZERO
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    var menu by remember { mutableStateOf(false) }
+                    val haptic = LocalHapticFeedback.current
+                    // Press and hold: ignore this issue, ignore the rule in this score, or switch the rule off
+                    Box { DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, shape = SHAPE) {
+                        DropdownMenuItem(text = { Text("Ignore here") }, onClick = { menu = false; vm.ignoreIssue(i); onUndoable("Issue ignored") })
+                        DropdownMenuItem(text = { Text("Ignore in this score") },
+                            onClick = { menu = false; vm.ignoreRuleInScore(issue.rule); onUndoable("${issue.rule.label} ignored in this score") })
+                        DropdownMenuItem(text = { Text("Disable everywhere") }, onClick = { menu = false; vm.toggleRule(issue.rule) })
+                    } }
                     Row(
                         Modifier.fillMaxWidth().height(IntrinsicSize.Min)
                             .background(if (st.focusedIssue == i) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                            .clickable { vm.focusIssue(i) },
+                            .combinedClickable(
+                                onClick = { vm.focusIssue(i) },
+                                onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menu = true },
+                            ),
                     ) {
                         Box(Modifier.width(4.dp).fillMaxHeight().background(if (issue.severity == Severity.ERROR) sc.errorText else sc.warnText))
                         val head = "${where(t, st.score.time)} · ${issue.rule.label}"
@@ -625,6 +640,11 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                     Text("Rules to check", Modifier.weight(1f))
                     Text("${st.rules.size} of ${Rule.entries.size} on  ›", color = MaterialTheme.colorScheme.primary)
                 }
+                val n = score.rulesOff.size + score.ignored.size
+                if (n > 0) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Ignored in this score: $n", Modifier.weight(1f))
+                    TextButton(onClick = { vm.resetIgnores(); onUndoable("Ignored issues restored") }, shape = SHAPE) { Text("Reset") }
+                }
             }
         }
         item {
@@ -648,16 +668,33 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
 
 @Composable
 private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
+    var info by rememberSaveable { mutableStateOf<Rule?>(null) }
+    info?.let { r -> RuleInfoDialog(r, r in st.rules, onToggle = { vm.toggleRule(r) }) { info = null } }
     FullScreenPage("Rules to check", onDismiss) {
         item {
-            Group(null) { for (r in Rule.entries) key(r.name) { SwitchRow(r.label, r in st.rules) { vm.toggleRule(r) } } }
+            Group("Most important first") { for (r in Rule.entries) key(r.name) { RuleRow(r, r in st.rules, onInfo = { info = r }) { vm.toggleRule(r) } } }
         }
+    }
+}
+
+/** Rule name and one-line description, an ⓘ button for the animated example, and its switch. */
+@Composable
+private fun RuleRow(r: Rule, checked: Boolean, onInfo: () -> Unit, onToggle: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(onClick = onToggle).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(r.label)
+            Text(r.desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
+        Box(Modifier.size(48.dp).clip(CircleShape).clickable(onClick = onInfo).semantics { contentDescription = "About ${r.label}" },
+            contentAlignment = Alignment.Center) { Text("ⓘ", fontSize = 22.sp, color = MaterialTheme.colorScheme.primary) }
+        Switch(checked = checked, onCheckedChange = { onToggle() })
     }
 }
 
 /** Call inside a Dialog or Popup: its window does not inherit the refresh rate MainActivity asked for. */
 @Composable
-private fun KeepRefreshRate() {
+internal fun KeepRefreshRate() {
     val view = LocalView.current
     SideEffect {
         val activity = generateSequence(view.context) { (it as? android.content.ContextWrapper)?.baseContext }
@@ -755,14 +792,6 @@ private fun Segmented(options: List<String>, selected: Int, itemWidth: Dp = 48.d
                     color = if (i == selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-    }
-}
-
-@Composable
-private fun SwitchRow(label: String, checked: Boolean, onToggle: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(onClick = onToggle).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f).padding(end = 12.dp))
-        Switch(checked = checked, onCheckedChange = { onToggle() })
     }
 }
 
