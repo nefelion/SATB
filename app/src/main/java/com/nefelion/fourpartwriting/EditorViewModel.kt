@@ -345,11 +345,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         // The active voice button again enters movement mode (and drops the selection); any voice button leaves it
         if (s.moving) _state.update { it.copy(moving = false) }
         else if (v == s.voice) { resumeVoice = null; _state.update { it.copy(moving = true, selected = null) }; return }
-        // Any other voice button unlocks; input then resumes at the voice that ends earliest
-        if (s.locked != null && s.locked != v) {
-            _state.update { it.copy(locked = null) }
-            if (sel == null) { resumeVoice = null; _state.update { it.copy(voice = earliestVoice(it.score)) }; return }
-        }
+        // Any other voice button unlocks and switches to that voice
+        if (s.locked != null && s.locked != v) _state.update { it.copy(locked = null) }
         if (sel == null) { resumeVoice = null; _state.update { it.copy(voice = v) }; return }
         val t = s.selectedTime ?: onsetOf(sel)
         val ref = refAt(s.score, v, t)
@@ -572,12 +569,21 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- analysis ----------
 
     /** ✓ button: show results, or hide them when they are shown. */
-    fun check() = _state.update {
-        if (it.analysis != null) it.copy(analysis = null, focusedIssue = null)
-        else it.copy(analysis = VoiceLeading.check(it.score, it.rules), focusedIssue = null)
+    fun check() {
+        if (s.analysis == null) toMovement()
+        _state.update {
+            if (it.analysis != null) it.copy(analysis = null, focusedIssue = null)
+            else it.copy(analysis = VoiceLeading.check(it.score, it.rules), focusedIssue = null)
+        }
     }
+
+    /** Opening the check or tapping a found issue drops the selection into movement mode. */
+    private fun toMovement() { deselect(); _state.update { it.copy(moving = true) } }
     fun closeAnalysis() = _state.update { it.copy(analysis = null, focusedIssue = null) }
-    fun focusIssue(i: Int?) = _state.update { it.copy(focusedIssue = if (it.focusedIssue == i) null else i) }
+    fun focusIssue(i: Int?) {
+        toMovement()
+        _state.update { it.copy(focusedIssue = if (it.focusedIssue == i) null else i) }
+    }
 
     fun toggleRule(r: Rule) {
         _state.update {
