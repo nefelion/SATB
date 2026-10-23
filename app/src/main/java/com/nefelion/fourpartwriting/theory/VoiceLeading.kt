@@ -107,6 +107,14 @@ object VoiceLeading {
     fun ignoreKey(issue: Issue, slices: List<Slice>) =
         "${issue.rule.name}@${slices.getOrNull(issue.slice)?.time}|${issue.message}"
 
+    /** "Ignore here" mutes last only while their issue does: once an edit removes it, the mute is gone for good. */
+    fun pruneMutes(sc: Score): Score {
+        if (sc.ignored.isEmpty()) return sc
+        val a = check(sc.copy(ignored = emptySet()))
+        val live = a.issues.mapTo(HashSet()) { ignoreKey(it, a.slices) }
+        return sc.copy(ignored = sc.ignored intersect live)
+    }
+
     fun check(score: Score, rules: Set<Rule> = Rule.entries.toSet()): Analysis {
         val enabled = rules.filterTo(HashSet()) { it.name !in score.rulesOff }
         val slices = score.slices()

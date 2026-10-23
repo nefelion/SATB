@@ -568,6 +568,8 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
     val score = st.score
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
     if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
+    var ignoredOpen by rememberSaveable { mutableStateOf(false) }
+    if (ignoredOpen) IgnoredDialog(st.score.rulesOff, vm, onUndoable) { ignoredOpen = false }
     val ctx = LocalContext.current
     val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty() }
     FullScreenPage("Score settings", onDismiss) {
@@ -631,10 +633,10 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                     Text("Rules to check", Modifier.weight(1f))
                     Text("${st.rules.size} of ${Rule.entries.size} on  ›", color = MaterialTheme.colorScheme.primary)
                 }
-                val n = score.rulesOff.size + score.ignored.size
-                if (n > 0) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Ignored in this score: $n", Modifier.weight(1f))
-                    TextButton(onClick = { vm.resetIgnores(); onUndoable("Ignored issues restored") }, shape = SHAPE) { Text("Reset") }
+                val n = score.rulesOff.size
+                if (n > 0) Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { ignoredOpen = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Ignored in this score", Modifier.weight(1f))
+                    Text("$n  ›", color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -653,6 +655,30 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
             Text("SATB $version · Music font: Bravura © Steinberg Media Technologies, SIL Open Font License.",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.widthIn(max = 640.dp).padding(horizontal = 4.dp, vertical = 8.dp))
+        }
+    }
+}
+
+/** Rules switched off for this score only, each with a button to check it again. */
+@Composable
+private fun IgnoredDialog(off: Set<String>, vm: EditorViewModel, onUndoable: (String) -> Unit, onDismiss: () -> Unit) {
+    // Last one restored: nothing left to show
+    LaunchedEffect(off.isEmpty()) { if (off.isEmpty()) onDismiss() }
+    FullScreenPage("Ignored in this score", onDismiss) {
+        item {
+            Group("Rules not checked in this score") {
+                for (r in Rule.entries.filter { it.name in off }) key(r.name) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(r.label)
+                            Text(r.desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = { vm.unignoreRule(r.name); onUndoable("${r.label} checked again") }, shape = SHAPE) { Text("Restore") }
+                    }
+                }
+                if (off.size > 1) TextButton(onClick = { vm.resetIgnores(); onUndoable("All rules checked again") },
+                    shape = SHAPE, modifier = Modifier.align(Alignment.End)) { Text("Restore all") }
+            }
         }
     }
 }

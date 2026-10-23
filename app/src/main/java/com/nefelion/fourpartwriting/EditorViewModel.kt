@@ -199,9 +199,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Applies a score edit with undo; re-runs the check if results are shown. */
     private fun edit(
-        new: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice,
+        edited: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice,
         selectedAt: Fraction? = if (selected == s.selected) s.selectedAt else null,
     ) {
+        val new = if (dragBase != null) edited else VoiceLeading.pruneMutes(edited)
         if (new == s.score) { _state.update { it.copy(selected = selected, selectedAt = selectedAt, voice = voice) }; return }
         val dragging = dragBase != null
         _state.update {
@@ -425,8 +426,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 dragBase = null
                 _state.update { it.copy(dragging = false) }
                 if (base != s.score) _state.update {
-                    it.copy(undo = (it.undo + base).takeLast(200), redo = emptyList(),
-                        analysis = it.analysis?.let { _ -> VoiceLeading.check(it.score, it.rules) }, focusedIssue = null)
+                    val sc = VoiceLeading.pruneMutes(it.score)
+                    it.copy(score = sc, undo = (it.undo + base).takeLast(200), redo = emptyList(),
+                        analysis = it.analysis?.let { _ -> VoiceLeading.check(sc, it.rules) }, focusedIssue = null)
                 }
                 checkOrder()
             }
@@ -595,7 +597,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edit(s.score.copy(ignored = s.score.ignored + VoiceLeading.ignoreKey(issue, a.slices)))
     }
     fun ignoreRuleInScore(r: Rule) = edit(s.score.copy(rulesOff = s.score.rulesOff + r.name))
-    fun resetIgnores() = edit(s.score.copy(rulesOff = emptySet(), ignored = emptySet()))
+    fun resetIgnores() = edit(s.score.copy(rulesOff = emptySet()))
+    fun unignoreRule(name: String) = edit(s.score.copy(rulesOff = s.score.rulesOff - name))
 
     fun toggleRule(r: Rule) {
         _state.update {
