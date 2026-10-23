@@ -320,6 +320,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (ref == null) { deselect(); return }
         // Selecting in movement mode ends it; the note's voice becomes the input voice
         if (s.moving) { resumeVoice = ref.voice; _state.update { it.copy(moving = false) } }
+        // Selecting another voice's note unlocks for good; that voice stays the input voice afterwards
+        if (s.locked != null && s.locked != ref.voice) { resumeVoice = ref.voice; _state.update { it.copy(locked = null) } }
         if (resumeVoice == null) resumeVoice = s.voice
         _state.update { it.copy(selected = ref, selectedAt = at, voice = ref?.voice ?: it.voice) }
         ref?.let { r -> s.score.voice(r.voice).getOrNull(r.index)?.pitch?.let(::preview) }
@@ -346,7 +348,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (s.moving) _state.update { it.copy(moving = false) }
         else if (v == s.voice) { resumeVoice = null; _state.update { it.copy(moving = true, selected = null) }; return }
         // Any other voice button unlocks and switches to that voice
-        if (s.locked != null && s.locked != v) _state.update { it.copy(locked = null) }
+        // (it becomes the input voice too, so clearing a jumped-to selection doesn't return to the old locked one)
+        if (s.locked != null && s.locked != v) { resumeVoice = null; _state.update { it.copy(locked = null, voice = v) } }
         if (sel == null) { resumeVoice = null; _state.update { it.copy(voice = v) }; return }
         val t = s.selectedTime ?: onsetOf(sel)
         val ref = refAt(s.score, v, t)
