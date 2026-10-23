@@ -548,7 +548,8 @@ private fun keyLabel(k: Key) = k.name + when {
 @Composable
 private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String) -> Unit, onDismiss: () -> Unit) {
     val sf2Picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importSf2) }
-    val xmlSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.recordare.musicxml+xml")) { uri ->
+    // Generic type: providers keep an unknown .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
+    val xmlSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         uri?.let(vm::exportMusicXml)
     }
     val score = st.score
