@@ -564,6 +564,13 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                     Text("Theme", Modifier.weight(1f))
                     Segmented(listOf("Light", "Dark"), if (st.dark) 1 else 0, itemWidth = 84.dp) { vm.setDark(it == 1) }
                 }
+                Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.setHighlightVoice(!st.highlightVoice) }, verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Highlight active voice")
+                        Text("Other voices are drawn fainter", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = st.highlightVoice, onCheckedChange = vm::setHighlightVoice)
+                }
             }
         }
         item {

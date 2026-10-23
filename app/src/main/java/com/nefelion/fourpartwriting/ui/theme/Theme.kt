@@ -81,6 +81,10 @@ data class ScoreColors(
     val play: Color, val nct: Color,
     /** Strength of the insertion caret band (a softer tint reads better on dark). */
     val caretAlpha: Float,
+    /** Notes of the active voice while a voice is active. */
+    val activeInk: Color,
+    /** Ink share (rest is paper) of the other voices' notes then; 1 = plain ink. */
+    val otherInk: Float,
 )
 
 private val PaperScore = ScoreColors(
@@ -88,7 +92,7 @@ private val PaperScore = ScoreColors(
     voices = listOf(Color(0xFFC62828), Color(0xFFEF6C00), Color(0xFF2E7D32), Color(0xFF1565C0)),
     errorNote = Color(0xFFD32F2F), warnNote = Color(0xFFE67700),
     errorText = Color(0xFFC62828), warnText = Color(0xFFB85C00), ok = Color(0xFF2E7D32),
-    play = Color(0xFF2E7D32), nct = Color(0xFF5E35B1), caretAlpha = 0.22f,
+    play = Color(0xFF2E7D32), nct = Color(0xFF5E35B1), caretAlpha = 0.22f, activeInk = Ink, otherInk = 0.65f,
 )
 
 // Lighter, slightly softened versions that stay readable on the dark background
@@ -99,6 +103,8 @@ private val NightScore = ScoreColors(
     errorNote = Color(0xFFFF6E66), warnNote = Color(0xFFFFB347),
     errorText = Color(0xFFFF8A80), warnText = Color(0xFFFFB74D), ok = Color(0xFF81C784),
     play = Color(0xFF81C784), nct = Color(0xFFB39DDB), caretAlpha = 0.14f,
+    // The UI text off-white lifts the active voice above the dimmer ink without glaring like pure white
+    activeInk = NightInk, otherInk = 1f,
 )
 
 val LocalScoreColors = staticCompositionLocalOf { PaperScore }

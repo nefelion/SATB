@@ -28,6 +28,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -128,10 +129,18 @@ fun ScoreCanvas(
         LaunchedEffect(viewKey) { snapshotFlow { sp to offX }.collect { (a, b) -> onViewport(a, b) } }
 
         // Highlight colours per note
-        val colors = remember(analysis, state.focusedIssue, state.selected, state.playTime, state.score, sc) {
+        val colors = remember(analysis, state.focusedIssue, state.selected, state.voice, state.moving, state.highlightVoice, state.playTime, state.score, sc, paper) {
             val error = sc.errorNote.toArgb(); val warn = sc.warnNote.toArgb(); val play = sc.play.toArgb()
             val m = HashMap<NoteRef, Int>()
-            if (analysis != null) {
+            // Outside the check, the active voice stands out (theme's activeInk/otherInk); fading mixes ink toward paper, opaque so staff lines don't show through.
+            // Movement mode has no active voice, so nothing fades; the setting turns it off entirely.
+            if (analysis == null) {
+                if (state.highlightVoice && !state.moving) {
+                    val faded = lerp(paper, sc.ink, sc.otherInk).toArgb()
+                    val active = sc.activeInk.toArgb()
+                    for (v in Voice.entries) for (i in state.score.voice(v).indices) m[NoteRef(v, i)] = if (v == state.voice) active else faded
+                }
+            } else {
                 fun refs(i: Int) = analysis.issues[i].notes.mapNotNull { (si, v) ->
                     analysis.slices.getOrNull(si)?.eventIndex?.get(v.ordinal)?.takeIf { it >= 0 }?.let { NoteRef(v, it) }
                 }
