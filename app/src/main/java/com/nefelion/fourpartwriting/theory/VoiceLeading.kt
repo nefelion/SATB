@@ -182,7 +182,7 @@ object VoiceLeading {
             val nextI = points.getOrNull(k + 1)
             val prev = prevI?.let { chords[it] }
             if (s.pitches.size >= 3) chordRules(i, chordSlice, chord, prev, nextI?.let { chords[it] }, score.key, ::add)
-            if (prevI != null) resolutionRules(score, prevI, i, slices, chords[prevI], chord, ::isNct, ::add)
+            if (prevI != null) resolutionRules(score, prevI, i, slices, chords, chords[prevI], chord, ::isNct, ::add)
             if (prevI != null && i - prevI > 1) ornamentedParallels(prevI, i, slices, ::isNct, ::add)
 
             val q = chord.quality ?: continue
@@ -212,10 +212,13 @@ object VoiceLeading {
                     (prev.degree == 1 && chord.degree == 0 && chord.roman != "Cad⁶₄")
                 if (retro) add(Severity.WARNING, i, Rule.PROGRESSION, "${prev.roman} → ${chord.roman} is a retrogression; move from predominant to dominant to tonic.")
             }
-            // The same chord from a weak beat to the downbeat blurs the bar line
+            // The same chord from a weak beat to the downbeat blurs the bar line (one held since the last downbeat does not)
             val ml = score.time.measure
-            if (prevI != null && prev != null && prev.root == chord.root && prev.quality == q && prev.bass == chord.bass &&
-                (s.time / ml).den == 1L && (slices[prevI].time / ml).den != 1L
+            fun same(c: Chord) = c.root == chord.root && c.quality == q && c.bass == chord.bass
+            var runStart = k - 1
+            while (runStart > 0 && same(chords[points[runStart - 1]])) runStart--
+            if (prevI != null && prev != null && same(prev) &&
+                (s.time / ml).den == 1L && (slices[points[runStart]].time / ml).den != 1L
             ) add(Severity.WARNING, i, Rule.HARMONIC_RHYTHM, "${chord.roman} is repeated from a weak beat to the downbeat.")
         }
 
@@ -491,14 +494,19 @@ object VoiceLeading {
      * A voice's resolution is its next note (so ornaments between chords do not hide it).
      */
     private fun resolutionRules(
-        score: Score, h: Int, i: Int, slices: List<Slice>, ca: Chord, cb: Chord, isNct: (Slice, Voice) -> Boolean,
+        score: Score, h: Int, i: Int, slices: List<Slice>, chords: List<Chord>, ca: Chord, cb: Chord, isNct: (Slice, Voice) -> Boolean,
         add: (Severity, Int, Rule, String, Array<out Pair<Int, Voice>>) -> Unit,
     ) {
         val a = slices[h]
-        val before = slices[i - 1]
-        // A voice's note in chord [h]; after a non-chord tone there, the chord tone it reaches (B of a C–B 4–3)
+        // Slices since the chord on [ca]'s root began (V⁷ moving on to V or V⁶ is one span), latest first
+        var start = h
+        while (start > 0 && chords[start - 1].root == ca.root) start--
+        val span = (i - 1 downTo start)
+        // A voice's note in chord [h]; after a non-chord tone there, the chord tone it reaches (B of a C–B 4–3),
+        // else the last chord tone it had in this chord (B of B–A on beats 3–4 of V)
         val srcIdx = IntArray(4) { a.eventIndex[it] }
-        for (v in V) if (isNct(a, v) && !isNct(before, v) && before.notes[v.ordinal] != null) srcIdx[v.ordinal] = before.eventIndex[v.ordinal]
+        for (v in V) if (isNct(a, v)) span.firstOrNull { slices[it].notes[v.ordinal] != null && !isNct(slices[it], v) }
+            ?.let { srcIdx[v.ordinal] = slices[it].eventIndex[v.ordinal] }
         fun note(v: Voice) = score.voice(v).getOrNull(srcIdx[v.ordinal])?.pitch
         val resIdx = IntArray(4) { -1 }
         /** Struck again within this chord only delays the resolution; [skipRepeats]: also struck again in the next chord. */
@@ -512,10 +520,22 @@ object VoiceLeading {
             resIdx[v.ordinal] = j
             return evs.getOrNull(j)?.pitch
         }
+        /** The voice's note at [i]; after a non-chord tone there, the note it resolves to (B–D–C over I: D is an appoggiatura). */
+        fun arrival(v: Voice): Pitch? {
+            val idx = slices[i].eventIndex[v.ordinal]
+            val evs = score.voice(v)
+            if (idx < 0 || idx == srcIdx[v.ordinal]) return null
+            if (!isNct(slices[i], v)) return evs[idx].pitch
+            var j = idx + 1
+            while (evs.getOrNull(j)?.pitch == evs[idx].pitch) j++
+            return evs.getOrNull(j)?.pitch
+        }
         // Highlights the note and the note it moves to (which may sound before [i])
         fun both(v: Voice): Array<Pair<Int, Voice>> {
-            val at = slices.indexOfFirst { it.eventIndex[v.ordinal] == resIdx[v.ordinal] && it.attacked[v.ordinal] }
-            return arrayOf(h to v, (if (at >= 0) at else i) to v)
+            fun sliceOf(idx: Int) = slices.indexOfFirst { it.eventIndex[v.ordinal] == idx && it.attacked[v.ordinal] }
+            val from = if (srcIdx[v.ordinal] == a.eventIndex[v.ordinal]) h else sliceOf(srcIdx[v.ordinal])
+            val at = sliceOf(resIdx[v.ordinal])
+            return arrayOf((if (from >= 0) from else h) to v, (if (at >= 0) at else i) to v)
         }
 
         val lt = ca.leadingTone
@@ -528,12 +548,15 @@ object VoiceLeading {
                 val p = note(v) ?: continue
                 val q = nextNote(v, skipRepeats = true) ?: continue
                 if (p.pc != lt || (q.pc == target && q.diatonic == p.diatonic + 1)) continue
+                // Ornamented resolution: the voice reaches the tonic as the chord changes (B–D–C, B–G–C)
+                if (arrival(v)?.let { it.pc == target && it.diatonic == p.diatonic + 1 } == true) continue
                 // Chromatic descent into the seventh of the next chord (V⁷/V → V⁷: F♯ → F♮)
                 if (q.step == p.step && q.alter == p.alter - 1 && q.pc == cb.seventh) continue
                 if (v == Voice.SOPRANO || v == Voice.BASS)
                     add(Severity.ERROR, i, Rule.LEADING_TONE, "${v.label}: leading tone ${lt.name} should resolve up to ${target.name}.", both(v))
-                // An inner voice may drop a third to the fifth of the chord (frustrated leading tone)
-                else if (q.diatonic != p.diatonic - 2 || cb.member(q.pc) != 4)
+                // An inner voice may drop a third to the fifth of the chord (frustrated leading tone), also through a passing tone
+                else if ((q.diatonic != p.diatonic - 2 || cb.member(q.pc) != 4) &&
+                    arrival(v)?.let { it.diatonic == p.diatonic - 2 && cb.member(it.pc) == 4 } != true)
                     add(Severity.WARNING, i, Rule.LEADING_TONE, "${v.label}: leading tone ${lt.name} should resolve up to ${target.name} or drop to the fifth.", both(v))
             }
         }
@@ -574,17 +597,32 @@ object VoiceLeading {
                 add(Severity.WARNING, i, Rule.TENDENCY, "${v.label}: chromatic ${p.name} should ${if (dir > 0) "rise" else "fall"} by step.", both(v))
         }
 
-        val sev = ca.seventh
+        val sev = ca.seventh ?: span.firstNotNullOfOrNull { chords[it].seventh }
         if (sev != null && cb.recognized && cb.root != ca.root) {
             val passing43 = ca.inversion == 2 && ca.degree == 4 && cb.degree == 0 && cb.inversion == 1
             for (v in V) {
+                // The voice's last seventh in this chord: leaping away to another chord tone (F–D over V⁷) does not free it,
+                // rising by step to the root within the chord (a passing 7–8) does
+                span.firstOrNull { slices[it].notes[v.ordinal]?.pc == sev && !isNct(slices[it], v) }?.let { j ->
+                    val idx = slices[j].eventIndex[v.ordinal]
+                    val evs = score.voice(v)
+                    var k = idx + 1
+                    while (evs.getOrNull(k)?.pitch == evs[idx].pitch) k++
+                    val up = evs.getOrNull(k)?.pitch?.let { it.diatonic == evs[idx].pitch!!.diatonic + 1 } == true &&
+                        score.onsets(v)[k] < slices[i].time
+                    if (!up) srcIdx[v.ordinal] = idx
+                }
                 val p = note(v) ?: continue
                 if (p.pc != sev) continue
+                // Handed to another voice that still has it as the chord changes (V⁷ → V⁶₅)
+                if (slices[i - 1].notes[v.ordinal]?.pc != sev && V.any { slices[i - 1].notes[it.ordinal]?.pc == sev }) continue
                 val held = slices[i].notes[v.ordinal] == p && !slices[i].attacked[v.ordinal]
                 if (held && cb.notes.any { it.pc == sev }) continue // prolonged into the next chord
                 val q = nextNote(v) ?: continue
                 val step = q.diatonic - p.diatonic
-                val ok = step == -1 || (step == 0 && q == p) || (passing43 && step == 1)
+                // Ornamented resolution: the step down arrives with the next chord (F–D–E)
+                val ok = step == -1 || (step == 0 && q == p) || (passing43 && step == 1) ||
+                    arrival(v)?.let { it.diatonic == p.diatonic - 1 } == true
                 if (!ok) add(Severity.ERROR, i, Rule.SEVENTH, "${v.label}: chordal seventh ${sev.name} should resolve down by step.", both(v))
             }
         }
