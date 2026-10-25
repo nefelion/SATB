@@ -128,13 +128,14 @@ object ChordAnalyzer {
         val chords = list.toMutableList()
         for (i in chords.indices) {
             val c = chords[i]
-            val next = chords.getOrNull(i + 1)
+            // The chord the context comes from: the next one that is not this chord struck again
+            val next = list.drop(i + 1).firstOrNull { it.root != c.root || it.quality != c.quality || it.bass != c.bass }
             // I6/4 resolving to V (root position) is a cadential 6/4.
             if (c.degree == 0 && c.inversion == 2 && c.quality in setOf(Quality.MAJOR, Quality.MINOR) &&
                 next != null && next.degree == 4 && next.inversion == 0 && next.target == key.tonic
             ) chords[i] = c.copy(roman = "Cad⁶₄")
             // A major tonic ending a minor-key piece is a Picardy third, not V/iv.
-            if (next == null && key.mode == Mode.MINOR && c.root == key.tonic &&
+            if (list.drop(i + 1).all { it.root == c.root && it.quality == c.quality } && key.mode == Mode.MINOR && c.root == key.tonic &&
                 c.quality in setOf(Quality.MAJOR, Quality.MAJOR_NO5)
             ) chords[i] = c.copy(roman = "I" + triadFigure(c.inversion) + " (Picardy)", target = null, leadingTone = null)
         }

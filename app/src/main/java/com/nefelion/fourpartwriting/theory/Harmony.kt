@@ -44,7 +44,8 @@ object HarmonyAnalyzer {
         val beat = score.time.beatLength
         val points = slices.indices.filter { i ->
             val s = slices[i]
-            i == 0 || (s.time / beat).den == 1L || s.attacked.count { it } >= 3
+            // A rest in every voice is silence, not a chord
+            i == 0 || s.pitches.isNotEmpty() && ((s.time / beat).den == 1L || V.count { s.attacked[it.ordinal] && s.notes[it.ordinal] != null } >= 3)
         }
         val ncts = HashMap<NoteRef, Nct>()
         val pointChord = HashMap<Int, Chord>()
@@ -72,19 +73,26 @@ object HarmonyAnalyzer {
                 val next = pitchOf(v, i + 1)
                 // Struck again counts as held only when prepared at the previous chord point (not after an anticipation)
                 val prevPoint = points.lastOrNull { it < p }
-                val prepared = prevPoint != null && score.onsets(v).getOrNull(i - 1)?.let { it <= slices[prevPoint].time } == true
+                // The preparation is the first of the repeated notes (C C | C is prepared by the first C)
+                var first = i - 1
+                while (first > 0 && pitchOf(v, first - 1) == cur) first--
+                val prepared = prevPoint != null && score.onsets(v).getOrNull(first)?.let { it <= slices[prevPoint].time } == true
                 val held = !s.attacked[v.ordinal] || (prev == cur && prepared)
                 val dIn = prev?.let { motion(it, cur) }
                 val dOut = next?.let { motion(cur, it) }
                 // An ornamented resolution first leaps to another note, then steps down (C–A–B over G)
-                val next2 = pitchOf(v, i + 2)
+                // (the leaped-to note may be struck again first)
+                var j2 = i + 2
+                while (next != null && pitchOf(v, j2) == next) j2++
+                val next2 = pitchOf(v, j2)
                 val ornamented = held && dOut != null && abs(dOut) > 1 && next2 != null && motion(cur, next2) == -1
                 val res = if (ornamented) next2 else next
                 val dRes = res?.let { motion(cur, it) }
                 // A suspension resolves over the same bass; resolving only when the bass moves on is not one
-                val resAt = score.onsets(v).getOrNull(i + if (ornamented) 2 else 1)
-                val sameBass = v == Voice.BASS || resAt == null ||
-                    score.eventAt(Voice.BASS, resAt).let { b -> b >= 0 && score.voice(Voice.BASS)[b].pitch == bass }
+                val resAt = score.onsets(v).getOrNull(if (ornamented) j2 else i + 1)
+                // (a suspended bass resolves under upper voices that hold)
+                val sameBass = resAt == null || if (v == Voice.BASS) V.all { o -> o == v || score.eventAt(o, resAt).let { e -> e >= 0 && score.voice(o)[e].pitch == s.notes[o.ordinal] } }
+                    else score.eventAt(Voice.BASS, resAt).let { b -> b >= 0 && score.voice(Voice.BASS)[b].pitch == bass }
                 // Only a dissonance against the bass (2nd/9th, 4th, 7th) is suspended
                 val dissonant = v == Voice.BASS || bass == null || Interval.between(bass, cur).simpleNumber in setOf(2, 4, 7)
                 // In a real seventh chord a re-struck note is a chord tone unless it is the 7th/9th itself
@@ -150,13 +158,17 @@ object HarmonyAnalyzer {
         // Everything between chord points
         val chordOf = ArrayList<Chord>(slices.size)
         var cur = 0
+        var silent = false
         for (i in slices.indices) {
-            if (i in pointChord) cur = i
+            if (i in pointChord) { cur = i; silent = false }
+            // After a rest in every voice the chord is over: notes before the next chord point belong to none
+            if (slices[i].pitches.isEmpty()) silent = true
             val chord = pointChord.getValue(cur)
             chordOf += chord
-            if (i == cur || !chord.recognized) continue
+            if (i == cur || silent || !chord.recognized) continue
             val s = slices[i]
-            val nextPoint = points.firstOrNull { it > i }?.let { pointChord[it] }
+            val np = points.firstOrNull { it > i }
+            val nextPoint = np?.let { pointChord[it] }
             for (v in V) {
                 if (!s.attacked[v.ordinal]) continue
                 val p = s.notes[v.ordinal] ?: continue
@@ -164,7 +176,9 @@ object HarmonyAnalyzer {
                 val idx = s.eventIndex[v.ordinal]
                 val prev = pitchOf(v, idx - 1)
                 val next = pitchOf(v, idx + 1)
-                ncts[NoteRef(v, idx)] = classify(prev, p, next, nextPoint)
+                // Tied into the next chord point: anticipates it whatever comes after
+                val tied = np != null && slices[np].eventIndex[v.ordinal] == idx && isChordTone(nextPoint!!, p)
+                ncts[NoteRef(v, idx)] = classify(prev, p, if (tied) p else next, nextPoint)
             }
         }
         return Harmony(points, chordOf, ncts)

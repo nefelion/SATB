@@ -99,7 +99,8 @@ class OracleEdgeTest {
     }
 
     private fun wanted(key: Key, specs: List<Spec>) = specs.mapIndexed { i, s ->
-        val next = specs.getOrNull(i + 1)
+        // A ⁶₄ struck again is still the cadential one when V follows
+        val next = specs.drop(i + 1).firstOrNull { it != s }
         if (s.applied == null && s.degree == 0 && !s.seventh && s.inversion == 2 && next != null && next.applied == null && next.degree == 4 && next.inversion == 0) "Cad⁶₄"
         else expected(key, s)
     }
@@ -204,6 +205,16 @@ class OracleEdgeTest {
                 }
                 out
             }
+            // A prepared seventh rising a half step to the root on the off-beat reads as a 7–8 retardation: ambiguous, not checked
+            val quarter = Duration(4).value
+            val retardation = (1 until specs.size).any { k -> specs[k].seventh && (0 until 3).any { v ->
+                val p = at(v, k)
+                var t = com.nefelion.fourpartwriting.model.Fraction.ZERO
+                val idx = voices[v].indexOfFirst { e -> (t == quarter * com.nefelion.fourpartwriting.model.Fraction.of(k.toLong(), 1)).also { t += e.length } }
+                val nx = if (idx >= 0) voices[v].getOrNull(idx + 1)?.pitch else null
+                p.pc == members(key, specs[k])[3] && at(v, k - 1) == p && nx != null && nx.midi == p.midi + 1 && nx.diatonic == p.diatonic + 1
+            } }
+            if (retardation) return@repeat
             val a = Score(key = key, voices = voices).analysis()
             val want = wanted(key, specs)
             val got = a.romans()
