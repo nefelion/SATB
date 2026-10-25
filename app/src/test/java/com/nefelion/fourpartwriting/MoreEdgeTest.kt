@@ -107,4 +107,14 @@ class MoreEdgeTest {
         val bad = linesScore("C5:4. A4:16 G4:16", "G4:2", "E4:4 D4:4", "C3:4 G2:4").analysis()
         assertTrue(Rule.UNRESOLVED_NCT in bad.errorRules())
     }
+
+    @Test fun repeatedChordToneIsNotASuspension() {
+        // ii → ii⁷ → I: the bass D is struck again and steps down, but it is the root of ii⁷, not a 2–3 suspension
+        val a = c("D4 A3 F3 D3", "C4 A3 F3 D3", "C4 G3 E3 C3")
+        assertEquals(listOf("ii", "ii⁷", "I"), a.romans())
+        assertTrue(a.ncts.toString(), a.ncts.isEmpty())
+        // A consonant fifth struck again and rising is not a "5–6" retardation
+        val b = c("F4 C4 A3 F3", "F4 B3 D3 F3", "G4 C4 E3 G3")
+        assertTrue(b.ncts.toString(), b.ncts.isEmpty())
+    }
 }

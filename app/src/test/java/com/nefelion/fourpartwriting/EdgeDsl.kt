@@ -48,3 +48,26 @@ fun Analysis.romans() = points.map { chords[it].roman }
 fun Analysis.symbols() = points.map { chords[it].symbol }
 fun Analysis.nct(v: Voice, i: Int): Nct? = ncts[NoteRef(v, i)]
 fun Analysis.has(r: Rule) = r in rules()
+
+/** Moves every pitch by [generic] letters and [semis] semitones; null if a spelling would need a triple accidental. */
+fun Pitch.moved(generic: Int, semis: Int): Pitch? {
+    val d = diatonic + generic
+    val nat = Pitch.fromDiatonic(d, 0)
+    val alter = midi + semis - nat.midi
+    return if (alter in -2..2) Pitch.fromDiatonic(d, alter) else null
+}
+
+fun Score.transposedTo(target: Key): Score? {
+    var g = Math.floorMod(target.tonic.step - key.tonic.step, 7)
+    var s = Math.floorMod(target.tonic.semis - key.tonic.semis, 12)
+    if (s > 6) { g -= 7; s -= 12 }
+    val vs = voices.map { line -> line.map { e -> Event(e.length, e.pitch?.let { it.moved(g, s) ?: return null }) } }
+    return copy(key = target, voices = vs)
+}
+
+fun Analysis.fingerprint() = Triple(
+    issues.filter { it.rule != Rule.RANGE }.map { "${it.severity} ${it.slice} ${it.rule}" }.sorted(),
+    // "Fr⁺⁶ (on G)" names a real note, which moves with the key
+    romans().map { it.replace(Regex(" \\(on [^)]*\\)"), "(on)") },
+    ncts.toSortedMap(compareBy({ it.voice }, { it.index })).toString(),
+)

@@ -82,9 +82,14 @@ object HarmonyAnalyzer {
                 val resAt = score.onsets(v).getOrNull(i + if (ornamented) 2 else 1)
                 val sameBass = v == Voice.BASS || resAt == null ||
                     score.eventAt(Voice.BASS, resAt).let { b -> b >= 0 && score.voice(Voice.BASS)[b].pitch == bass }
+                // Only a dissonance against the bass (2nd/9th, 4th, 7th) is suspended
+                val dissonant = v == Voice.BASS || bass == null || Interval.between(bass, cur).simpleNumber in setOf(2, 4, 7)
+                // In a real seventh chord a re-struck note is a chord tone unless it is the 7th/9th itself
+                val suspendable = held && sameBass && dissonant && (directQ == null || directQ.name.contains("SUS") ||
+                    !s.attacked[v.ordinal] || direct.member(cur.pc) == 6 || direct.member(cur.pc) == 1)
                 when {
-                    held && sameBass && dRes == -1 -> cands += Cand(v, Nct(NctType.SUS, susFigure(v, cur, res!!, bass)), res, 0)
-                    held && sameBass && dOut == 1 -> cands += Cand(v, Nct(NctType.RET, susFigure(v, cur, next!!, bass)), next, 1)
+                    suspendable && dRes == -1 -> cands += Cand(v, Nct(NctType.SUS, susFigure(v, cur, res!!, bass)), res, 0)
+                    suspendable && dOut == 1 && v != Voice.BASS -> cands += Cand(v, Nct(NctType.RET, susFigure(v, cur, next!!, bass)), next, 1)
                     !held && dIn != null && abs(dIn) > 1 && dOut != null && abs(dOut) == 1 && dIn.sign != dOut.sign ->
                         cands += Cand(v, Nct(NctType.APP, "app"), next, 2)
                     !held && dIn != null && abs(dIn) == 1 && dOut != null && abs(dOut) == 1 && dIn.sign == dOut.sign ->

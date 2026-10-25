@@ -140,6 +140,9 @@ object VoiceLeading {
         if (total > Fraction.ZERO && (total / measure).den != 1L)
             add(Severity.WARNING, slices.lastIndex.coerceAtLeast(0), Rule.STRUCTURE, "Last measure is incomplete.")
 
+        // The voice sounding the bass of a slice (the bass part may rest)
+        fun low(si: Int) = V.lastOrNull { slices[si].notes[it.ordinal] != null } ?: Voice.BASS
+
         fun isNct(s: Slice, v: Voice) = s.eventIndex[v.ordinal] >= 0 &&
             com.nefelion.fourpartwriting.engrave.NoteRef(v, s.eventIndex[v.ordinal]) in ncts
 
@@ -184,21 +187,21 @@ object VoiceLeading {
             val q = chord.quality ?: continue
             // A ⁶₄ chord is cadential, passing (bass steps through), pedal (bass holds) or arpeggiated (same chord around it)
             if (q in setOf(Quality.MAJOR, Quality.MINOR, Quality.DIM, Quality.AUG) && chord.inversion == 2 && chord.roman != "Cad⁶₄") {
-                fun bassAt(p: Int?) = p?.let { slices[it].notes[Voice.BASS.ordinal] }
+                fun bassAt(p: Int?) = p?.let { slices[it].notes[low(it).ordinal] }
                 val pb = bassAt(prevI); val b = bassAt(i); val nb = bassAt(nextI)
                 val passing = pb != null && b != null && nb != null && abs(b.diatonic - pb.diatonic) == 1 &&
                     nb.diatonic - b.diatonic == b.diatonic - pb.diatonic
                 val pedal = b != null && pb == b && nb == b
                 fun same(o: Chord?) = o != null && o.root == chord.root && o.quality == q
                 if (!passing && !pedal && !same(prev) && !same(nextI?.let { chords[it] }))
-                    add(Severity.WARNING, i, Rule.SIX_FOUR, "${chord.roman}: use a ⁶₄ chord only as a cadential, passing, pedal or arpeggiated ⁶₄.", i to Voice.BASS)
+                    add(Severity.WARNING, i, Rule.SIX_FOUR, "${chord.roman}: use a ⁶₄ chord only as a cadential, passing, pedal or arpeggiated ⁶₄.", i to low(i))
             }
             // The cadential ⁶₄ (from where it starts sounding) falls on a stronger beat than its V
             if (chord.roman == "Cad⁶₄" && nextI != null) {
                 var start = k
                 while (start > 0 && chords[points[start - 1]].let { it.root == chord.root && it.quality == q && it.bass == chord.bass }) start--
                 if (weight(slices[points[start]].time, score.time) <= weight(slices[nextI].time, score.time))
-                    add(Severity.WARNING, i, Rule.SIX_FOUR, "The cadential ⁶₄ should fall on a stronger beat than the V it resolves to.", i to Voice.BASS)
+                    add(Severity.WARNING, i, Rule.SIX_FOUR, "The cadential ⁶₄ should fall on a stronger beat than the V it resolves to.", i to low(i))
             }
             // Retrogressions: a dominant back to a predominant, ii back to I or IV
             if (prev != null && prev.root != chord.root && !prev.roman.contains("/") && !chord.roman.contains("/")) {
@@ -222,7 +225,7 @@ object VoiceLeading {
             if (last.degree != 0 || last.root != score.key.tonic)
                 add(Severity.WARNING, lastP, Rule.CADENCE, "The piece does not end on the tonic (${last.roman}).")
             else {
-                if (last.inversion != 0) add(Severity.WARNING, lastP, Rule.CADENCE, "End on the tonic in root position.", lastP to Voice.BASS)
+                if (last.inversion != 0) add(Severity.WARNING, lastP, Rule.CADENCE, "End on the tonic in root position.", lastP to low(lastP))
                 val pen = points.asReversed().map { chords[it] }.firstOrNull { it.root != last.root }
                 if (pen != null && pen.recognized && !(pen.target == score.key.tonic && pen.leadingTone != null) && pen.degree != 3)
                     add(Severity.WARNING, lastP, Rule.CADENCE, "End with an authentic (V–I) or plagal (IV–I) cadence, not ${pen.roman}–${last.roman}.")
@@ -481,6 +484,7 @@ object VoiceLeading {
         add: (Severity, Int, Rule, String, Array<out Pair<Int, Voice>>) -> Unit,
     ) {
         val a = slices[h]
+        val resIdx = IntArray(4) { -1 }
         /** [skipRepeats]: the first note that differs (a re-struck note only delays the resolution). */
         fun nextNote(v: Voice, skipRepeats: Boolean = false): Pitch? {
             val idx = a.eventIndex[v.ordinal]
@@ -488,9 +492,14 @@ object VoiceLeading {
             val evs = score.voice(v)
             var j = idx + 1
             while (skipRepeats && evs.getOrNull(j)?.pitch?.let { it == evs[idx].pitch } == true) j++
+            resIdx[v.ordinal] = j
             return evs.getOrNull(j)?.pitch
         }
-        fun both(v: Voice) = arrayOf(h to v, i to v)
+        // Highlights the note and the note it moves to (which may sound before [i])
+        fun both(v: Voice): Array<Pair<Int, Voice>> {
+            val at = slices.indexOfFirst { it.eventIndex[v.ordinal] == resIdx[v.ordinal] && it.attacked[v.ordinal] }
+            return arrayOf(h to v, (if (at >= 0) at else i) to v)
+        }
 
         val lt = ca.leadingTone
         val target = ca.target
