@@ -73,12 +73,17 @@ object HarmonyAnalyzer {
                 val held = !s.attacked[v.ordinal] || prev == cur
                 val dIn = prev?.let { motion(it, cur) }
                 val dOut = next?.let { motion(cur, it) }
+                // An ornamented resolution first leaps to another note, then steps down (C–A–B over G)
+                val next2 = pitchOf(v, i + 2)
+                val ornamented = held && dOut != null && abs(dOut) > 1 && next2 != null && motion(cur, next2) == -1
+                val res = if (ornamented) next2 else next
+                val dRes = res?.let { motion(cur, it) }
                 // A suspension resolves over the same bass; resolving only when the bass moves on is not one
-                val resAt = score.onsets(v).getOrNull(i + 1)
+                val resAt = score.onsets(v).getOrNull(i + if (ornamented) 2 else 1)
                 val sameBass = v == Voice.BASS || resAt == null ||
                     score.eventAt(Voice.BASS, resAt).let { b -> b >= 0 && score.voice(Voice.BASS)[b].pitch == bass }
                 when {
-                    held && sameBass && dOut == -1 -> cands += Cand(v, Nct(NctType.SUS, susFigure(v, cur, next!!, bass)), next, 0)
+                    held && sameBass && dRes == -1 -> cands += Cand(v, Nct(NctType.SUS, susFigure(v, cur, res!!, bass)), res, 0)
                     held && sameBass && dOut == 1 -> cands += Cand(v, Nct(NctType.RET, susFigure(v, cur, next!!, bass)), next, 1)
                     !held && dIn != null && abs(dIn) > 1 && dOut != null && abs(dOut) == 1 && dIn.sign != dOut.sign ->
                         cands += Cand(v, Nct(NctType.APP, "app"), next, 2)

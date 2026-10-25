@@ -157,7 +157,9 @@ object VoiceLeading {
                     "${v.label}: ${p.name} is a dissonance that is not a passing, neighbour, suspension or other standard non-chord tone.", i to v)
             if (nct.type == NctType.SUS && v != Voice.BASS && i in pointChord) {
                 // The note of resolution should not sound in another voice against the suspension (9–8 excepted)
-                val res = score.voice(v).getOrNull(s.eventIndex[v.ordinal] + 1)?.pitch
+                // The step down: the next note, or the one after an ornament
+                val res = score.voice(v).drop(s.eventIndex[v.ordinal] + 1).take(2).mapNotNull { it.pitch }
+                    .firstOrNull { p.diatonic - it.diatonic == 1 || p.diatonic == it.diatonic && it.midi < p.midi }
                 val clash = V.filter { o -> o != v && s.notes[o.ordinal]?.pc == res?.pc && !(o == Voice.BASS && nct.label == "9–8") }
                 if (res != null && clash.isNotEmpty())
                     add(Severity.WARNING, i, Rule.UNRESOLVED_NCT, "${v.label}: the note of resolution (${res.pc.name}) already sounds against the suspension.",
@@ -177,6 +179,7 @@ object VoiceLeading {
             val prev = prevI?.let { chords[it] }
             if (s.pitches.size >= 3) chordRules(i, chordSlice, chord, prev, score.key, ::add)
             if (prevI != null) resolutionRules(score, prevI, i, slices, chords[prevI], chord, ::add)
+            if (prevI != null && i - prevI > 1) ornamentedParallels(prevI, i, slices, ::isNct, ::add)
 
             val q = chord.quality ?: continue
             // A ⁶₄ chord is cadential, passing (bass steps through), pedal (bass holds) or arpeggiated (same chord around it)
@@ -378,8 +381,10 @@ object VoiceLeading {
             // A chromatic semitone (A1) in one voice is the correct way to write a chromatic change
             if ((iv.quality == IntervalQuality.A && iv.number != 1) || iv.quality == IntervalQuality.AA)
                 add(Severity.ERROR, i, Rule.MELODIC, "${v.label}: augmented melodic interval (${iv.name}).", both(v))
-            else if (iv.number > 8 || (iv.number == 8 && iv.quality != IntervalQuality.PERFECT))
+            else if (iv.number > 8)
                 add(Severity.ERROR, i, Rule.MELODIC, "${v.label}: leap larger than an octave (${iv.name}).", both(v))
+            else if (iv.number == 8 && iv.quality != IntervalQuality.PERFECT)
+                add(Severity.ERROR, i, Rule.MELODIC, "${v.label}: leap of a diminished or augmented octave (${iv.name}).", both(v))
             else if (iv.number == 7)
                 add(Severity.ERROR, i, Rule.MELODIC, "${v.label}: leap of a seventh (${iv.name}).", both(v))
         }
@@ -440,6 +445,34 @@ object VoiceLeading {
     }
 
     /**
+     * Fifths or octaves between the chord tones of two chord points, hidden by notes in between
+     * (E–D–C over A–F). Ones that also sound right before [i] are already reported as plain parallels.
+     */
+    private fun ornamentedParallels(
+        h: Int, i: Int, slices: List<Slice>, isNct: (Slice, Voice) -> Boolean,
+        add: (Severity, Int, Rule, String, Array<out Pair<Int, Voice>>) -> Unit,
+    ) {
+        val a = slices[h]; val b = slices[i]; val m = slices[i - 1]
+        for (x in 0 until 4) for (y in x + 1 until 4) {
+            val vx = V[x]; val vy = V[y]
+            val ax = a.notes[x]; val ay = a.notes[y]; val bx = b.notes[x]; val by = b.notes[y]
+            if (ax == null || ay == null || bx == null || by == null || ax == bx || ay == by) continue
+            if (!b.attacked[x] || !b.attacked[y] || isNct(a, vx) || isNct(a, vy) || isNct(b, vx) || isNct(b, vy)) continue
+            val ia = Interval.between(ay, ax)
+            val ib = Interval.between(by, bx)
+            val im = m.notes[x]?.let { mx -> m.notes[y]?.let { Interval.between(it, mx) } }
+            val (rule, name) = when {
+                isP5(ia) && isP5(ib) && (im == null || !isP5(im)) -> Rule.PARALLEL_FIFTHS to "fifths"
+                isP8(ia) && isP8(ib) && (im == null || !isP8(im)) -> Rule.PARALLEL_OCTAVES to "octaves"
+                else -> continue
+            }
+            val same = (bx.midi - ax.midi).sign == (by.midi - ay.midi).sign
+            add(Severity.ERROR, i, rule, "${if (same) "Parallel" else "Consecutive"} $name between ${vx.label}–${vy.label} (notes in between do not hide them).",
+                arrayOf(h to vx, h to vy, i to vx, i to vy))
+        }
+    }
+
+    /**
      * Leading tone and chordal seventh, from chord point [h] to the next chord point [i].
      * A voice's resolution is its next note (so ornaments between chords do not hide it).
      */
@@ -462,11 +495,15 @@ object VoiceLeading {
         val lt = ca.leadingTone
         val target = ca.target
         if (lt != null && target != null && cb.root != null && cb.notes.any { it.pc == target }) {
-            val toTarget = cb.root == target || cb.root.step == (target.step + 5) % 7
+            // The cadential ⁶₄ stands for V, so a leading tone of V still rises into it
+            val toTarget = cb.root == target || cb.root.step == (target.step + 5) % 7 ||
+                (cb.roman == "Cad⁶₄" && target == score.key.degree(4))
             if (toTarget) for (v in V) {
                 val p = a.notes[v.ordinal] ?: continue
                 val q = nextNote(v, skipRepeats = true) ?: continue
                 if (p.pc != lt || (q.pc == target && q.diatonic == p.diatonic + 1)) continue
+                // Chromatic descent into the seventh of the next chord (V⁷/V → V⁷: F♯ → F♮)
+                if (q.step == p.step && q.alter == p.alter - 1 && q.pc == cb.seventh) continue
                 if (v == Voice.SOPRANO || v == Voice.BASS)
                     add(Severity.ERROR, i, Rule.LEADING_TONE, "${v.label}: leading tone ${lt.name} should resolve up to ${target.name}.", both(v))
                 // An inner voice may drop a third to the fifth of the chord (frustrated leading tone)
