@@ -235,16 +235,16 @@ object VoiceLeading {
                 if (p.midi !in RANGES.getValue(v))
                     add(Severity.WARNING, i, Rule.RANGE, "${v.name.lowercase().cap()} ${p.name} is out of its usual range.", i to v)
             }
-            // Spacing and crossing
-            for (k in 0 until 3) {
-                val up = n[k] ?: continue
-                val lo = n[k + 1] ?: continue
+            // Spacing and crossing, between neighbouring sounding voices (a resting voice is skipped)
+            for ((vu, vl) in V.filter { n[it.ordinal] != null }.zipWithNext()) {
+                val up = n[vu.ordinal]!!
+                val lo = n[vl.ordinal]!!
                 if (lo.midi > up.midi)
-                    add(Severity.ERROR, i, Rule.CROSSING, "${V[k + 1].label} (${lo.name}) is above ${V[k].label} (${up.name}).", i to V[k], i to V[k + 1])
-                else if (k < 2 && up.midi - lo.midi > 12)
-                    add(Severity.ERROR, i, Rule.SPACING, "More than an octave between ${V[k].label} and ${V[k + 1].label}.", i to V[k], i to V[k + 1])
-                else if (k == 2 && Interval.between(lo, up).number > 12)
-                    add(Severity.WARNING, i, Rule.SPACING, "More than a twelfth between T and B.", i to V[k], i to V[k + 1])
+                    add(Severity.ERROR, i, Rule.CROSSING, "${vl.label} (${lo.name}) is above ${vu.label} (${up.name}).", i to vu, i to vl)
+                else if (vl != Voice.BASS && up.midi - lo.midi > 12)
+                    add(Severity.ERROR, i, Rule.SPACING, "More than an octave between ${vu.label} and ${vl.label}.", i to vu, i to vl)
+                else if (vl == Voice.BASS && Interval.between(lo, up).number > 12)
+                    add(Severity.WARNING, i, Rule.SPACING, "More than a twelfth between ${vu.label} and B.", i to vu, i to vl)
             }
 
             if (i > 0) motionRules(i, slices[i - 1], s, ::add)
@@ -329,6 +329,9 @@ object VoiceLeading {
             return
         }
         val q = c.quality!!
+        // A sus chord whose 4th/2nd is not explained as a suspension (or other NCT) lacks its third
+        if (!q.hasThird && s.pitches.any { c.member(it.pc) == 1 || c.member(it.pc) == 3 })
+            add(Severity.ERROR, i, Rule.MISSING_THIRD, "The chord has no third: ${c.symbol}.", emptyArray())
         c.leadingTone?.let { lt ->
             val vs = voicesWith(s, lt)
             if (vs.size > 1) add(Severity.ERROR, i, Rule.DOUBLING, "Doubled leading tone (${lt.name}).", vs.map { i to it }.toTypedArray())
@@ -445,9 +448,14 @@ object VoiceLeading {
         add: (Severity, Int, Rule, String, Array<out Pair<Int, Voice>>) -> Unit,
     ) {
         val a = slices[h]
-        fun nextNote(v: Voice): Pitch? {
+        /** [skipRepeats]: the first note that differs (a re-struck note only delays the resolution). */
+        fun nextNote(v: Voice, skipRepeats: Boolean = false): Pitch? {
             val idx = a.eventIndex[v.ordinal]
-            return if (idx < 0) null else score.voice(v).getOrNull(idx + 1)?.pitch
+            if (idx < 0) return null
+            val evs = score.voice(v)
+            var j = idx + 1
+            while (skipRepeats && evs.getOrNull(j)?.pitch?.let { it == evs[idx].pitch } == true) j++
+            return evs.getOrNull(j)?.pitch
         }
         fun both(v: Voice) = arrayOf(h to v, i to v)
 
@@ -457,7 +465,7 @@ object VoiceLeading {
             val toTarget = cb.root == target || cb.root.step == (target.step + 5) % 7
             if (toTarget) for (v in V) {
                 val p = a.notes[v.ordinal] ?: continue
-                val q = nextNote(v) ?: continue
+                val q = nextNote(v, skipRepeats = true) ?: continue
                 if (p.pc != lt || (q.pc == target && q.diatonic == p.diatonic + 1)) continue
                 if (v == Voice.SOPRANO || v == Voice.BASS)
                     add(Severity.ERROR, i, Rule.LEADING_TONE, "${v.label}: leading tone ${lt.name} should resolve up to ${target.name}.", both(v))

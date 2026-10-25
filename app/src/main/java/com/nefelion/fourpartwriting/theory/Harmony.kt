@@ -71,8 +71,8 @@ object HarmonyAnalyzer {
                 val prev = pitchOf(v, i - 1)
                 val next = pitchOf(v, i + 1)
                 val held = !s.attacked[v.ordinal] || prev == cur
-                val dIn = prev?.let { cur.diatonic - it.diatonic }
-                val dOut = next?.let { it.diatonic - cur.diatonic }
+                val dIn = prev?.let { motion(it, cur) }
+                val dOut = next?.let { motion(cur, it) }
                 // A suspension resolves over the same bass; resolving only when the bass moves on is not one
                 val resAt = score.onsets(v).getOrNull(i + 1)
                 val sameBass = v == Voice.BASS || resAt == null ||
@@ -84,6 +84,9 @@ object HarmonyAnalyzer {
                         cands += Cand(v, Nct(NctType.APP, "app"), next, 2)
                     !held && dIn != null && abs(dIn) == 1 && dOut != null && abs(dOut) == 1 && dIn.sign == dOut.sign ->
                         cands += Cand(v, Nct(NctType.PT, "PT"), next, 3)
+                    // Accented neighbour: steps off a note on the beat and back to it
+                    !held && dIn != null && abs(dIn) == 1 && next == prev ->
+                        cands += Cand(v, Nct(NctType.NT, "NT"), next, 3)
                     v == Voice.BASS && !s.attacked[v.ordinal] -> cands += Cand(v, Nct(NctType.PED, "ped"), null, 4)
                     // Its next note belongs to a later chord, so it is dropped, not replaced
                     held -> cands += Cand(v, Nct(NctType.UNRESOLVED, "!"), null, 5)
@@ -156,12 +159,20 @@ object HarmonyAnalyzer {
     private fun isChordTone(c: Chord, p: Pitch): Boolean {
         val root = c.root ?: return false
         val (g, s) = com.nefelion.fourpartwriting.model.pcInterval(root, p.pc)
-        return c.quality!!.members[g] == s || g == 0 && s == 0
+        val q = c.quality!!
+        // An incomplete chord's omitted fifth still belongs to it
+        return q.members[g] == s || g == 0 && s == 0 || q.incomplete && g == 4 && s == 7 && 4 !in q.members
+    }
+
+    /** Letter distance from [a] to [b]; a chromatic semitone on one letter (C–C♯) counts as a step. */
+    private fun motion(a: Pitch, b: Pitch): Int {
+        val d = b.diatonic - a.diatonic
+        return if (d == 0) (b.midi - a.midi).sign else d
     }
 
     private fun classify(prev: Pitch?, cur: Pitch, next: Pitch?, nextChord: Chord?): Nct {
-        val dIn = prev?.let { cur.diatonic - it.diatonic }
-        val dOut = next?.let { it.diatonic - cur.diatonic }
+        val dIn = prev?.let { motion(it, cur) }
+        val dOut = next?.let { motion(cur, it) }
         return when {
             next == cur && nextChord != null && isChordTone(nextChord, cur) -> Nct(NctType.ANT, "ant")
             dIn != null && dOut != null && abs(dIn) == 1 && abs(dOut) == 1 && dIn.sign == dOut.sign -> Nct(NctType.PT, "PT")

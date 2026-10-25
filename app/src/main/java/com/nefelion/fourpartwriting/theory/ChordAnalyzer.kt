@@ -96,7 +96,10 @@ object ChordAnalyzer {
         var best: Pair<PitchClass, Quality>? = null
         for (r in pcs) {
             val q = match(r, pcs) ?: continue
-            if (best == null || q.ordinal < best.second.ordinal) best = r to q
+            // C–D–G is Csus2 over C but Gsus4 over G: between two sus readings the bass decides
+            val better = if (best != null && !q.hasThird && !best.second.hasThird && (r == bass) != (best.first == bass)) r == bass
+            else best == null || q.ordinal < best.second.ordinal
+            if (better) best = r to q
         }
         if (best == null) {
             val hint = if (pcs.size == 2) {
