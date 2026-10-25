@@ -117,4 +117,26 @@ class MoreEdgeTest {
         val b = c("F4 C4 A3 F3", "F4 B3 D3 F3", "G4 C4 E3 G3")
         assertTrue(b.ncts.toString(), b.ncts.isEmpty())
     }
+
+    @Test fun noteStruckAgainAfterAnAnticipationIsNotASuspension() {
+        // Tenor anticipates E, strikes it again on the beat as the 7th of IVM⁷, then anticipates D
+        val a = linesScore("D5:4 F5:4 F5:4", "B4:4 A4:4 A4:4", "D4:8 E4:8 E4:8 D4:8 D4:4", "G3:4 F3:4 F3:4").analysis()
+        assertEquals("IVM⁷", a.romans()[1])
+        assertTrue(a.ncts.toString(), a.ncts.values.none { it.type == NctType.SUS })
+    }
+
+    @Test fun wholeStepRiseIsNotARetardation() {
+        // vi⁷ with its seventh G (prepared) rising to A over the same bass: a moving voice, not a 7–8 retardation
+        val a = c("C5 G4 E4 C3", "C5 G4 E4 A2", "C5 A4 E4 A2")
+        assertEquals("vi⁷", a.romans()[1])
+        assertTrue(a.ncts.toString(), a.ncts.isEmpty())
+    }
+
+    @Test fun doubleSuspensionIntoSixFour() {
+        // A and F tied over G, resolving to G and E: I⁶₄, not vi⁴₂ with one suspension
+        val a = linesScore("A4:4. G4:8", "F4:4. E4:8", "E4:4 C4:4", "C3:4 G2:4").analysis()
+        assertEquals("I⁶₄", a.romans()[1])
+        assertEquals("9–8", a.nct(S, 0)?.label)
+        assertEquals("7–6", a.nct(A, 0)?.label)
+    }
 }

@@ -1,15 +1,20 @@
 package com.nefelion.fourpartwriting
 
+import com.nefelion.fourpartwriting.engrave.NoteRef
 import com.nefelion.fourpartwriting.model.Duration
 import com.nefelion.fourpartwriting.model.Event
+import com.nefelion.fourpartwriting.model.Interval
 import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Mode
 import com.nefelion.fourpartwriting.model.Pitch
 import com.nefelion.fourpartwriting.model.PitchClass
 import com.nefelion.fourpartwriting.model.Score
+import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.ChordAnalyzer.transpose
+import com.nefelion.fourpartwriting.theory.Rule
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.abs
 import kotlin.random.Random
 
 /**
@@ -84,38 +89,135 @@ class OracleEdgeTest {
         return out.reversed() // S A T B
     }
 
+    private fun randomSpecs(r: Random, key: Key) = List(r.nextInt(2, 9)) {
+        val sev = r.nextInt(3) == 0
+        if (r.nextInt(4) == 0) {
+            val kind = if (r.nextBoolean()) "V" else "vii"
+            val targets = if (key.mode == Mode.MAJOR) majorTargets else if (kind == "V") minorV else minorVii
+            Spec(targets.keys.random(r), true, r.nextInt(4), kind)
+        } else Spec(r.nextInt(7), sev, r.nextInt(if (sev) 4 else 3))
+    }
+
+    private fun wanted(key: Key, specs: List<Spec>) = specs.mapIndexed { i, s ->
+        val next = specs.getOrNull(i + 1)
+        if (s.applied == null && s.degree == 0 && !s.seventh && s.inversion == 2 && next != null && next.applied == null && next.degree == 4 && next.inversion == 0) "Cad⁶₄"
+        else expected(key, s)
+    }
+
+    private fun kindOf(w: String, g: String?, key: Key) =
+        "$w named $g (${key.mode})".replace(Regex("[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]"), "")
+
+    private fun report(fails: Map<String, String>) =
+        assertTrue(fails.entries.joinToString(" ### ") { "${it.key}: ${it.value}" }, fails.isEmpty())
+
     @Test fun randomDiatonicProgressionsAreNamedAsBuilt() {
         val r = Random(7)
         val fails = LinkedHashMap<String, String>()
         repeat(3000) { n ->
             val key = Key(r.nextInt(-7, 8), if (r.nextBoolean()) Mode.MAJOR else Mode.MINOR)
-            val specs = List(r.nextInt(2, 9)) {
-                val sev = r.nextInt(3) == 0
-                if (r.nextInt(4) == 0) {
-                    val kind = if (r.nextBoolean()) "V" else "vii"
-                    val targets = if (key.mode == Mode.MAJOR) majorTargets else if (kind == "V") minorV else minorVii
-                    Spec(targets.keys.random(r), true, r.nextInt(4), kind)
-                } else Spec(r.nextInt(7), sev, r.nextInt(if (sev) 4 else 3))
-            }
+            val specs = randomSpecs(r, key)
             val chords = specs.map { voicing(r, key, it) }
             val sc = Score(key = key, voices = (0 until 4).map { v -> chords.map { Event(Duration(4), it[v]) } })
             val a = sc.analysis()
-            val want = specs.mapIndexed { i, s ->
-                val next = specs.getOrNull(i + 1)
-                if (s.applied == null && s.degree == 0 && !s.seventh && s.inversion == 2 && next != null && next.applied == null && next.degree == 4 && next.inversion == 0) "Cad⁶₄"
-                else expected(key, s)
-            }
+            val want = wanted(key, specs)
             val got = a.romans()
-            for (i in want.indices) {
-                if (got.getOrNull(i) != want[i]) {
-                    val kind = "${want[i]} named ${got.getOrNull(i)} (${key.mode})"
-                    fails.putIfAbsent(kind.replace(Regex("[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]"), ""),
-                        "#$n ${key.name} $want vs $got | chords ${chords.map { it.joinToString(" ") }}")
-                }
-            }
+            for (i in want.indices) if (got.getOrNull(i) != want[i])
+                fails.putIfAbsent(kindOf(want[i], got.getOrNull(i), key), "#$n ${key.name} $want vs $got | chords ${chords.map { it.joinToString(" ") }}")
             if (a.ncts.isNotEmpty()) fails.putIfAbsent("invented NCT ${a.ncts.values.first().label}",
                 "#$n ${key.name} $want vs $got ${a.ncts} | chords ${chords.map { it.joinToString(" ") }}")
         }
-        assertTrue(fails.entries.joinToString(" ### ") { "${it.key}: ${it.value}" }, fails.isEmpty())
+        report(fails)
+    }
+
+    private enum class Emb { PT, NT, ANT, SUS }
+
+    /**
+     * The same progressions decorated in up to two voices per beat: passing and upper neighbour tones and
+     * anticipations on the second eighth of a beat, and suspensions tied into the next beat that resolve
+     * down on its second eighth. Chords keep their names; each added note is the expected non-chord tone
+     * (or none when it happens to be a chord tone), and nothing else is one.
+     */
+    @Test fun embellishedProgressionsKeepTheirChords() {
+        val r = Random(11)
+        val fails = LinkedHashMap<String, String>()
+        val e8 = Duration(8).value
+        repeat(3000) { n ->
+            val key = Key(r.nextInt(-7, 8), if (r.nextBoolean()) Mode.MAJOR else Mode.MINOR)
+            val specs = randomSpecs(r, key)
+            val chords = specs.map { voicing(r, key, it) } // S A T B
+            val pcs = specs.map { members(key, it).toSet() }
+            fun at(v: Int, k: Int) = chords[k][v]
+            fun diatonicNote(d: Int) = Pitch.fromDiatonic(d, key.sigAlter(Math.floorMod(d, 7)))
+            val plan = Array(4) { arrayOfNulls<Emb>(specs.size) }
+            for (k in 0 until specs.size - 1) {
+                // A suspension from the last beat resolves on this beat's second eighth: one off-beat attack already, and the bass must hold
+                val susIn = (0 until 4).count { k > 0 && plan[it][k - 1] == Emb.SUS }
+                var busy = susIn
+                for (v in (0 until 4).shuffled(r)) {
+                    if (busy >= 2 || r.nextInt(3) != 0 || (k > 0 && plan[v][k - 1] == Emb.SUS) || (v == 3 && susIn > 0)) continue
+                    val p = at(v, k); val q = at(v, k + 1)
+                    val d = q.diatonic - p.diatonic
+                    val options = buildList {
+                        if (abs(d) == 2) add(Emb.PT)
+                        if (p == q) add(Emb.NT)
+                        if (p != q) add(Emb.ANT)
+                        // Suspensions into triads only, and not when the held note makes a triad of its own with the others
+                        // (F♯ held over C♯–A♯ reads as VI⁶₄): both are ambiguous, not checked here
+                        val held = chords[k + 1].toMutableList().also { it[v] = p }
+                        val alone = com.nefelion.fourpartwriting.theory.ChordAnalyzer.analyze(held, key).quality
+                        if (v != 3 && d == -1 && !specs[k + 1].seventh && (alone == null || alone.seventh || alone.incomplete || !alone.hasThird) &&
+                            Interval.between(at(3, k + 1), p).simpleNumber in setOf(2, 4, 7)) add(Emb.SUS)
+                    }
+                    if (options.isEmpty()) continue
+                    plan[v][k] = options.random(r)
+                    busy++
+                }
+            }
+            val expect = HashMap<NoteRef, Emb?>()
+            val voices = (0 until 4).map { v ->
+                val voice = Voice.entries[v]
+                val out = mutableListOf<Event>()
+                var k = 0
+                while (k < specs.size) {
+                    val p = at(v, k)
+                    when (val e = plan[v][k]) {
+                        null -> out += Event(Duration(4), p)
+                        Emb.SUS -> {
+                            expect[NoteRef(voice, out.size)] = Emb.SUS
+                            out += Event(Duration(4, 1).value, p)
+                            out += Event(e8, at(v, k + 1))
+                            k++
+                        }
+                        else -> {
+                            val q = at(v, k + 1)
+                            val extra = when (e) {
+                                Emb.PT -> diatonicNote((p.diatonic + q.diatonic) / 2)
+                                Emb.NT -> diatonicNote(p.diatonic + 1)
+                                else -> q
+                            }
+                            out += Event(e8, p)
+                            expect[NoteRef(voice, out.size)] = if (extra.pc in pcs[k]) null else e
+                            out += Event(e8, extra)
+                        }
+                    }
+                    k++
+                }
+                out
+            }
+            val a = Score(key = key, voices = voices).analysis()
+            val want = wanted(key, specs)
+            val got = a.romans()
+            val desc = { "#$n ${key.name} $want vs $got ncts=${a.ncts} | ${voices.map { l -> l.joinToString(" ") { "${it.pitch}:${it.length.den / it.length.num}" } }}" }
+            for (i in want.indices) if (got.getOrNull(i) != want[i]) fails.putIfAbsent("emb: " + kindOf(want[i], got.getOrNull(i), key), desc())
+            for ((ref, e) in expect) {
+                val found = a.ncts[ref]
+                if (if (e == null) found != null else found?.type?.name != e.name) fails.putIfAbsent("added $e found ${found?.type}", desc())
+            }
+            for ((ref, nct) in a.ncts) if (ref !in expect) fails.putIfAbsent("invented NCT ${nct.type} (embellished)", desc())
+            a.issues.firstOrNull { it.rule == Rule.UNRESOLVED_NCT && it.severity == com.nefelion.fourpartwriting.theory.Severity.ERROR }?.let {
+                fails.putIfAbsent("unresolved issue: ${it.message.substringAfter(": ").take(40)}", desc())
+            }
+        }
+        report(fails)
     }
 }

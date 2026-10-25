@@ -70,7 +70,10 @@ object HarmonyAnalyzer {
                 val cur = s.notes[v.ordinal]!!
                 val prev = pitchOf(v, i - 1)
                 val next = pitchOf(v, i + 1)
-                val held = !s.attacked[v.ordinal] || prev == cur
+                // Struck again counts as held only when prepared at the previous chord point (not after an anticipation)
+                val prevPoint = points.lastOrNull { it < p }
+                val prepared = prevPoint != null && score.onsets(v).getOrNull(i - 1)?.let { it <= slices[prevPoint].time } == true
+                val held = !s.attacked[v.ordinal] || (prev == cur && prepared)
                 val dIn = prev?.let { motion(it, cur) }
                 val dOut = next?.let { motion(cur, it) }
                 // An ornamented resolution first leaps to another note, then steps down (C–A–B over G)
@@ -89,7 +92,8 @@ object HarmonyAnalyzer {
                     !s.attacked[v.ordinal] || direct.member(cur.pc) == 6 || direct.member(cur.pc) == 1)
                 when {
                     suspendable && dRes == -1 -> cands += Cand(v, Nct(NctType.SUS, susFigure(v, cur, res!!, bass)), res, 0)
-                    suspendable && dOut == 1 && v != Voice.BASS -> cands += Cand(v, Nct(NctType.RET, susFigure(v, cur, next!!, bass)), next, 1)
+                    // A retardation rises a half step (7–8: leading tone to tonic); a whole step up is just a moving voice
+                    suspendable && dOut == 1 && v != Voice.BASS && next!!.midi - cur.midi == 1 -> cands += Cand(v, Nct(NctType.RET, susFigure(v, cur, next!!, bass)), next, 1)
                     !held && dIn != null && abs(dIn) > 1 && dOut != null && abs(dOut) == 1 && dIn.sign != dOut.sign ->
                         cands += Cand(v, Nct(NctType.APP, "app"), next, 2)
                     !held && dIn != null && abs(dIn) == 1 && dOut != null && abs(dOut) == 1 && dIn.sign == dOut.sign ->
@@ -120,8 +124,9 @@ object HarmonyAnalyzer {
             val pairs = cands.flatMapIndexed { a, x -> cands.drop(a + 1).map { y -> listOf(x, y) } }.sortedBy { it.sumOf { c -> c.rank } }
             // A recognized seventh/incomplete chord stays unless a suspension turns it into a complete triad (7–6, 9–8 ...)
             val best = if (directQ != null && !directQ.name.contains("SUS"))
-                tryCombos(singles.filter { it[0].rank <= 1 }, triadOnly = true)
-            else tryCombos(singles + pairs, triadOnly = false)
+                tryCombos((singles + pairs).filter { combo -> combo.all { it.rank <= 1 } }, triadOnly = true)
+            // A complete triad (e.g. from a double suspension) beats a seventh chord left by one resolution
+            else tryCombos(singles + pairs, triadOnly = true) ?: tryCombos(singles + pairs, triadOnly = false)
                 // No chord of its own: the previous chord continues if the explained NCTs are all that is foreign to it
                 ?: points.lastOrNull { it < p }?.let { pointChord[it] }?.takeIf { it.recognized }?.let { prevChord ->
                     (singles + pairs).filter { combo -> combo.all { it.rank <= 4 } }.firstOrNull { combo ->
