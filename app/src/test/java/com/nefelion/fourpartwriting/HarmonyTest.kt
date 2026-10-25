@@ -49,6 +49,13 @@ class HarmonyTest {
         assertEquals("7–6", nct(s76, Voice.SOPRANO, 0)?.label)
     }
 
+    @Test fun passingToneOverRepeatedBassKeepsChord() {
+        // F5 passes over a repeated C3; the bass's next note (E3) must not be borrowed to make C/E
+        val a = check("E5:4 F5:4 G5:4", "G4:4 G4:4 G4:4", "C4:4 C4:4 C4:4", "C3:4 C3:4 E3:4")
+        assertEquals(listOf("C", "C", "C/E"), a.points.map { a.chords[it].symbol })
+        assertEquals(NctType.PT, nct(a, Voice.SOPRANO, 1)?.type)
+    }
+
     @Test fun unresolvedSuspensionIsAnError() {
         val bad = check("C5:4. E5:8", "G4:2", "E4:4 D4:4", "C3:4 G2:4")
         assertTrue(errors(bad).toString(), Rule.UNRESOLVED_NCT in errors(bad))

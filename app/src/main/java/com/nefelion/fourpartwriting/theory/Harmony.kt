@@ -85,7 +85,8 @@ object HarmonyAnalyzer {
                     !held && dIn != null && abs(dIn) == 1 && dOut != null && abs(dOut) == 1 && dIn.sign == dOut.sign ->
                         cands += Cand(v, Nct(NctType.PT, "PT"), next, 3)
                     v == Voice.BASS && !s.attacked[v.ordinal] -> cands += Cand(v, Nct(NctType.PED, "ped"), null, 4)
-                    held -> cands += Cand(v, Nct(NctType.UNRESOLVED, "!"), next, 5)
+                    // Its next note belongs to a later chord, so it is dropped, not replaced
+                    held -> cands += Cand(v, Nct(NctType.UNRESOLVED, "!"), null, 5)
                 }
             }
             fun tryCombos(combos: List<List<Cand>>, triadOnly: Boolean): Pair<Chord, List<Cand>>? {
@@ -108,6 +109,12 @@ object HarmonyAnalyzer {
             val best = if (directQ != null && !directQ.name.contains("SUS"))
                 tryCombos(singles.filter { it[0].rank <= 1 }, triadOnly = true)
             else tryCombos(singles + pairs, triadOnly = false)
+                // No chord of its own: the previous chord continues if the explained NCTs are all that is foreign to it
+                ?: points.lastOrNull { it < p }?.let { pointChord[it] }?.takeIf { it.recognized }?.let { prevChord ->
+                    (singles + pairs).filter { combo -> combo.all { it.rank <= 4 } }.firstOrNull { combo ->
+                        voices.all { v -> combo.any { it.v == v } || isChordTone(prevChord, s.notes[v.ordinal]!!) }
+                    }?.let { prevChord to it }
+                }
             if (best != null) {
                 pointChord[p] = best.first
                 for (c in best.second) ncts[ref(s, c.v)] = c.nct
