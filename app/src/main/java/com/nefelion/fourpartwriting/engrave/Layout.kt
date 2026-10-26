@@ -511,7 +511,7 @@ object Engraver {
             if (!u.hasStem || u in beamedUnits) continue
             stemAndFlag(u, c.x, sy, syf(u.staff, 4f), marks)
         }
-        // Triplets: a "3" over (stem up) or under each triplet group of each voice
+        // Triplets: a "3" just beyond the stem ends (beam side); a bracket too unless one beam joins the whole group
         val colOf = HashMap<Item, Col>()
         for (c in m.cols) for (it in c.items) colOf[it] = c
         for (v in Voice.entries) {
@@ -521,9 +521,35 @@ object Engraver {
                 val staff = run.first().staff
                 val notes = run.filter { it.isNote }
                 val up = (notes.firstOrNull()?.dir ?: 1) > 0
-                val y = if (up) min(sy(staff, 8) - 0.8f, (notes.minOfOrNull { sy(staff, it.pos!!) } ?: sy(staff, 8)) - 4.6f)
-                    else max(sy(staff, 0) + 2.0f, (notes.maxOfOrNull { sy(staff, it.pos!!) } ?: sy(staff, 0)) + 5.4f)
-                marks += GlyphMark(Smufl.TUPLET_3, (xs.min() + xs.max()) / 2 + Smufl.HEAD_W / 2 - 0.45f, y)
+                val x0 = xs.min() - 0.2f
+                val x1 = xs.max() + Smufl.HEAD_W + 0.2f
+                // Stem ends and beams of this group's notes, and the heads (whole notes have no stem)
+                val refs = notes.map { it.ref }.toSet()
+                val ys = notes.map { sy(staff, it.pos!!) } + marks.filter { mk -> mk.ref in refs && mk.x >= x0 - 0.5f && mk.x <= x1 + 0.5f }
+                    .flatMap { mk ->
+                        when (mk) {
+                            is LineMark -> if (mk.width == Smufl.STEM) listOf(mk.y1, mk.y2) else emptyList()
+                            is BeamMark -> listOf(mk.y1, mk.y2, mk.y1 + mk.h, mk.y2 + mk.h)
+                            else -> emptyList()
+                        }
+                    }
+                // Clear of the staff (rests sit inside it)
+                val edge = if (up) min(ys.minOrNull() ?: Float.MAX_VALUE, sy(staff, 8) - 0.3f)
+                    else max(ys.maxOrNull() ?: -Float.MAX_VALUE, sy(staff, 0) + 0.3f)
+                // One beam joins the group: all notes with flags (beams follow triplet groups)
+                val beamed = notes.size == run.size && run.size > 1 && run.all { it.d.flags > 0 }
+                val cx = (x0 + x1) / 2
+                val lineY = if (up) edge - 0.9f else edge + 0.9f
+                // Number centred on the bracket line (or where it would be); the glyph's baseline is ~0.65 below its middle
+                marks += GlyphMark(Smufl.TUPLET_3, cx - 0.42f, lineY + 0.65f)
+                if (!beamed) {
+                    val hook = if (up) 0.6f else -0.6f
+                    val w = Smufl.STEM
+                    marks += LineMark(x0, lineY + hook, x0, lineY, w)
+                    marks += LineMark(x0, lineY, cx - 0.75f, lineY, w)
+                    marks += LineMark(cx + 0.75f, lineY, x1, lineY, w)
+                    marks += LineMark(x1, lineY, x1, lineY + hook, w)
+                }
             }
         }
     }
@@ -581,21 +607,23 @@ object Engraver {
         }
     }
 
-    /** Consecutive flagged notes inside one beat (dotted beat in compound meter). */
+    /** Consecutive flagged notes inside one beat (dotted beat in compound meter), or inside one triplet group. */
     private fun beamGroups(notes: List<Item>, start: Fraction, time: TimeSig): List<List<Item>> {
         val beat = time.beatLength
         val out = mutableListOf<List<Item>>()
         var cur = mutableListOf<Item>()
-        var curBeat = -1L
+        var curKey: Any? = null
         fun flush() { if (cur.size >= 2) out += cur; cur = mutableListOf() }
         for (it in notes) {
             val rel = it.seg.onset - start
             val b = (rel / beat).let { f -> f.num / f.den }
-            val endsInBeat = ((rel + it.seg.length) / beat) <= Fraction.of(b + 1, 1)
-            if (it.d.flags == 0 || !endsInBeat) { flush(); curBeat = -1; continue }
+            val endsInBeat = it.seg.tuplet || ((rel + it.seg.length) / beat) <= Fraction.of(b + 1, 1)
+            if (it.d.flags == 0 || !endsInBeat) { flush(); curKey = null; continue }
+            // Triplets beam by their group, other notes by beat
+            val key: Any = it.seg.group?.let { g -> "t$g" } ?: b
             // A gap (rest) breaks the beam
-            if (b != curBeat || cur.lastOrNull()?.let { l -> l.seg.onset + l.seg.length != it.seg.onset } == true) flush()
-            curBeat = b
+            if (key != curKey || cur.lastOrNull()?.let { l -> l.seg.onset + l.seg.length != it.seg.onset } == true) flush()
+            curKey = key
             cur += it
         }
         flush()
