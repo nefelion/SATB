@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.nefelion.fourpartwriting.audio.ChordGather
 import com.nefelion.fourpartwriting.audio.MidiIn
 import com.nefelion.fourpartwriting.audio.Synth
 import com.nefelion.fourpartwriting.engrave.Hit
@@ -153,7 +154,6 @@ val EXAMPLE = Score(
     ),
 )
 
-private const val CHORD_MS = 40L
 
 class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("satb", Context.MODE_PRIVATE)
@@ -187,11 +187,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private var saveJob: Job? = null
     private var tempoBase: Score? = null
 
-    /** MIDI keyboard: notes played within [CHORD_MS] of each other arrive as one chord. */
-    private val midi = MidiIn(app, { n, on -> midiKey(n, on) }, { names -> _state.update { it.copy(midiDevices = names) } })
+    /** MIDI keyboard: keys pressed together (held until all are released) arrive as one chord. */
+    private val midi = MidiIn(app, { n, on -> midiKey(n, on) }, { names ->
+        midiChord.reset() // a keyboard unplugged mid-chord never sends its key releases
+        _state.update { it.copy(midiDevices = names) }
+    })
     private val btFound = mutableListOf<android.bluetooth.BluetoothDevice>()
-    private val midiChord = mutableListOf<Int>()
-    private var midiJob: Job? = null
+    private val midiChord = ChordGather()
 
     /** Last zoom (px per staff space) and horizontal offset, restored on the next start. */
     var viewport: Pair<Float, Float>? = prefs.getFloat("viewSp", -1f).takeIf { it > 0 }?.let { it to prefs.getFloat("viewX", 0f) }
@@ -735,14 +737,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun midiKey(n: Int, on: Boolean) {
         // Sound follows the keys, so a silent controller can be played like an instrument
         if (s.soundLoaded && !s.playing) if (on) Synth.noteOn(n) else Synth.noteOff(n)
-        if (!on) return
-        midiChord += n
-        if (midiJob?.isActive != true) midiJob = viewModelScope.launch {
-            delay(CHORD_MS)
-            val notes = midiChord.toList().also { midiChord.clear() }
-            muted = true
-            try { midiNotes(notes) } finally { muted = false }
-        }
+        // A locked voice takes each key as it goes down, so legato playing stays a melody (its release is a stray one to the gatherer)
+        val notes = (if (on && s.locked != null) listOf(n) else null) ?: midiChord.key(n, on) ?: return
+        muted = true
+        try { midiNotes(notes) } finally { muted = false }
     }
 
     /**
@@ -756,7 +754,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val desc = notes.distinct().sortedDescending().map { Pitch.fromMidi(it, key) }
         fun pick(v: Voice) = if (v == Voice.BASS) desc.last() else desc.first()
         val sel = s.selected
-        if (sel != null && s.selectedEvent != null) {
+        // A just-entered note stays selected (placed) but is not re-pitched: the next key adds a new note
+        if (sel != null && s.selectedEvent != null && !s.placed) {
             editSelected { sc, v, i -> Edit.setPitch(sc, v, i, pick(v)) }
             if (sel.index < s.score.voice(sel.voice).lastIndex) step(1) else deselect()
             return

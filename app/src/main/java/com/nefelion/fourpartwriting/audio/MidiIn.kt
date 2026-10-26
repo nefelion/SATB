@@ -145,3 +145,23 @@ class MidiIn(
         private const val SCAN_MS = 15_000L
     }
 }
+
+/**
+ * Groups MIDI keys into chords: every key pressed while another is still held joins the chord,
+ * which is done when the last key is released. Keys may go down together or one by one.
+ */
+class ChordGather {
+    private val held = HashSet<Int>()
+    private val chord = LinkedHashSet<Int>()
+
+    /** Feeds a key press or release; returns the chord on the last release, else null. */
+    fun key(n: Int, on: Boolean): List<Int>? {
+        if (on) { held += n; chord += n; return null }
+        // A release of a key not seen pressed (held from before) finishes nothing
+        if (!held.remove(n) || held.isNotEmpty()) return null
+        return chord.toList().also { chord.clear() }
+    }
+
+    /** Forgets held keys (their releases may never come); the next release then finishes the chord. */
+    fun reset() = held.clear()
+}
