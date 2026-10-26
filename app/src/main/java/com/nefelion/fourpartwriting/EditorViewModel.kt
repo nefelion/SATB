@@ -56,6 +56,11 @@ data class UiState(
     /** Accidental armed for the next placed note (null = follow key signature). */
     val accidental: Int? = null,
     val selected: NoteRef? = null,
+    /**
+     * [selected] is only the note just entered (not one the user picked): length, dot, triplet and rest
+     * then set up the next note instead of changing it.
+     */
+    val placed: Boolean = false,
     /** Time of the tapped head of [selected] (a tied note has several); bar and head deletes use it. */
     val selectedAt: Fraction? = null,
     val rules: Set<Rule> = Rule.entries.toSet(),
@@ -100,10 +105,12 @@ data class UiState(
         val on = score.onsets(r.voice).getOrNull(r.index) ?: return@let null
         selectedAt?.takeIf { it >= on && it < on + score.voice(r.voice)[r.index].length } ?: on
     }
+    /** The selected note, when the palette edits it (picked by the user, not just entered). */
+    private val paletteTarget: Event? get() = selectedEvent?.takeIf { !placed }
     /** Duration shown on the palette: the selected note's written value if it has one. */
-    val shownDuration: Duration get() = selectedEvent?.let { Notation.representable(it.length) ?: Notation.representable(it.length * THREE_HALVES) } ?: duration
+    val shownDuration: Duration get() = paletteTarget?.let { Notation.representable(it.length) ?: Notation.representable(it.length * THREE_HALVES) } ?: duration
     /** Triplet mark shown on the palette: the selected note is a triplet value, or triplets are armed. */
-    val shownTriplet: Boolean get() = selectedEvent?.let { Notation.representable(it.length) == null && Notation.representable(it.length * THREE_HALVES) != null } ?: triplet
+    val shownTriplet: Boolean get() = paletteTarget?.let { Notation.representable(it.length) == null && Notation.representable(it.length * THREE_HALVES) != null } ?: triplet
     /** Length of a new note from the palette. */
     val armedLength: Fraction get() = if (triplet) duration.value * TWO_THIRDS else duration.value
 }
@@ -234,11 +241,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         selectedAt: Fraction? = if (selected == s.selected) s.selectedAt else null,
     ) {
         val new = if (dragBase != null) edited else VoiceLeading.pruneMutes(edited)
-        if (new == s.score) { _state.update { it.copy(selected = selected, selectedAt = selectedAt, voice = voice) }; return }
+        val placed = s.placed && selected == s.selected
+        if (new == s.score) { _state.update { it.copy(selected = selected, selectedAt = selectedAt, voice = voice, placed = placed) }; return }
         val dragging = dragBase != null
         _state.update {
             it.copy(
-                score = new, selected = selected, selectedAt = selectedAt, voice = voice,
+                score = new, selected = selected, selectedAt = selectedAt, voice = voice, placed = placed,
                 followTick = if (dragging) it.followTick else it.followTick + 1,
                 undo = if (dragging) it.undo else (it.undo + it.score).takeLast(200), redo = emptyList(),
                 // While dragging a pitch, check once on release (dragPitch(true)), not at every step
@@ -340,7 +348,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 else Edit.append(score, v, len, t.pitch, t.at).let { it to it.voice(v).lastIndex }
             edit(new, NoteRef(v, i), nextVoice(new))
             resumeVoice = null
-            _state.update { it.copy(accidental = null) }
+            _state.update { it.copy(accidental = null, placed = true) }
             endTriplets(new, v)
             // Already heard on finger-down
             return true
@@ -384,7 +392,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         // Selecting another voice's note unlocks for good; that voice stays the input voice afterwards
         if (s.locked != null && s.locked != ref.voice) { resumeVoice = ref.voice; _state.update { it.copy(locked = null) } }
         if (resumeVoice == null) resumeVoice = s.voice
-        _state.update { it.copy(selected = ref, selectedAt = at, voice = ref?.voice ?: it.voice) }
+        _state.update { it.copy(selected = ref, selectedAt = at, voice = ref?.voice ?: it.voice, placed = false) }
         ref?.let { r -> s.score.voice(r.voice).getOrNull(r.index)?.pitch?.let(::preview) }
     }
 
@@ -420,7 +428,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deselect() {
         val back = s.locked ?: resumeVoice
-        _state.update { it.copy(selected = null, voice = back ?: it.voice) }
+        _state.update { it.copy(selected = null, voice = back ?: it.voice, placed = false) }
         resumeVoice = null
     }
 
@@ -455,14 +463,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val d = Duration(base, s.duration.dots)
         val trip = s.shownTriplet
         _state.update { it.copy(duration = d, triplet = trip) }
-        editSelected { sc, v, i -> Edit.setLength(sc, v, i, if (trip) d.value * TWO_THIRDS else d.value) }
+        if (!s.placed) editSelected { sc, v, i -> Edit.setLength(sc, v, i, if (trip) d.value * TWO_THIRDS else d.value) }
     }
 
-    /** Triplet on/off: for the next notes, and the selected note becomes (or stops being) a triplet value. */
+    /**
+     * Triplet on/off for the next notes (it turns itself off when the group is full). A note the user
+     * picked becomes (or stops being) a triplet value; the note just entered is left as it is.
+     */
     fun toggleTriplet() {
         if (s.score.time.isCompound) { msg("Triplets are for simple meters (2/4, 3/4, 4/4 …)."); return }
         val on = !s.shownTriplet
-        val e = s.selectedEvent
+        val e = s.selectedEvent?.takeIf { !s.placed }
         _state.update { it.copy(triplet = on, duration = it.shownDuration) }
         if (e != null) editSelected { sc, v, i -> Edit.setLength(sc, v, i, e.length * if (on) TWO_THIRDS else THREE_HALVES) }
     }
@@ -478,7 +489,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val d = Duration(cur.base, (cur.dots + 1) % 3)
         val trip = s.shownTriplet
         _state.update { it.copy(duration = d, triplet = trip) }
-        editSelected { sc, v, i -> Edit.setLength(sc, v, i, if (trip) d.value * TWO_THIRDS else d.value) }
+        if (!s.placed) editSelected { sc, v, i -> Edit.setLength(sc, v, i, if (trip) d.value * TWO_THIRDS else d.value) }
     }
 
     fun setAccidental(alter: Int) {
@@ -531,7 +542,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun rest() {
-        if (editSelected { sc, v, i -> Edit.dropEmptyLastBars(Edit.setPitch(sc, v, i, null)) }) return
+        // A picked note becomes a rest; after entering a note, a rest follows it
+        if (!s.placed && editSelected { sc, v, i -> Edit.dropEmptyLastBars(Edit.setPitch(sc, v, i, null)) }) return
         if (s.moving) return
         val v = s.locked ?: s.voice
         val new = Edit.append(s.score, v, inputLength(s.score, v, s.score.length(v)), null)
@@ -608,7 +620,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun undo() {
         _state.update {
             val prev = it.undo.lastOrNull() ?: return@update it
-            it.copy(score = prev, undo = it.undo.dropLast(1), redo = it.redo + it.score, selected = null,
+            it.copy(score = prev, undo = it.undo.dropLast(1), redo = it.redo + it.score, selected = null, placed = false,
                 analysis = it.analysis?.let { _ -> VoiceLeading.check(prev, it.rules) })
         }
         checkOrder()
@@ -618,7 +630,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun redo() {
         _state.update {
             val next = it.redo.lastOrNull() ?: return@update it
-            it.copy(score = next, redo = it.redo.dropLast(1), undo = it.undo + it.score, selected = null,
+            it.copy(score = next, redo = it.redo.dropLast(1), undo = it.undo + it.score, selected = null, placed = false,
                 analysis = it.analysis?.let { _ -> VoiceLeading.check(next, it.rules) })
         }
         checkOrder()
@@ -726,7 +738,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val last = voices.last()
         edit(sc, NoteRef(last, sc.voice(last).lastIndex), nextVoice(sc))
         resumeVoice = null
-        _state.update { it.copy(accidental = null) }
+        _state.update { it.copy(accidental = null, placed = true) }
         voices.forEach { endTriplets(sc, it) }
     }
 
