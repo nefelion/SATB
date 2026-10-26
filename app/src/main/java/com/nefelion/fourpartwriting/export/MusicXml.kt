@@ -86,7 +86,7 @@ object MusicXml {
                 }
                 first = false
                 var t = start
-                // Neighbouring values of one triplet group
+                // Neighbouring values of one tuplet group
                 fun joined(a: W?, b: W?) = a != null && b != null && a.seg.tuplet && a.seg.group == b.seg.group &&
                     a.seg.onset + a.seg.length == b.seg.onset
                 for ((j, w) in notes.withIndex()) {
@@ -107,7 +107,7 @@ object MusicXml {
         return sb.toString()
     }
 
-    /** [tup]: null for a plain value; else which ends of a triplet run this note is ("start", " stop", both or none). */
+    /** [tup]: null for a plain value; else which ends of a tuplet run this note is ("start", " stop", both or none). */
     private fun note(sb: StringBuilder, score: Score, w: W, acc: Int?, dur: (Fraction) -> Long, tup: String? = null) {
         val e = score.voice(w.voice)[w.index]
         val p = e.pitch
@@ -129,7 +129,7 @@ object MusicXml {
             repeat(w.seg.dur.dots) { sb.append("<dot/>") }
         }
         if (acc != null) sb.append("<accidental>${when (acc) { -2 -> "flat-flat"; -1 -> "flat"; 1 -> "sharp"; 2 -> "double-sharp"; else -> "natural" }}</accidental>")
-        if (tup != null) sb.append("<time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>")
+        w.seg.group?.let { g -> sb.append("<time-modification><actual-notes>${g.n}</actual-notes><normal-notes>${g.m}</normal-notes></time-modification>") }
         val stem = score.arrangement.stems()[w.voice.ordinal]
         if (p != null && stem != 0 && w.seg.dur.base > 1) sb.append("<stem>${if (stem > 0) "up" else "down"}</stem>")
         sb.append("<staff>${score.staffOf(w.voice) + 1}</staff>")
@@ -139,7 +139,7 @@ object MusicXml {
             sb.append("<notations>")
             if (tieStop) sb.append("<tied type=\"stop\"/>")
             if (tieStart) sb.append("<tied type=\"start\"/>")
-            if (tupStart) sb.append("<tuplet type=\"start\"/>")
+            if (tupStart) sb.append(if (w.seg.group!!.label.contains(':')) "<tuplet type=\"start\" show-number=\"both\"/>" else "<tuplet type=\"start\"/>")
             if (tupStop) sb.append("<tuplet type=\"stop\"/>")
             sb.append("</notations>")
         }

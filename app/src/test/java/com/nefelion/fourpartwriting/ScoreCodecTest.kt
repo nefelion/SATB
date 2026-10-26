@@ -23,7 +23,7 @@ class ScoreCodecTest {
             voices = listOf(
                 listOf(Event(Fraction.of(5, 8), Pitch.parse("Bbb4")), Event(Fraction.of(1, 8), null)),
                 listOf(Event(Fraction.of(3, 16), Pitch.parse("Fx4"))),
-                emptyList(),
+                listOf(Event(Fraction.of(1, 20), Pitch.parse("C4"), com.nefelion.fourpartwriting.model.Tuplet(5, 2, Fraction.of(1, 8))), Event(Fraction.of(1, 20), null)),
                 listOf(Event(Fraction.of(7, 4), Pitch.parse("C#2"))),
             ),
         )

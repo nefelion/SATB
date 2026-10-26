@@ -23,8 +23,11 @@ object Smufl {
     const val HEAD_WHOLE = ''
     const val HEAD_HALF = ''
     const val HEAD_BLACK = ''
-    /** Tuplet number 3 (bold italic, unlike bar numbers). */
-    const val TUPLET_3 = ''
+    /** Tuplet digit or colon (bold italic, unlike bar numbers). */
+    fun tupletGlyph(c: Char) = if (c == ':') '' else '' + (c - '0')
+    /** Rough advance of a tuplet digit / colon, in staff spaces. */
+    const val TUPLET_DIGIT_W = 0.84f
+    const val TUPLET_COLON_W = 0.7f
     const val DOT = ''
     val FLAG_UP = charArrayOf('', '', '', '')
     val FLAG_DOWN = charArrayOf('', '', '', '')

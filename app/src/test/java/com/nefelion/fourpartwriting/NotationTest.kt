@@ -104,8 +104,8 @@ class NotationTest {
     @Test fun unfinishedGroupStaysInItsGroup() {
         // two triplet eighths written so far: the voice ends inside the group
         val segs = Notation.splitVoice(listOf(1, 1).map { com.nefelion.fourpartwriting.model.Event(f(1, 12), null) }, c44)
-        assertEquals(f(0, 1), segs[1].single().group)
-        assertEquals(listOf(com.nefelion.fourpartwriting.engrave.TripletGroup(f(0, 1), f(1, 4))), Notation.groups(listOf(f(1, 12), f(1, 12)), c44))
+        assertEquals(f(0, 1), segs[1].single().group?.start)
+        assertEquals(listOf(com.nefelion.fourpartwriting.engrave.TupletGroup(f(0, 1), f(1, 4))), Notation.groups(listOf(f(1, 12), f(1, 12)), c44))
     }
 
     @Test fun tripletTiedAcrossTheBeat() {
@@ -124,5 +124,33 @@ class NotationTest {
 
     @Test fun plainValuesAreNotTriplets() {
         assertEquals("4 | 2", w3("1/4", "1/2"))
+    }
+
+    /** [k] notes of [n]:[m] tuplet with written value 1/[unit], then a plain quarter: written values and group labels. */
+    private fun tagged(k: Int, n: Int, m: Int, unit: Long): Pair<String, List<String>> {
+        val tp = com.nefelion.fourpartwriting.model.Tuplet(n, m, f(1, unit))
+        val c4 = com.nefelion.fourpartwriting.model.Pitch.parse("C4")
+        val events = List(k) { com.nefelion.fourpartwriting.model.Event(f(m.toLong(), unit * n), c4, tp) } +
+            com.nefelion.fourpartwriting.model.Event(f(1, 4), c4)
+        val segs = Notation.splitVoice(events, c44)
+        return segs.joinToString(" | ") { s -> s.joinToString(" ") { (if (it.tuplet) "t" else "") + it.dur.base } } to
+            segs.flatten().mapNotNull { it.group?.label }.distinct()
+    }
+
+    @Test fun anyTupletIsWrittenAsPicked() {
+        assertEquals("t16 | t16 | t16 | t16 | t16 | 4" to listOf("5"), tagged(5, 5, 4, 16))
+        // Same sounding length as 5:4 sixteenths, but kept as eighths
+        assertEquals("t8 | t8 | t8 | t8 | t8 | 4" to listOf("5:2"), tagged(5, 5, 2, 8))
+        // A group of 5 eighths' time, not a plain value
+        assertEquals("t8 | t8 | t8 | 8 8" to listOf("3:5"), tagged(3, 3, 5, 8)) // the quarter after it crosses beat 4
+    }
+
+    @Test fun tupletWithAPlainTimeInsideIsOneGroup() {
+        // 6:4 sixteenths: the 4th note starts on the plain eighth, still one group
+        val (w, labels) = tagged(6, 6, 4, 16)
+        assertEquals("t16 | t16 | t16 | t16 | t16 | t16 | 4", w)
+        assertEquals(listOf("6"), labels)
+        assertEquals(1, Notation.tupletGroups(List(6) { com.nefelion.fourpartwriting.model.Event(f(1, 24), null,
+            com.nefelion.fourpartwriting.model.Tuplet(6, 4, f(1, 16))) }, c44).size)
     }
 }

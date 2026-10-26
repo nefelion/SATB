@@ -188,7 +188,7 @@ object Engraver {
             val t = score.length(v)
             if (t >= barEnd) continue
             val staff = score.staffOf(v)
-            val groups = Notation.groups(score.voice(v).map { it.length }, score.time)
+            val groups = Notation.tupletGroups(score.voice(v), score.time)
             for ((k, s) in Notation.split(t, barEnd - t, score.time, true, groups).withIndex())
                 all += Item(v, score.voice(v).size, s, k, false, staff, null)
         }
@@ -511,7 +511,7 @@ object Engraver {
             if (!u.hasStem || u in beamedUnits) continue
             stemAndFlag(u, c.x, sy, syf(u.staff, 4f), marks)
         }
-        // Triplets: a "3" just beyond the stem ends (beam side); a bracket too unless one beam joins the whole group
+        // Tuplets: their number just beyond the stem ends (beam side); a bracket too unless one beam joins the whole group
         val colOf = HashMap<Item, Col>()
         for (c in m.cols) for (it in c.items) colOf[it] = c
         for (v in Voice.entries) {
@@ -540,14 +540,19 @@ object Engraver {
                 val beamed = notes.size == run.size && run.size > 1 && run.all { it.d.flags > 0 }
                 val cx = (x0 + x1) / 2
                 val lineY = if (up) edge - 0.9f else edge + 0.9f
-                // Number centred on the bracket line (or where it would be); the glyph's baseline is ~0.65 below its middle
-                marks += GlyphMark(Smufl.TUPLET_3, cx - 0.42f, lineY + 0.65f)
+                // Number ("3", "5:2") centred on the bracket line (or where it would be); the glyph's baseline is ~0.65 below its middle
+                val label = run.first().seg.group!!.label
+                fun adv(c: Char) = if (c == ':') Smufl.TUPLET_COLON_W else Smufl.TUPLET_DIGIT_W
+                val half = label.sumOf { adv(it).toDouble() }.toFloat() / 2
+                var gx = cx - half
+                // The italic digits lean right: nudge the colon off the digit before it
+                for (ch in label) { marks += GlyphMark(Smufl.tupletGlyph(ch), gx + if (ch == ':') 0.15f else 0f, lineY + 0.65f); gx += adv(ch) }
                 if (!beamed) {
                     val hook = if (up) 0.6f else -0.6f
                     val w = Smufl.STEM
                     marks += LineMark(x0, lineY + hook, x0, lineY, w)
-                    marks += LineMark(x0, lineY, cx - 0.75f, lineY, w)
-                    marks += LineMark(cx + 0.75f, lineY, x1, lineY, w)
+                    marks += LineMark(x0, lineY, cx - half - 0.33f, lineY, w)
+                    marks += LineMark(cx + half + 0.33f, lineY, x1, lineY, w)
                     marks += LineMark(x1, lineY, x1, lineY + hook, w)
                 }
             }

@@ -26,6 +26,7 @@ import com.nefelion.fourpartwriting.model.Pitch
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.ScoreCodec
 import com.nefelion.fourpartwriting.model.TimeSig
+import com.nefelion.fourpartwriting.model.Tuplet
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Analysis
 import com.nefelion.fourpartwriting.theory.Rule
@@ -51,13 +52,13 @@ data class UiState(
     /** False until the welcome tutorial has been finished or skipped. */
     val tutorialSeen: Boolean = true,
     val duration: Duration = Duration(4),
-    /** New notes are triplets (2/3 of [duration]); turns itself off when the voice is back on the beat. */
-    val triplet: Boolean = false,
+    /** New notes are tuplets, n in the time of m (m/n of [duration]); turns itself off when the group is full. */
+    val tuplet: Pair<Int, Int>? = null,
     /** Accidental armed for the next placed note (null = follow key signature). */
     val accidental: Int? = null,
     val selected: NoteRef? = null,
     /**
-     * [selected] is only the note just entered (not one the user picked): length, dot, triplet and rest
+     * [selected] is only the note just entered (not one the user picked): length, dot, tuplet and rest
      * then set up the next note instead of changing it.
      */
     val placed: Boolean = false,
@@ -108,15 +109,24 @@ data class UiState(
     /** The selected note, when the palette edits it (picked by the user, not just entered). */
     private val paletteTarget: Event? get() = selectedEvent?.takeIf { !placed }
     /** Duration shown on the palette: the selected note's written value if it has one. */
-    val shownDuration: Duration get() = paletteTarget?.let { Notation.representable(it.length) ?: Notation.representable(it.length * THREE_HALVES) } ?: duration
-    /** Triplet mark shown on the palette: the selected note is a triplet value, or triplets are armed. */
-    val shownTriplet: Boolean get() = paletteTarget?.let { Notation.representable(it.length) == null && Notation.representable(it.length * THREE_HALVES) != null } ?: triplet
+    val shownDuration: Duration get() = paletteTarget?.let { e ->
+        val t = shownTuplet
+        Notation.representable(if (t == null) e.length else e.length * Fraction.of(t.first.toLong(), t.second.toLong()))
+    } ?: duration
+    /** Tuplet shown on the palette: the selected note's (an untagged triplet value from older files counts as 3:2), else the armed one. */
+    val shownTuplet: Pair<Int, Int>? get() {
+        val e = paletteTarget ?: return tuplet
+        return e.tuplet?.let { it.n to it.m }
+            ?: (3 to 2).takeIf { Notation.representable(e.length) == null && Notation.representable(e.length * Fraction.of(3, 2)) != null }
+    }
     /** Length of a new note from the palette. */
-    val armedLength: Fraction get() = if (triplet) duration.value * TWO_THIRDS else duration.value
+    val armedLength: Fraction get() = tupletLength(duration, tuplet)
+    /** Tuplet of a new note from the palette. */
+    val armedTuplet: Tuplet? get() = tuplet?.let { (n, m) -> Tuplet(n, m, duration.value) }
 }
 
-private val THREE_HALVES = Fraction.of(3, 2)
-private val TWO_THIRDS = Fraction.of(2, 3)
+/** Sounding length of written value [d] inside an n:m tuplet [t]. */
+fun tupletLength(d: Duration, t: Pair<Int, Int>?) = if (t == null) d.value else d.value * Fraction.of(t.second.toLong(), t.first.toLong())
 
 /** Preview notehead: staff, staff position, onset. */
 data class Ghost(val staff: Int, val pos: Int, val at: Fraction)
@@ -343,13 +353,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (t != null) {
             val score = s.score
             val v = s.locked ?: s.voice
-            val len = inputLength(score, v, t.at)
-            val (new, i) = if (t.inRest) Edit.fillRest(score, v, t.at, len, t.pitch) ?: return false
-                else Edit.append(score, v, len, t.pitch, t.at).let { it to it.voice(v).lastIndex }
+            val e = input(score, v, t.at)
+            val (new, i) = if (t.inRest) Edit.fillRest(score, v, t.at, e.length, t.pitch, e.tuplet) ?: return false
+                else Edit.append(score, v, e.length, t.pitch, t.at, e.tuplet).let { it to it.voice(v).lastIndex }
             edit(new, NoteRef(v, i), nextVoice(new))
             resumeVoice = null
             _state.update { it.copy(accidental = null, placed = true) }
-            endTriplets(new, v)
+            endTuplets(new, v)
             // Already heard on finger-down
             return true
         }
@@ -364,9 +374,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         return false
     }
 
-    /** Length of a new event at [at]: in chord mode (no lock) it copies the voice entered first, else the palette value. */
-    private fun inputLength(sc: Score, v: Voice, at: Fraction) =
-        (if (s.locked == null) Edit.followLength(sc, v, at) else null) ?: s.armedLength
+    /** Length and tuplet of a new event at [at] (no pitch): in chord mode (no lock) it copies the voice entered first, else the palette value. */
+    private fun input(sc: Score, v: Voice, at: Fraction): Event =
+        (if (s.locked == null) Edit.follow(sc, v, at) else null) ?: Event(s.armedLength, null, s.armedTuplet)
 
     /** Voice for the next new note: the locked one, else the one ending earliest in [sc] (ties go S→A→T→B). */
     private fun nextVoice(sc: Score) = s.locked ?: earliestVoice(sc)
@@ -459,37 +469,43 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
-    fun setDuration(base: Int) {
-        val d = Duration(base, s.duration.dots)
-        val trip = s.shownTriplet
-        _state.update { it.copy(duration = d, triplet = trip) }
-        if (!s.placed) editSelected { sc, v, i -> Edit.setLength(sc, v, i, if (trip) d.value * TWO_THIRDS else d.value) }
+    fun setDuration(base: Int) = arm(Duration(base, s.duration.dots), s.shownTuplet)
+
+    /** Triplet on/off (tap). Off also ends any other tuplet. */
+    fun toggleTriplet() {
+        if (s.shownTuplet == null && s.score.time.isCompound) { msg("Triplets are for simple meters (2/4, 3/4, 4/4 …). Hold for other tuplets."); return }
+        setTuplet(if (s.shownTuplet == null) 3 to 2 else null)
     }
 
     /**
-     * Triplet on/off for the next notes (it turns itself off when the group is full). A note the user
-     * picked becomes (or stops being) a triplet value; the note just entered is left as it is.
+     * Tuplet [n] in the time of [m] (hold the triplet button) for the next notes; it turns itself off
+     * when the group is full. A note the user picked becomes that tuplet; the note just entered is left as it is.
      */
-    fun toggleTriplet() {
-        if (s.score.time.isCompound) { msg("Triplets are for simple meters (2/4, 3/4, 4/4 …)."); return }
-        val on = !s.shownTriplet
-        val e = s.selectedEvent?.takeIf { !s.placed }
-        _state.update { it.copy(triplet = on, duration = it.shownDuration) }
-        if (e != null) editSelected { sc, v, i -> Edit.setLength(sc, v, i, e.length * if (on) TWO_THIRDS else THREE_HALVES) }
+    fun setTuplet(n: Int, m: Int) = setTuplet((n to m).takeIf { n != m })
+
+    private fun setTuplet(t: Pair<Int, Int>?) = arm(s.shownDuration, t)
+
+    /** Palette value [d] in tuplet [t] for the next notes, and for the note the user picked. */
+    private fun arm(d: Duration, t: Pair<Int, Int>?) {
+        _state.update { it.copy(duration = d, tuplet = t) }
+        if (!s.placed) editSelected { sc, v, i ->
+            // A note keeping its ratio keeps its group's span
+            val tag = t?.let { (n, m) -> sc.voice(v)[i].tuplet?.takeIf { it.n == n && it.m == m } ?: Tuplet(n, m, d.value) }
+            Edit.setLength(sc, v, i, tupletLength(d, t), tag)
+        }
     }
 
-    /** A triplet group is complete once the voice ends on the plain grid again. */
-    private fun endTriplets(sc: Score, v: Voice) {
-        if (s.triplet && Notation.binary(sc.length(v))) _state.update { it.copy(triplet = false) }
+    /** A tuplet group is complete once the voice ends outside every group. */
+    private fun endTuplets(sc: Score, v: Voice) {
+        if (s.tuplet == null) return
+        val end = sc.length(v)
+        if (Notation.tupletGroups(sc.voice(v), sc.time).none { end > it.start && end < it.end }) _state.update { it.copy(tuplet = null) }
     }
 
     /** Cycles 0 → 1 → 2 dots on the palette value (and the selected note). */
     fun toggleDot() {
         val cur = s.shownDuration
-        val d = Duration(cur.base, (cur.dots + 1) % 3)
-        val trip = s.shownTriplet
-        _state.update { it.copy(duration = d, triplet = trip) }
-        if (!s.placed) editSelected { sc, v, i -> Edit.setLength(sc, v, i, if (trip) d.value * TWO_THIRDS else d.value) }
+        arm(Duration(cur.base, (cur.dots + 1) % 3), s.shownTuplet)
     }
 
     fun setAccidental(alter: Int) {
@@ -546,10 +562,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (!s.placed && editSelected { sc, v, i -> Edit.dropEmptyLastBars(Edit.setPitch(sc, v, i, null)) }) return
         if (s.moving) return
         val v = s.locked ?: s.voice
-        val new = Edit.append(s.score, v, inputLength(s.score, v, s.score.length(v)), null)
+        val e = input(s.score, v, s.score.length(v))
+        val new = Edit.append(s.score, v, e.length, null, tuplet = e.tuplet)
         edit(new, null, nextVoice(new))
         resumeVoice = null
-        endTriplets(new, v)
+        endTuplets(new, v)
     }
 
     fun tie() {
@@ -734,12 +751,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         // Five or more keys: keep the top three and the bass
         val pitches = if (voices.size == 1) listOf(pick(voices[0])) else if (desc.size > 4) desc.take(3) + desc.last() else desc
         var sc = s.score
-        for ((v, p) in voices.zip(pitches)) sc = Edit.append(sc, v, inputLength(sc, v, sc.length(v)), p)
+        for ((v, p) in voices.zip(pitches)) sc = input(sc, v, sc.length(v)).let { e -> Edit.append(sc, v, e.length, p, tuplet = e.tuplet) }
         val last = voices.last()
         edit(sc, NoteRef(last, sc.voice(last).lastIndex), nextVoice(sc))
         resumeVoice = null
         _state.update { it.copy(accidental = null, placed = true) }
-        voices.forEach { endTriplets(sc, it) }
+        voices.forEach { endTuplets(sc, it) }
     }
 
     /** Searches for Bluetooth MIDI keyboards (the Bluetooth permissions are already granted). */

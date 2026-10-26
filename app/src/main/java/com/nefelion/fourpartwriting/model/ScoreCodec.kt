@@ -1,6 +1,6 @@
 package com.nefelion.fourpartwriting.model
 
-/** Plain-text score file. One setting per line; one line per voice: "S E4:1/4 r:1/2 ...". */
+/** Plain-text score file. One setting per line; one line per voice: "S E4:1/4 r:1/2 ...". A tuplet adds ":n:m:unit" ("E4:1/20:5:4:1/16"). */
 object ScoreCodec {
 
     fun encode(s: Score): String = buildString {
@@ -18,6 +18,7 @@ object ScoreCodec {
                 append(' ')
                 append(e.pitch?.let { p -> "${"CDEFGAB"[p.step]}${alterCode(p.alter)}${p.octave}" } ?: "r")
                 append(':').append(e.length.num).append('/').append(e.length.den)
+                e.tuplet?.let { append(":${it.n}:${it.m}:${it.unit.num}/${it.unit.den}") }
             }
             appendLine()
         }
@@ -62,10 +63,10 @@ object ScoreCodec {
         val clefs = map.getValue("clefs").trim().split(" ").map { Clef.valueOf(it) }
         val voices = Voice.entries.map { v ->
             map[v.label].orEmpty().trim().split(" ").filter { it.isNotEmpty() }.map { tok ->
-                val (p, len) = tok.split(":")
-                val (n, d) = len.split("/").map { it.toLong() }
-                require(n > 0 && d > 0)
-                Event(Fraction.of(n, d), if (p == "r") null else Pitch.parse(p))
+                val parts = tok.split(":")
+                fun frac(x: String) = x.split("/").map { it.toLong() }.let { (n, d) -> require(n > 0 && d > 0); Fraction.of(n, d) }
+                val tup = if (parts.size >= 5) Tuplet(parts[2].toInt(), parts[3].toInt(), frac(parts[4])) else null
+                Event(frac(parts[1]), if (parts[0] == "r") null else Pitch.parse(parts[0]), tup)
             }
         }
         Score(

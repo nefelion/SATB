@@ -119,6 +119,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.nefelion.fourpartwriting.EditorViewModel
 import com.nefelion.fourpartwriting.UiState
 import com.nefelion.fourpartwriting.engrave.Smufl
+import com.nefelion.fourpartwriting.engrave.tupletLabel
 import com.nefelion.fourpartwriting.model.Arrangement as StaffArrangement
 import com.nefelion.fourpartwriting.model.Clef
 import com.nefelion.fourpartwriting.model.Fraction
@@ -417,17 +418,24 @@ private fun RowScope.NoteTools(st: UiState, vm: EditorViewModel) {
     val d = st.shownDuration
     val idx = BASES.indexOf(d.base)
     val sel = st.selectedEvent
-    // Last cell: triplet on/off
+    val tup = st.shownTuplet
+    val tupLabel = tup?.let { (n, m) -> tupletLabel(n, m) }
+    var tupletDialog by rememberSaveable { mutableStateOf(false) }
+    if (tupletDialog) TupletDialog(tup ?: (3 to 2), onPick = { n, m -> tupletDialog = false; vm.setTuplet(n, m) }) { tupletDialog = false }
+    // Last cell: triplet on/off; hold it for any tuplet
     PickTool("Note length", selected = false, count = BASES.size + 1, current = idx, onPick = { if (it == BASES.size) vm.toggleTriplet() else vm.setDuration(BASES[it]) },
+        holdItem = BASES.size, onHold = { tupletDialog = true },
         icon = {
             Box {
                 GlyphIcon(Smufl.MET_NOTES[idx], 40, ink)
-                if (st.shownTriplet) Text("3", fontSize = 13.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = ink,
-                    modifier = Modifier.align(Alignment.TopStart).padding(start = 2.dp))
+                if (tupLabel != null) Text(tupLabel, fontSize = if (tupLabel.length > 2) 9.sp else 13.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic,
+                    color = ink, maxLines = 1, softWrap = false, modifier = Modifier.align(Alignment.TopStart).padding(start = 2.dp))
             }
         }) {
-        if (it == BASES.size) Text("3", fontSize = 24.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic,
-            color = if (st.shownTriplet) MaterialTheme.colorScheme.primary else ink)
+        if (it == BASES.size) (tupLabel ?: "3").let { l ->
+            Text(l, fontSize = when { l.length == 1 -> 24.sp; l.length <= 3 -> 18.sp; else -> 13.sp }, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic,
+                maxLines = 1, softWrap = false, color = if (tup != null) MaterialTheme.colorScheme.primary else ink)
+        }
         else GlyphIcon(Smufl.MET_NOTES[it], 42, ink)
     }
     Tool(d.dots > 0, vm::toggleDot, "Dot") { Text(if (d.dots == 2) "··" else "·", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ink) }
@@ -444,17 +452,54 @@ private fun RowScope.NoteTools(st: UiState, vm: EditorViewModel) {
 
 private val ALTERS = listOf(-2, -1, 0, 1, 2)
 
+/** Picks any tuplet: [start] fills the fields. */
+@Composable
+private fun TupletDialog(start: Pair<Int, Int>, onPick: (Int, Int) -> Unit, onDismiss: () -> Unit) {
+    var n by rememberSaveable { mutableStateOf(start.first.toString()) }
+    var m by rememberSaveable { mutableStateOf(start.second.toString()) }
+    val nv = n.toIntOrNull()?.takeIf { it >= 1 }
+    val mv = m.toIntOrNull()?.takeIf { it >= 1 }
+    @Composable fun Field(text: String, onChange: (String) -> Unit) = androidx.compose.material3.OutlinedTextField(
+        value = text, onValueChange = { s -> onChange(s.filter { it.isDigit() }.take(2)) }, singleLine = true, shape = SHAPE,
+        textStyle = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+        modifier = Modifier.width(72.dp))
+    Dialog(onDismissRequest = onDismiss) {
+        KeepRefreshRate()
+        Surface(Modifier.clearFocusOnTap(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("Tuplet", style = MaterialTheme.typography.titleLarge)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Field(n) { n = it }
+                    Text("in the time of")
+                    Field(m) { m = it }
+                }
+                Text("Notes of the chosen length: e.g. 5 in the time of 4 sixteenths.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    FilledTonalButton(onClick = { onPick(nv!!, mv!!) }, enabled = nv != null && mv != null, shape = SHAPE) { Text("Set") }
+                }
+            }
+        }
+    }
+}
+
 /**
  * Toolbar button with a pocket of [count] choices drawn by [item]. Pressing opens the pocket at once:
  * slide onto a choice and let go to pick it. A tap leaves it open for a normal pick; sliding off cancels.
+ * Holding choice [holdItem] (in the open pocket, or resting on it while sliding) calls [onHold] instead.
  */
 @Composable
 private fun RowScope.PickTool(
     label: String, selected: Boolean, count: Int, current: Int, onPick: (Int) -> Unit,
+    holdItem: Int = -1, onHold: () -> Unit = {},
     icon: @Composable () -> Unit, item: @Composable (Int) -> Unit,
 ) {
+    val haptic = LocalHapticFeedback.current
     var open by rememberSaveable { mutableStateOf(false) }
     var hover by remember { mutableIntStateOf(-1) }
+    fun hold() { haptic.performHapticFeedback(HapticFeedbackType.LongPress); open = false; onHold() }
     val items = remember(count) { arrayOfNulls<LayoutCoordinates>(count) }
     fun at(p: Offset) = items.indexOfFirst { c ->
         c != null && c.isAttached && Rect(c.localToScreen(Offset.Zero), c.localToScreen(Offset(c.size.width.toFloat(), c.size.height.toFloat()))).contains(p)
@@ -465,16 +510,26 @@ private fun RowScope.PickTool(
                 open = true
                 var moved = false
                 var lifted = false
+                var held = false
+                // Time the finger came onto the current choice
+                var since = down.uptimeMillis
+                var now = since
                 while (true) {
-                    val ch = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                    val left = if (holdItem >= 0 && hover == holdItem) since + viewConfiguration.longPressTimeoutMillis - now else -1L
+                    val ev = if (left < 0) awaitPointerEvent() else withTimeoutOrNull(maxOf(1L, left)) { awaitPointerEvent() }
+                    if (ev == null) { held = true; break }
+                    val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
+                    now = ch.uptimeMillis
                     if ((ch.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
-                    hover = at(toScreen(ch.position))
+                    val h = at(toScreen(ch.position))
+                    if (h != hover) { hover = h; since = now }
                     ch.consume()
                     if (!ch.pressed) { lifted = true; break }
                 }
                 val pick = hover
                 hover = -1
-                if (lifted && pick >= 0) { onPick(pick); open = false }
+                if (held) hold()
+                else if (lifted && pick >= 0) { onPick(pick); open = false }
                 else if (moved || !lifted) open = false
             }, content = icon)
         }
@@ -490,7 +545,7 @@ private fun RowScope.PickTool(
                             i == current -> MaterialTheme.colorScheme.primaryContainer
                             else -> Color.Transparent
                         })
-                        .clickable { onPick(i); open = false }, contentAlignment = Alignment.Center) { item(i) }
+                        .combinedClickable(onLongClick = if (i == holdItem) ::hold else null) { onPick(i); open = false }, contentAlignment = Alignment.Center) { item(i) }
                 }
             }
         }

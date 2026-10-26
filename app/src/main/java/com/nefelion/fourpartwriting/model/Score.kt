@@ -2,10 +2,17 @@ package com.nefelion.fourpartwriting.model
 
 /**
  * A note (pitch != null) or a rest of any [length]. How it is written (tied values,
- * split at barlines and beats) is decided by the engraver, not stored here.
+ * split at barlines and beats) is decided by the engraver, not stored here. Only [tuplet] keeps
+ * the ratio the user picked, since the length alone cannot tell 5:4 from 5:2.
  */
-data class Event(val length: Fraction, val pitch: Pitch?) {
+data class Event(val length: Fraction, val pitch: Pitch?, val tuplet: Tuplet? = null) {
     constructor(d: Duration, pitch: Pitch?) : this(d.value, pitch)
+}
+
+/** [n] notes in the time of [m], of written value [unit]: a group spans [m] × [unit]. */
+data class Tuplet(val n: Int, val m: Int, val unit: Fraction) {
+    init { require(n > 0 && m > 0 && unit > Fraction.ZERO) }
+    val span get() = unit * Fraction.of(m.toLong(), 1)
 }
 
 enum class Voice(val label: String) { SOPRANO("S"), ALTO("A"), TENOR("T"), BASS("B") }

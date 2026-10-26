@@ -7,19 +7,19 @@ package com.nefelion.fourpartwriting.model
 object Edit {
 
     /** Adds an event at the end of [v], or at [at] when that is later (the gap becomes a rest). */
-    fun append(s: Score, v: Voice, length: Fraction, pitch: Pitch?, at: Fraction? = null): Score {
+    fun append(s: Score, v: Voice, length: Fraction, pitch: Pitch?, at: Fraction? = null, tuplet: Tuplet? = null): Score {
         val gap = at?.let { it - s.length(v) }?.takeIf { it > Fraction.ZERO }
-        val list = s.voice(v) + listOfNotNull(gap?.let { Event(it, null) }) + Event(length, pitch)
+        val list = s.voice(v) + listOfNotNull(gap?.let { Event(it, null) }) + Event(length, pitch, tuplet)
         return s.withVoice(v, mergeRests(list))
     }
 
     /**
-     * Length of the event starting at [at] in the nearest voice above [v] (else below), so a chord
-     * entered voice by voice copies the rhythm of the voice entered first. Null when none starts there.
+     * The event starting at [at] in the nearest voice above [v] (else below), so a chord entered
+     * voice by voice copies the rhythm (and tuplet) of the voice entered first. Null when none starts there.
      */
-    fun followLength(s: Score, v: Voice, at: Fraction): Fraction? =
+    fun follow(s: Score, v: Voice, at: Fraction): Event? =
         (Voice.entries.take(v.ordinal).reversed() + Voice.entries.drop(v.ordinal + 1)).firstNotNullOfOrNull { o ->
-            s.onsets(o).indexOf(at).takeIf { it >= 0 }?.let { s.voice(o)[it].length }
+            s.onsets(o).indexOf(at).takeIf { it >= 0 }?.let { s.voice(o)[it] }
         }
 
     /** Voices for a chord of [n] notes: the [n] that end earliest (ties S first), top to bottom. */
@@ -30,16 +30,18 @@ object Edit {
      * so later notes never move; the rest's other parts stay rests. Returns the score and the note's
      * index, or null when [at] is not in a rest.
      */
-    fun fillRest(s: Score, v: Voice, at: Fraction, length: Fraction, pitch: Pitch): Pair<Score, Int>? {
+    fun fillRest(s: Score, v: Voice, at: Fraction, length: Fraction, pitch: Pitch, tuplet: Tuplet? = null): Pair<Score, Int>? {
         val i = s.eventAt(v, at).takeIf { it >= 0 } ?: return null
         val rest = s.voice(v)[i]
         if (rest.pitch != null) return null
         val start = s.onsets(v)[i]
         val end = start + rest.length
         val len = minOf(length, end - at)
-        val before = Event(at - start, null).takeIf { it.length > Fraction.ZERO }
+        // The part starting where the rest did keeps its tuplet (it may start a group)
+        val before = rest.copy(length = at - start).takeIf { it.length > Fraction.ZERO }
         val after = Event(end - at - len, null).takeIf { it.length > Fraction.ZERO }
-        val list = s.voice(v).subList(0, i) + listOfNotNull(before, Event(len, pitch), after) + s.voice(v).subList(i + 1, s.voice(v).size)
+        val note = Event(len, pitch, tuplet ?: rest.tuplet.takeIf { before == null })
+        val list = s.voice(v).subList(0, i) + listOfNotNull(before, note, after) + s.voice(v).subList(i + 1, s.voice(v).size)
         return s.withVoice(v, list) to i + (if (before != null) 1 else 0)
     }
 
@@ -51,12 +53,12 @@ object Edit {
 
     /**
      * Lengthening takes time from the following events (shortening or removing them);
-     * shortening leaves a rest. The last event simply changes length.
+     * shortening leaves a rest. The last event simply changes length. [tuplet] replaces its tuplet.
      */
-    fun setLength(s: Score, v: Voice, i: Int, length: Fraction): Score {
+    fun setLength(s: Score, v: Voice, i: Int, length: Fraction, tuplet: Tuplet? = null): Score {
         val list = s.voice(v).toMutableList()
         val old = list[i].length
-        list[i] = list[i].copy(length = length)
+        list[i] = list[i].copy(length = length, tuplet = tuplet)
         if (length > old) {
             var debt = length - old
             var j = i + 1
@@ -95,8 +97,8 @@ object Edit {
         val start = s.onsets(v)[i]
         val end = start + e.length
         val parts = listOfNotNull(
-            Event(from - start, e.pitch).takeIf { from > start },
-            Event(to - from, null).takeIf { i < list.lastIndex || to < end },
+            e.copy(length = from - start).takeIf { from > start },
+            Event(to - from, null, e.tuplet.takeIf { from == start }).takeIf { i < list.lastIndex || to < end },
             Event(end - to, e.pitch).takeIf { to < end },
         )
         list.removeAt(i)
@@ -110,7 +112,7 @@ object Edit {
         val e = list[i]
         val start = s.onsets(v)[i]
         list[i] = e.copy(length = at - start)
-        list.add(i + 1, e.copy(length = start + e.length - at))
+        list.add(i + 1, e.copy(length = start + e.length - at, tuplet = null))
         return s.withVoice(v, list)
     }
 
@@ -120,7 +122,7 @@ object Edit {
         val a = list.getOrNull(i) ?: return s
         val b = list.getOrNull(i + 1) ?: return s
         if (a.pitch == null) return s
-        list[i] = Event(a.length + b.length, a.pitch)
+        list[i] = a.copy(length = a.length + b.length)
         list.removeAt(i + 1)
         return s.withVoice(v, list)
     }
@@ -206,12 +208,12 @@ object Edit {
         return out
     }
 
-    /** Adjacent rests become one rest; the engraver writes it out with correct values. */
+    /** Adjacent rests become one rest; the engraver writes it out with correct values. A rest with a tuplet may start a group, so it stays. */
     private fun mergeRests(list: List<Event>): List<Event> {
         val out = mutableListOf<Event>()
         for (e in list) {
             val last = out.lastOrNull()
-            if (e.pitch == null && last != null && last.pitch == null) out[out.lastIndex] = Event(last.length + e.length, null)
+            if (e.pitch == null && e.tuplet == null && last != null && last.pitch == null) out[out.lastIndex] = last.copy(length = last.length + e.length)
             else out += e
         }
         return out

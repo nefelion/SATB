@@ -1,19 +1,25 @@
 package com.nefelion.fourpartwriting.engrave
 
 import com.nefelion.fourpartwriting.model.Duration
+import com.nefelion.fourpartwriting.model.Event
 import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.TimeSig
 
 /**
  * One written note/rest value. Note segments tie to the next segment of the same event.
- * [group]: start of its triplet group (3 in the time of 2, so [dur] is 3/2 of the sounding [length]); null = plain.
+ * [group]: its tuplet group ([dur] is n/m of the sounding [length]); null = plain.
  */
-data class Seg(val onset: Fraction, val length: Fraction, val dur: Duration, val fullBar: Boolean = false, val group: Fraction? = null) {
+data class Seg(val onset: Fraction, val length: Fraction, val dur: Duration, val fullBar: Boolean = false, val group: TupletGroup? = null) {
     val tuplet get() = group != null
 }
 
-/** A triplet group: [start] until [end], both on the plain grid. */
-data class TripletGroup(val start: Fraction, val end: Fraction)
+/** A tuplet group: [n] in the time of [m], from [start] until [end]. */
+data class TupletGroup(val start: Fraction, val end: Fraction, val n: Int = 3, val m: Int = 2) {
+    val label get() = tupletLabel(n, m)
+}
+
+/** Number shown over a tuplet: "5" when [m] is the usual power of two below [n] (3:2, 5:4, 7:4), else "5:2". */
+fun tupletLabel(n: Int, m: Int) = if (n > 1 && m == Integer.highestOneBit(n - 1)) "$n" else "$n:$m"
 
 /**
  * Splits a sounding length into written values following common-practice rules:
@@ -44,9 +50,9 @@ object Notation {
      * the bar. It starts on a multiple of its own length (a long note before it is cut there), else at the
      * plain time just before the run (e.g. triplets after an eighth).
      */
-    fun groups(lengths: List<Fraction>, time: TimeSig): List<TripletGroup> {
+    fun groups(lengths: List<Fraction>, time: TimeSig): List<TupletGroup> {
         val ml = time.measure
-        val out = mutableListOf<TripletGroup>()
+        val out = mutableListOf<TupletGroup>()
         var t = Fraction.ZERO
         var b0 = Fraction.ZERO
         val run = mutableListOf<Fraction>()
@@ -67,7 +73,7 @@ object Notation {
                         pts.all { it < start + g && ((it - start) / (g / Fraction.of(3, 1))).den == 1L }
                     SIZES.reversed().firstNotNullOfOrNull { g ->
                         val aligned = bs + g * Fraction.of(((pts.first() - bs) / g).let { it.num / it.den }, 1)
-                        listOf(aligned, from).firstOrNull { fits(it, g) }?.let { TripletGroup(it, it + g) to n }
+                        listOf(aligned, from).firstOrNull { fits(it, g) }?.let { TupletGroup(it, it + g) to n }
                     }
                 }
                 // shortcut: a time on no triplet grid (other tuplets) gets no group and is written approximately
@@ -91,22 +97,38 @@ object Notation {
         return out
     }
 
-    /** Written segments of every event of a voice (triplet groups worked out from the whole voice). */
-    fun splitVoice(events: List<com.nefelion.fourpartwriting.model.Event>, time: TimeSig): List<List<Seg>> {
-        val gs = groups(events.map { it.length }, time)
+    /**
+     * Tuplet groups of a voice. An event with a tuplet that is not inside a group starts one ([Tuplet.span]
+     * long); events without one (older files) still get their triplet groups read from the lengths.
+     */
+    fun tupletGroups(events: List<Event>, time: TimeSig): List<TupletGroup> {
+        val tagged = mutableListOf<TupletGroup>()
+        var t = Fraction.ZERO
+        for (e in events) {
+            val tp = e.tuplet
+            if (tp != null && tagged.lastOrNull().let { it == null || t >= it.end }) tagged += TupletGroup(t, t + tp.span, tp.n, tp.m)
+            t += e.length
+        }
+        val read = groups(events.map { it.length }, time).filter { g -> tagged.none { it.start < g.end && g.start < it.end } }
+        return (tagged + read).sortedBy { it.start }
+    }
+
+    /** Written segments of every event of a voice (tuplet groups worked out from the whole voice). */
+    fun splitVoice(events: List<Event>, time: TimeSig): List<List<Seg>> {
+        val gs = tupletGroups(events, time)
         var t = Fraction.ZERO
         return events.map { e -> split(t, e.length, time, e.pitch == null, gs).also { t += e.length } }
     }
 
-    /** Written value of a triplet length (3/2 of it); a length without one is tied from the largest values. */
-    private fun tripletValues(len: Fraction): List<Pair<Fraction, Duration>> {
+    /** Written values of a length inside an [n]:[m] tuplet (n/m of it); a length without one is tied from the largest values. */
+    private fun tupletValues(len: Fraction, n: Int, m: Int): List<Pair<Fraction, Duration>> {
         val out = mutableListOf<Pair<Fraction, Duration>>()
-        var w = len * Fraction.of(3, 2)
+        var w = len * Fraction.of(n.toLong(), m.toLong())
         var t = Fraction.ZERO
         while (w > Fraction.ZERO) {
             val d = representable(w) ?: listOf(1, 2, 4, 8, 16, 32, 64).map { Duration(it) }.firstOrNull { it.value <= w } ?: Duration(64)
             out += t to d
-            val real = d.value * Fraction.of(2, 3)
+            val real = d.value * Fraction.of(m.toLong(), n.toLong())
             t += real; w -= d.value
         }
         return out
@@ -120,8 +142,8 @@ object Notation {
         fun sub(g: Fraction) = if (g == beat && time.isCompound) g / Fraction.of(3, 1) else g / Fraction.of(2, 1)
     }
 
-    /** [groups]: the voice's triplet groups ([groups] of its events); parts inside one are written as triplets. */
-    fun split(onset: Fraction, length: Fraction, time: TimeSig, isRest: Boolean, groups: List<TripletGroup> = emptyList()): List<Seg> {
+    /** [groups]: the voice's tuplet groups ([tupletGroups] of its events); parts inside one are written as tuplets. */
+    fun split(onset: Fraction, length: Fraction, time: TimeSig, isRest: Boolean, groups: List<TupletGroup> = emptyList()): List<Seg> {
         val out = mutableListOf<Seg>()
         val ml = time.measure
         var t = onset
@@ -135,13 +157,13 @@ object Notation {
             if (isRest && p == Fraction.ZERO && e == ml)
                 out += Seg(t, ml, representable(ml) ?: Duration(1), fullBar = true)
             else {
-                // Parts inside a triplet group are written as triplets, the parts between them as usual
+                // Parts inside a tuplet group are written as tuplets, the parts between them as usual
                 var a = t
                 while (a < pieceEnd) {
                     val g = groups.firstOrNull { a >= it.start && a < it.end }
                     if (g != null) {
                         val z = minOf(pieceEnd, g.end)
-                        for ((s, d) in tripletValues(z - a)) out += Seg(a + s, d.value * Fraction.of(2, 3), d, group = g.start)
+                        for ((s, d) in tupletValues(z - a, g.n, g.m)) out += Seg(a + s, d.value * Fraction.of(g.m.toLong(), g.n.toLong()), d, group = g)
                         a = z
                     } else {
                         val z = groups.filter { it.start > a }.minOfOrNull { it.start }?.let { minOf(it, pieceEnd) } ?: pieceEnd
