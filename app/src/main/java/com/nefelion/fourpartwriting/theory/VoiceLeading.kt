@@ -159,12 +159,12 @@ object VoiceLeading {
                 add(Severity.ERROR, i, Rule.UNRESOLVED_NCT,
                     "${v.label}: ${p.name} is a dissonance that is not a passing, neighbour, suspension or other standard non-chord tone.", i to v)
             if (nct.type == NctType.SUS && v != Voice.BASS && i in pointChord) {
-                // The note of resolution should not sound in another voice against the suspension (9–8 excepted)
+                // The note of resolution should not sound in another voice against the suspension (the bass of a 9–8 or 9–6 excepted)
                 // The step down: the next note, or the one after an ornament
                 val res = score.voice(v).drop(s.eventIndex[v.ordinal] + 1).map { it.pitch }
                     .let { l -> l.filterIndexed { k, q -> k == 0 || q != l[k - 1] } }.take(2).filterNotNull()
                     .firstOrNull { p.diatonic - it.diatonic == 1 || p.diatonic == it.diatonic && it.midi < p.midi }
-                val clash = V.filter { o -> o != v && s.notes[o.ordinal]?.pc == res?.pc && !(o == Voice.BASS && nct.label == "9–8") }
+                val clash = V.filter { o -> o != v && s.notes[o.ordinal]?.pc == res?.pc && !(o == Voice.BASS && nct.label.startsWith("9–")) }
                 if (res != null && clash.isNotEmpty())
                     add(Severity.WARNING, i, Rule.UNRESOLVED_NCT, "${v.label}: the note of resolution (${res.pc.name}) already sounds against the suspension.",
                         *(listOf(i to v) + clash.map { i to it }).toTypedArray())
@@ -321,14 +321,14 @@ object VoiceLeading {
 
     private fun String.cap() = replaceFirstChar { it.uppercase() }
 
-    /** Metric weight: 3 downbeat, 2 middle beat of an even meter, 1 other beat, 0 off the beat. */
-    private fun weight(t: Fraction, ts: TimeSig): Int {
+    /** Metric weight: 3 downbeat, 2 middle beat of an even meter, 1 other beat; off the beat negative, finer subdivisions lower. */
+    internal fun weight(t: Fraction, ts: TimeSig): Int {
         val m = ts.measure
         val bar = t / m
         val pos = t - m * Fraction.of(bar.num / bar.den, 1)
         if (pos == Fraction.ZERO) return 3
         val b = pos / ts.beatLength
-        if (b.den != 1L) return 0
+        if (b.den != 1L) return -b.den.toInt()
         val n = (m / ts.beatLength).let { it.num / it.den }
         return if (n % 2 == 0L && b.num == n / 2) 2 else 1
     }
@@ -540,6 +540,10 @@ object VoiceLeading {
 
         val lt = ca.leadingTone
         val target = ca.target
+        val kept = srcIdx.copyOf()
+        // A leading tone the voice reaches later in the chord (D–B over V) must resolve too
+        if (lt != null) for (v in V) if (note(v)?.pc != lt) span.firstOrNull { slices[it].notes[v.ordinal] != null && !isNct(slices[it], v) }
+            ?.let { j -> if (slices[j].notes[v.ordinal]?.pc == lt) srcIdx[v.ordinal] = slices[j].eventIndex[v.ordinal] }
         if (lt != null && target != null && cb.root != null && cb.notes.any { it.pc == target }) {
             // The cadential ⁶₄ stands for V, so a leading tone of V still rises into it
             val toTarget = cb.root == target || cb.root.step == (target.step + 5) % 7 ||
@@ -560,6 +564,8 @@ object VoiceLeading {
                     add(Severity.WARNING, i, Rule.LEADING_TONE, "${v.label}: leading tone ${lt.name} should resolve up to ${target.name} or drop to the fifth.", both(v))
             }
         }
+
+        kept.copyInto(srcIdx)
 
         // Augmented sixth: both notes move outward by step to the octave. Diminished/half-diminished 7th: the fifth falls by step.
         val qa = ca.quality
