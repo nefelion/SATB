@@ -4,8 +4,11 @@ import com.nefelion.fourpartwriting.model.Duration
 import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.TimeSig
 
-/** One written note/rest value. Note segments tie to the next segment of the same event. */
-data class Seg(val onset: Fraction, val length: Fraction, val dur: Duration, val fullBar: Boolean = false)
+/**
+ * One written note/rest value. Note segments tie to the next segment of the same event.
+ * [tuplet]: written as a triplet (3 in the time of 2), so [dur] is 3/2 of the sounding [length].
+ */
+data class Seg(val onset: Fraction, val length: Fraction, val dur: Duration, val fullBar: Boolean = false, val tuplet: Boolean = false)
 
 /**
  * Splits a sounding length into written values following common-practice rules:
@@ -23,6 +26,26 @@ object Notation {
     }
 
     private fun multiple(a: Fraction, g: Fraction) = (a / g).den == 1L
+
+    /** On the plain (power-of-two) grid. */
+    fun binary(a: Fraction) = a.den and (a.den - 1) == 0L
+
+    /** On a triplet grid: three times it is plain, but it is not plain itself. */
+    private fun triplet(a: Fraction) = !binary(a) && binary(a * Fraction.of(3, 1))
+
+    /** Written value of a triplet length (3/2 of it); a length without one is tied from the largest values. */
+    private fun tripletValues(len: Fraction): List<Pair<Fraction, Duration>> {
+        val out = mutableListOf<Pair<Fraction, Duration>>()
+        var w = len * Fraction.of(3, 2)
+        var t = Fraction.ZERO
+        while (w > Fraction.ZERO) {
+            val d = representable(w) ?: listOf(1, 2, 4, 8, 16, 32, 64).map { Duration(it) }.firstOrNull { it.value <= w } ?: Duration(64)
+            out += t to d
+            val real = d.value * Fraction.of(2, 3)
+            t += real; w -= d.value
+        }
+        return out
+    }
 
     private class Ctx(val time: TimeSig) {
         val bar = time.measure
@@ -45,8 +68,17 @@ object Notation {
             val p = t - barStart; val e = pieceEnd - barStart
             if (isRest && p == Fraction.ZERO && e == ml)
                 out += Seg(t, ml, representable(ml) ?: Duration(1), fullBar = true)
-            else for ((s, d) in if (isRest) rest(p, e, ctx.beat, ctx) else note(p, e, ctx.beat, ctx, true))
-                out += Seg(barStart + s, d.value, d)
+            else {
+                // A triplet start or end: the part inside its beat is written as a triplet, the rest as usual
+                val b = ctx.beat
+                val p2 = if (triplet(p)) minOf(e, b * Fraction.of((p / b).let { it.num / it.den } + 1, 1)) else p
+                val e2 = if (triplet(e)) maxOf(p2, b * Fraction.of((e / b).let { it.num / it.den }, 1)) else e
+                fun trip(a: Fraction, z: Fraction) { if (z > a) for ((s, d) in tripletValues(z - a)) out += Seg(barStart + a + s, d.value * Fraction.of(2, 3), d, tuplet = true) }
+                trip(p, p2)
+                if (e2 > p2) for ((s, d) in if (isRest) rest(p2, e2, b, ctx) else note(p2, e2, b, ctx, true))
+                    out += Seg(barStart + s, d.value, d)
+                trip(e2, e)
+            }
             t = pieceEnd
         }
         return out

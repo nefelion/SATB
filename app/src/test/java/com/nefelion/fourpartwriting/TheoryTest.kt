@@ -312,4 +312,12 @@ class TheoryTest {
         assertEquals(listOf(8, 5, 9, 6, 3, 7, 4), Clef.TREBLE_8VB.keySigPositions(7))
         assertEquals(listOf(5, 8, 4, 7, 3, 6, 2), Clef.TENOR.keySigPositions(-7))
     }
+
+    @Test fun tripletOnsetsAreWeak() {
+        val t44 = com.nefelion.fourpartwriting.model.TimeSig(4, 4)
+        val f = { n: Long, d: Long -> com.nefelion.fourpartwriting.model.Fraction.of(n, d) }
+        assertTrue(VoiceLeading.weight(f(1, 12), t44) < 0)
+        assertTrue(VoiceLeading.weight(f(1, 6), t44) < 0)
+        assertTrue(VoiceLeading.weight(f(1, 12), t44) < VoiceLeading.weight(f(1, 8), t44))
+    }
 }

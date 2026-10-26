@@ -511,6 +511,29 @@ object Engraver {
             if (!u.hasStem || u in beamedUnits) continue
             stemAndFlag(u, c.x, sy, syf(u.staff, 4f), marks)
         }
+        // Triplets: a "3" over (stem up) or under each voice's run of triplet values within a beat
+        val colOf = HashMap<Item, Col>()
+        for (c in m.cols) for (it in c.items) colOf[it] = c
+        val beat = score.time.beatLength
+        for (v in Voice.entries) {
+            val runs = mutableListOf<MutableList<Item>>()
+            for (it in m.items.filter { it.voice == v && it.seg.tuplet }.sortedBy { it.seg.onset }) {
+                val last = runs.lastOrNull()?.last()
+                val sameBeat = last != null && ((last.seg.onset - m.start) / beat).let { f -> f.num / f.den } ==
+                    ((it.seg.onset - m.start) / beat).let { f -> f.num / f.den }
+                if (last != null && sameBeat && last.seg.onset + last.seg.length == it.seg.onset) runs.last() += it else runs += mutableListOf(it)
+            }
+            for (run in runs) {
+                val xs = run.mapNotNull { colOf[it]?.let { c -> c.x + it.xOff } }
+                if (xs.isEmpty()) continue
+                val staff = run.first().staff
+                val notes = run.filter { it.isNote }
+                val up = (notes.firstOrNull()?.dir ?: 1) > 0
+                val y = if (up) min(sy(staff, 8) - 0.8f, (notes.minOfOrNull { sy(staff, it.pos!!) } ?: sy(staff, 8)) - 4.6f)
+                    else max(sy(staff, 0) + 2.0f, (notes.maxOfOrNull { sy(staff, it.pos!!) } ?: sy(staff, 0)) + 5.4f)
+                marks += TextMark("3", (xs.min() + xs.max()) / 2 + Smufl.HEAD_W / 2 - 0.3f, y, 1.2f, TextStyle.MEASURE_NO)
+            }
+        }
     }
 
     private fun drawRests(

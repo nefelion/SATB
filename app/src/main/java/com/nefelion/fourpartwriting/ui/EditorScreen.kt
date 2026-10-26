@@ -109,6 +109,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -416,8 +417,19 @@ private fun RowScope.NoteTools(st: UiState, vm: EditorViewModel) {
     val d = st.shownDuration
     val idx = BASES.indexOf(d.base)
     val sel = st.selectedEvent
-    PickTool("Note length", selected = false, count = BASES.size, current = idx, onPick = { vm.setDuration(BASES[it]) },
-        icon = { GlyphIcon(Smufl.MET_NOTES[idx], 40, ink) }) { GlyphIcon(Smufl.MET_NOTES[it], 42, ink) }
+    // Last cell: triplet on/off
+    PickTool("Note length", selected = false, count = BASES.size + 1, current = idx, onPick = { if (it == BASES.size) vm.toggleTriplet() else vm.setDuration(BASES[it]) },
+        icon = {
+            Box {
+                GlyphIcon(Smufl.MET_NOTES[idx], 40, ink)
+                if (st.shownTriplet) Text("3", fontSize = 13.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = ink,
+                    modifier = Modifier.align(Alignment.TopStart).padding(start = 2.dp))
+            }
+        }) {
+        if (it == BASES.size) Text("3", fontSize = 24.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic,
+            color = if (st.shownTriplet) MaterialTheme.colorScheme.primary else ink)
+        else GlyphIcon(Smufl.MET_NOTES[it], 42, ink)
+    }
     Tool(d.dots > 0, vm::toggleDot, "Dot") { Text(if (d.dots == 2) "··" else "·", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ink) }
     Tool(sel != null && sel.pitch == null, vm::rest, "Rest") { GlyphIcon(Smufl.RESTS[idx], 40, ink) }
     val p = sel?.pitch

@@ -47,4 +47,24 @@ class MusicXmlTest {
         assertEquals(1, starts)
         assertEquals(starts, stops)
     }
+
+    @Test fun tripletsGetTimeModificationAndTupletEnds() {
+        // Soprano: three triplet eighths, then a dotted half
+        var sc = com.nefelion.fourpartwriting.model.Score()
+        for (p in listOf("C4", "D4", "E4")) sc = Edit.append(sc, Voice.SOPRANO, Fraction.of(1, 12), Pitch.parse(p))
+        sc = Edit.append(sc, Voice.SOPRANO, Fraction.of(3, 4), Pitch.parse("F4"))
+        val doc = parse(MusicXml.export(sc))
+        val notes = doc.getElementsByTagName("note")
+        val div = doc.getElementsByTagName("divisions").item(0).textContent.toInt()
+        val first3 = (0 until 3).map { notes.item(it) as Element }
+        for (n in first3) {
+            assertEquals("eighth", n.child("type")!!.textContent)
+            assertEquals("3", n.child("actual-notes")!!.textContent)
+            assertEquals(div / 3, n.child("duration")!!.textContent.toInt())
+        }
+        assertEquals("start", first3[0].child("tuplet")!!.getAttribute("type"))
+        assertEquals(null, first3[1].child("tuplet"))
+        assertEquals("stop", first3[2].child("tuplet")!!.getAttribute("type"))
+        assertEquals(null, (notes.item(3) as Element).child("time-modification"))
+    }
 }

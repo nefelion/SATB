@@ -60,4 +60,10 @@ class ScoreCodecTest {
         assertNull(ScoreCodec.decode("v1\nkey x"))
         assertNull(ScoreCodec.decode(ScoreCodec.encode(EXAMPLE).replace("arr 0 0 1 1", "arr 0 2 1 1")))
     }
+
+    @Test fun tripletLengthsRoundTrip() {
+        val sc = Score().withVoice(com.nefelion.fourpartwriting.model.Voice.SOPRANO,
+            listOf(Event(Fraction.of(1, 12), Pitch.parse("C4")), Event(Fraction.of(1, 6), null)))
+        assertEquals(sc, ScoreCodec.decode(ScoreCodec.encode(sc)))
+    }
 }

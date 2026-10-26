@@ -89,11 +89,17 @@ object MusicXml {
                 }
                 first = false
                 var t = start
-                for (w in notes) {
+                // A triplet run: consecutive triplet values of this voice inside one beat
+                fun beatOf(x: W) = ((x.seg.onset - start) / score.time.beatLength).let { it.num / it.den }
+                fun joined(a: W?, b: W?) = a != null && b != null && a.seg.tuplet && b.seg.tuplet &&
+                    a.seg.onset + a.seg.length == b.seg.onset && beatOf(a) == beatOf(b)
+                for ((j, w) in notes.withIndex()) {
                     if (w.seg.onset > t) { // gap in this voice: forward
                         sb.append("      <forward><duration>${dur(w.seg.onset - t)}</duration><voice>${v.ordinal + 1}</voice><staff>${score.staffOf(v) + 1}</staff></forward>\n")
                     }
-                    note(sb, score, w, accOf[w], ::dur)
+                    val tup = if (!w.seg.tuplet) null else
+                        (if (!joined(notes.getOrNull(j - 1), w)) "start" else "") + (if (!joined(w, notes.getOrNull(j + 1))) " stop" else "")
+                    note(sb, score, w, accOf[w], ::dur, tup)
                     t = w.seg.onset + w.seg.length
                 }
                 lastVoiceEnd = t
@@ -105,7 +111,8 @@ object MusicXml {
         return sb.toString()
     }
 
-    private fun note(sb: StringBuilder, score: Score, w: W, acc: Int?, dur: (Fraction) -> Long) {
+    /** [tup]: null for a plain value; else which ends of a triplet run this note is ("start", " stop", both or none). */
+    private fun note(sb: StringBuilder, score: Score, w: W, acc: Int?, dur: (Fraction) -> Long, tup: String? = null) {
         val e = score.voice(w.voice)[w.index]
         val p = e.pitch
         val tieStart = p != null && !w.last
@@ -126,13 +133,18 @@ object MusicXml {
             repeat(w.seg.dur.dots) { sb.append("<dot/>") }
         }
         if (acc != null) sb.append("<accidental>${when (acc) { -2 -> "flat-flat"; -1 -> "flat"; 1 -> "sharp"; 2 -> "double-sharp"; else -> "natural" }}</accidental>")
+        if (tup != null) sb.append("<time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>")
         val stem = score.arrangement.stems()[w.voice.ordinal]
         if (p != null && stem != 0 && w.seg.dur.base > 1) sb.append("<stem>${if (stem > 0) "up" else "down"}</stem>")
         sb.append("<staff>${score.staffOf(w.voice) + 1}</staff>")
-        if (tieStart || tieStop) {
+        val tupStart = tup?.contains("start") == true
+        val tupStop = tup?.contains("stop") == true
+        if (tieStart || tieStop || tupStart || tupStop) {
             sb.append("<notations>")
             if (tieStop) sb.append("<tied type=\"stop\"/>")
             if (tieStart) sb.append("<tied type=\"start\"/>")
+            if (tupStart) sb.append("<tuplet type=\"start\"/>")
+            if (tupStop) sb.append("<tuplet type=\"stop\"/>")
             sb.append("</notations>")
         }
         sb.append("</note>\n")
