@@ -62,6 +62,8 @@ data class UiState(
      * then set up the next note instead of changing it.
      */
     val placed: Boolean = false,
+    /** The palette changed since the last entered note: the next note takes the palette value instead of copying the chord. */
+    val paletteSet: Boolean = false,
     /** Time of the tapped head of [selected] (a tied note has several); bar and head deletes use it. */
     val selectedAt: Fraction? = null,
     val rules: Set<Rule> = Rule.entries.toSet(),
@@ -359,7 +361,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             edit(new, NoteRef(v, i), nextVoice(new))
             resumeVoice = null
             _state.update { it.copy(accidental = null, placed = true) }
-            endTuplets(new, v)
+            entered(new)
             // Already heard on finger-down
             return true
         }
@@ -374,9 +376,21 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         return false
     }
 
-    /** Length and tuplet of a new event at [at] (no pitch): in chord mode (no lock) it copies the voice entered first, else the palette value. */
-    private fun input(sc: Score, v: Voice, at: Fraction): Event =
-        (if (s.locked == null) Edit.follow(sc, v, at) else null) ?: Event(s.armedLength, null, s.armedTuplet)
+    /**
+     * Length and tuplet of a new event at [at] (no pitch). Inside its own unfinished tuplet group a voice goes on in
+     * that tuplet; else in chord mode (no lock, palette untouched since the last note) it copies the voice entered
+     * first; else the palette value.
+     */
+    private fun input(sc: Score, v: Voice, at: Fraction): Event {
+        Notation.tupletGroups(sc.voice(v), sc.time).firstOrNull { at > it.start && at < it.end }?.let { g ->
+            // Palette untouched: repeat the voice's last note in the group (another voice may have changed the palette)
+            val on = sc.onsets(v)
+            val prev = sc.voice(v).indices.lastOrNull { on[it] >= g.start && on[it] < at }?.let { sc.voice(v)[it] }
+            if (!s.paletteSet && prev?.pitch != null && at + prev.length <= g.end) return Event(prev.length, null, prev.tuplet)
+            return Event(tupletLength(s.duration, g.n to g.m), null, Tuplet(g.n, g.m, s.duration.value))
+        }
+        return (if (s.locked == null && !s.paletteSet) Edit.follow(sc, v, at) else null) ?: Event(s.armedLength, null, s.armedTuplet)
+    }
 
     /** Voice for the next new note: the locked one, else the one ending earliest in [sc] (ties go S→A→T→B). */
     private fun nextVoice(sc: Score) = s.locked ?: earliestVoice(sc)
@@ -487,7 +501,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Palette value [d] in tuplet [t] for the next notes, and for the note the user picked. */
     private fun arm(d: Duration, t: Pair<Int, Int>?) {
-        _state.update { it.copy(duration = d, tuplet = t) }
+        _state.update { it.copy(duration = d, tuplet = t, paletteSet = true) }
         if (!s.placed) editSelected { sc, v, i ->
             // A note keeping its ratio keeps its group's span
             val tag = t?.let { (n, m) -> sc.voice(v)[i].tuplet?.takeIf { it.n == n && it.m == m } ?: Tuplet(n, m, d.value) }
@@ -495,11 +509,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** A tuplet group is complete once the voice ends outside every group. */
-    private fun endTuplets(sc: Score, v: Voice) {
-        if (s.tuplet == null) return
-        val end = sc.length(v)
-        if (Notation.tupletGroups(sc.voice(v), sc.time).none { end > it.start && end < it.end }) _state.update { it.copy(tuplet = null) }
+    /** After a note or rest is entered: the next one follows the chord again, and tuplets turn off once no voice ends inside an unfinished group. */
+    private fun entered(sc: Score) {
+        val open = Voice.entries.any { v ->
+            val end = sc.length(v)
+            Notation.tupletGroups(sc.voice(v), sc.time).any { end > it.start && end < it.end }
+        }
+        _state.update { it.copy(paletteSet = false, tuplet = it.tuplet.takeIf { open }) }
     }
 
     /** Cycles 0 → 1 → 2 dots on the palette value (and the selected note). */
@@ -566,7 +582,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val new = Edit.append(s.score, v, e.length, null, tuplet = e.tuplet)
         edit(new, null, nextVoice(new))
         resumeVoice = null
-        endTuplets(new, v)
+        entered(new)
     }
 
     fun tie() {
@@ -756,7 +772,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edit(sc, NoteRef(last, sc.voice(last).lastIndex), nextVoice(sc))
         resumeVoice = null
         _state.update { it.copy(accidental = null, placed = true) }
-        voices.forEach { endTuplets(sc, it) }
+        entered(sc)
     }
 
     /** Searches for Bluetooth MIDI keyboards (the Bluetooth permissions are already granted). */

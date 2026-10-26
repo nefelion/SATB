@@ -198,11 +198,19 @@ object Engraver {
             buildMeasure(score, stems, m, start, end, all.filter { it.seg.onset >= start && it.seg.onset < end })
         }
 
-        // Vertical extents per staff (note positions incl. stems)
+        // A tuplet that two voices of one staff share (same span and ratio) is marked once: the outer voice's
+        // (top staff: the upper voice, above; bottom staff: the lower voice, below), not twice between the staves
+        val tupKeys = all.filter { it.seg.tuplet }.map { it.voice to it.seg.group!! }.distinct()
+        val hidden = tupKeys.filter { (v, g) ->
+            val twins = tupKeys.filter { (o, og) -> og == g && score.staffOf(o) == score.staffOf(v) }.map { it.first }
+            twins.size > 1 && v != (if (n > 1 && score.staffOf(v) == n - 1) twins.last() else twins.first())
+        }.toSet()
+
+        // Vertical extents per staff (note positions incl. stems, and room for tuplet numbers beyond them)
         val maxP = IntArray(n) { 8 }; val minP = IntArray(n) { 0 }
         for (it in all) {
             val p = it.pos ?: continue
-            val stem = if (it.d.base > 1) 7 else 0
+            val stem = (if (it.d.base > 1) 7 else 0) + if (it.seg.tuplet && (it.voice to it.seg.group!!) !in hidden) 4 else 0
             maxP[it.staff] = max(maxP[it.staff], p + if (it.dir > 0) stem else 0)
             minP[it.staff] = min(minP[it.staff], p - if (it.dir < 0) stem else 0)
         }
@@ -289,7 +297,7 @@ object Engraver {
                 marks += LineMark(nx, top, nx, bot, Smufl.THIN_BAR)
             } else marks += LineMark(box.x1, top, box.x1, bot, Smufl.THIN_BAR)
             if (mi > 0 && !bare) marks += TextMark("${mi + 1}", box.x0 + 0.2f, top - 0.6f, 1.0f, TextStyle.MEASURE_NO)
-            drawMeasure(score, shown, m, box, ::sy, ::syf, marks, heads, headAt)
+            drawMeasure(score, shown, m, box, ::sy, ::syf, marks, heads, headAt, hidden)
             for (c in m.cols) labels[c.time]?.let { lab ->
                 val cx = c.x + Smufl.HEAD_W / 2
                 // Labels that would collide with the previous one move to a second row.
@@ -466,6 +474,7 @@ object Engraver {
         score: Score, shown: Set<Voice>, m: Meas, box: MeasureBox,
         sy: (Int, Int) -> Float, syf: (Int, Float) -> Float, marks: MutableList<Mark>,
         heads: MutableList<HeadBox>, headAt: MutableMap<Triple<Voice, Int, Int>, Pair<Item, Pair<Float, Float>>>,
+        hiddenTuplets: Set<Pair<Voice, TupletGroup>>,
     ) {
         for (c in m.cols) {
             for (s in c.items.map { it.staff }.distinct()) {
@@ -515,12 +524,14 @@ object Engraver {
         val colOf = HashMap<Item, Col>()
         for (c in m.cols) for (it in c.items) colOf[it] = c
         for (v in Voice.entries) {
-            for (run in m.items.filter { it.voice == v && it.seg.tuplet }.groupBy { it.seg.group }.values) {
+            for ((g, run) in m.items.filter { it.voice == v && it.seg.tuplet }.groupBy { it.seg.group!! }) {
+                if ((v to g) in hiddenTuplets) continue
                 val xs = run.mapNotNull { colOf[it]?.let { c -> c.x + it.xOff } }
                 if (xs.isEmpty()) continue
                 val staff = run.first().staff
                 val notes = run.filter { it.isNote }
-                val up = (notes.firstOrNull()?.dir ?: 1) > 0
+                // A group of rests only follows its voice's stem side
+                val up = (notes.firstOrNull() ?: run.first()).dir > 0
                 val x0 = xs.min() - 0.2f
                 val x1 = xs.max() + Smufl.HEAD_W + 0.2f
                 // Stem ends and beams of this group's notes, and the heads (whole notes have no stem)
@@ -541,7 +552,7 @@ object Engraver {
                 val cx = (x0 + x1) / 2
                 val lineY = if (up) edge - 0.9f else edge + 0.9f
                 // Number ("3", "5:2") centred on the bracket line (or where it would be); the glyph's baseline is ~0.65 below its middle
-                val label = run.first().seg.group!!.label
+                val label = g.label
                 fun adv(c: Char) = if (c == ':') Smufl.TUPLET_COLON_W else Smufl.TUPLET_DIGIT_W
                 val half = label.sumOf { adv(it).toDouble() }.toFloat() / 2
                 var gx = cx - half
