@@ -1,5 +1,10 @@
 package com.nefelion.fourpartwriting.ui
 
+import androidx.compose.material3.AlertDialog
+import com.nefelion.fourpartwriting.R
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.Image
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -141,8 +146,24 @@ fun EditorScreen(vm: EditorViewModel) {
     val snack = remember { SnackbarHostState() }
     var settings by rememberSaveable { mutableStateOf(false) }
     var tempoDialog by rememberSaveable { mutableStateOf(false) }
-    // Score-wide actions (clear, example) run at once and offer Undo instead of asking first
+    // Score-wide actions offer Undo; Clear also asks first
     var undoable by remember { mutableStateOf<String?>(null) }
+    var confirmClear by rememberSaveable { mutableStateOf(false) }
+    var about by rememberSaveable { mutableStateOf(false) }
+    // Generic type: providers keep an unknown .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
+    val xmlSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        uri?.let(vm::exportMusicXml)
+    }
+    var moreOpen by rememberSaveable { mutableStateOf(false) }
+    val more: @Composable RowScope.() -> Unit = {
+        MoreButton(moreOpen, { moreOpen = it }) { item ->
+            item("Export MusicXML", false) { xmlSaver.launch("satb.musicxml") }
+            item("Clear score", true) { confirmClear = true }
+            HorizontalDivider()
+            item("Settings", false) { settings = true }
+            item("About", false) { about = true }
+        }
+    }
     LaunchedEffect(st.message) {
         st.message?.let { snack.showSnackbar(it); vm.clearMessage() }
     }
@@ -164,9 +185,9 @@ fun EditorScreen(vm: EditorViewModel) {
             Column(Modifier.fillMaxSize()) {
                 if (!wide) Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).height(48.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    ActionButtons(st, vm, onSettings = { settings = true }, leading = true)
+                    ActionButtons(st, vm, more = more, leading = true)
                     Gap()
-                    ActionButtons(st, vm, onSettings = { settings = true }, leading = false, below = true)
+                    ActionButtons(st, vm, more = more, leading = false, below = true)
                 }
                 if (!wide) HorizontalDivider()
                 // Clip: zoomed-in music must stay under the toolbars, not paint over them
@@ -185,17 +206,28 @@ fun EditorScreen(vm: EditorViewModel) {
                 HorizontalDivider()
                 Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
                     .height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (wide) { ActionButtons(st, vm, onSettings = { settings = true }, leading = true); Gap() }
+                    if (wide) { ActionButtons(st, vm, more = more, leading = true); Gap() }
                     VoiceButtons(st, vm)
                     Gap()
                     NoteTools(st, vm)
-                    if (wide) { Gap(); ActionButtons(st, vm, onSettings = { settings = true }, leading = false) }
+                    if (wide) { Gap(); ActionButtons(st, vm, more = more, leading = false) }
                 }
             }
             SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(safe).padding(bottom = 64.dp))
         }
     }
     if (settings) SettingsDialog(st, vm, onUndoable = { undoable = it }) { settings = false }
+    if (about) AboutDialog { about = false }
+    if (confirmClear) AlertDialog(
+        onDismissRequest = { confirmClear = false },
+        title = { Text("Clear score?") },
+        text = { KeepRefreshRate(); Text("All notes will be removed.") },
+        confirmButton = {
+            TextButton(onClick = { confirmClear = false; vm.clearScore(); undoable = "Score cleared" },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Clear") }
+        },
+        dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
+    )
     if (tempoDialog) Dialog(onDismissRequest = { tempoDialog = false }) {
         KeepRefreshRate()
         Surface(Modifier.clearFocusOnTap(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
@@ -380,7 +412,7 @@ private class AboveAnchor(val gap: Int) : PopupPositionProvider {
 private class HoldTarget(val label: String, val below: Boolean, val danger: Boolean = false, val onDrop: () -> Unit)
 
 @Composable
-private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings: () -> Unit, leading: Boolean, below: Boolean = false) {
+private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, more: @Composable RowScope.() -> Unit, leading: Boolean, below: Boolean = false) {
     val ink = MaterialTheme.colorScheme.onSurface
     if (leading) {
         Tool(st.playing, vm::togglePlay, if (st.playing) "Stop" else "Play") { Text(if (st.playing) "■" else "▶", fontSize = 20.sp, color = ink) }
@@ -398,7 +430,51 @@ private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, onSettings:
         Tool(onClick = vm::delete, label = "Delete", hold = HoldTarget(if (bar != null) "🗑  Delete bar $bar" else "🗑  Select a note first", below, danger = true, onDrop = vm::deleteMeasure)) {
             Text("⌫", fontSize = 20.sp, color = ink)
         }
-        Tool(onClick = onSettings, label = "Settings") { Text("⚙", fontSize = 20.sp, color = ink) }
+        more()
+    }
+}
+
+/** ⋮ overflow menu. [items] adds entries with item(label, danger, action); picking one closes the menu. Open state is hoisted so it survives rotation. */
+@Composable
+private fun RowScope.MoreButton(open: Boolean, onOpen: (Boolean) -> Unit, items: @Composable (item: @Composable (String, Boolean, () -> Unit) -> Unit) -> Unit) {
+    Tool(onClick = { onOpen(true) }, label = "More options") {
+        Text("⋮", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        DropdownMenu(expanded = open, onDismissRequest = { onOpen(false) }, shape = SHAPE) {
+            KeepRefreshRate()
+            items { label, danger, action ->
+                DropdownMenuItem(text = { Text(label, color = if (danger) MaterialTheme.colorScheme.error else Color.Unspecified) },
+                    onClick = { onOpen(false); action() })
+            }
+        }
+    }
+}
+
+/** App logo (the launcher icon's two layers, cut to a circle), name, version, licence and a link to the source. */
+@Composable
+private fun AboutDialog(onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty() }
+    val uri = LocalUriHandler.current
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Dialog(onDismissRequest = onDismiss) {
+        KeepRefreshRate()
+        Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
+            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Adaptive icon layers are 108dp with the visible part in the middle 72dp: draw them 1.5× and clip
+                Box(Modifier.size(96.dp).clip(CircleShape), contentAlignment = Alignment.Center) {
+                    for (res in listOf(R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground))
+                        Image(painterResource(res), null, Modifier.requiredSize(144.dp))
+                }
+                Text("SATB", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
+                Text("Version $version", style = MaterialTheme.typography.bodyMedium, color = muted)
+                Text("Free and open-source software (GPLv3)", style = MaterialTheme.typography.bodyMedium, color = muted, textAlign = TextAlign.Center)
+                FilledTonalButton(onClick = { runCatching { uri.openUri("https://github.com/nefelion/FourPartWriting") } }, shape = SHAPE) {
+                    Text("Source code on GitHub")
+                }
+                Text("Music font: Bravura © Steinberg Media Technologies, SIL Open Font License.",
+                    style = MaterialTheme.typography.labelSmall, color = muted, textAlign = TextAlign.Center)
+            }
+        }
     }
 }
 
@@ -639,18 +715,12 @@ private fun keyLabel(k: Key) = k.name + when {
 @Composable
 private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String) -> Unit, onDismiss: () -> Unit) {
     val sf2Picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importSf2) }
-    // Generic type: providers keep an unknown .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
-    val xmlSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        uri?.let(vm::exportMusicXml)
-    }
     val score = st.score
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
     if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
     var ignoredOpen by rememberSaveable { mutableStateOf(false) }
     if (ignoredOpen) IgnoredDialog(st.score.rulesOff, vm, onUndoable) { ignoredOpen = false }
-    val ctx = LocalContext.current
-    val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty() }
-    FullScreenPage("Score settings", onDismiss) {
+    FullScreenPage("Settings", onDismiss) {
         item {
             Group("Appearance") {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -719,32 +789,6 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                 }
             }
         }
-        item {
-            Group("Score") {
-                OutlinedButton(onClick = { xmlSaver.launch("satb.musicxml") }, shape = SHAPE) { Text("Export MusicXML…") }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = { vm.loadExample(); onDismiss(); onUndoable("Example loaded") }, shape = SHAPE) { Text("Example score") }
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = { vm.clearScore(); onDismiss(); onUndoable("Score cleared") }, shape = SHAPE,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Clear score") }
-                }
-            }
-        }
-        item {
-            val uri = LocalUriHandler.current
-            Group("About") {
-                Text("SATB is free and open-source software (GPLv3).", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedButton(onClick = { runCatching { uri.openUri("https://github.com/nefelion/FourPartWriting") } }, shape = SHAPE) {
-                    Text("Source code on GitHub")
-                }
-            }
-        }
-        item {
-            Text("SATB $version · Music font: Bravura © Steinberg Media Technologies, SIL Open Font License.",
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.widthIn(max = 640.dp).padding(horizontal = 4.dp, vertical = 8.dp))
-        }
     }
 }
 
@@ -761,10 +805,12 @@ private fun MidiGroup(st: UiState, vm: EditorViewModel) {
     }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Group("MIDI keyboard") {
-        Text(if (st.midiDevices.isEmpty()) "No keyboard connected. A USB keyboard connects by itself when plugged in."
-            else "Connected: ${st.midiDevices.joinToString()}", style = MaterialTheme.typography.bodyMedium, color = muted)
-        FilledTonalButton(onClick = { ask.launch(perms) }, enabled = !st.midiScanning, shape = SHAPE) {
-            Text(if (st.midiScanning) "Searching…" else "Find Bluetooth keyboard")
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(if (st.midiDevices.isEmpty()) "None connected" else "Connected: ${st.midiDevices.joinToString()}",
+                Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = muted)
+            FilledTonalButton(onClick = { ask.launch(perms) }, enabled = !st.midiScanning, shape = SHAPE) {
+                Text(if (st.midiScanning) "Searching…" else "Find Bluetooth")
+            }
         }
         if (denied) Text("Allow Bluetooth access to find keyboards.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         st.midiNote?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
@@ -776,7 +822,7 @@ private fun MidiGroup(st: UiState, vm: EditorViewModel) {
             }
         }
         if (!st.midiScanning && st.midiFound.isEmpty() && st.midiDevices.isEmpty())
-            Text("Switch the keyboard on and into Bluetooth MIDI mode, then search. Pairing in Android's Bluetooth settings is not needed.",
+            Text("USB keyboards connect by themselves. For Bluetooth, switch on its MIDI mode and search (no pairing needed).",
                 style = MaterialTheme.typography.bodySmall, color = muted)
     }
 }

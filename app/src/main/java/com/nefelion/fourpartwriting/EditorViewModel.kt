@@ -693,7 +693,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setArrangement(a: Arrangement) = edit(s.score.withArrangement(a))
     fun setTime(t: TimeSig) = edit(s.score.copy(time = t))
     fun clearScore() = edit(s.score.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet()), null, Voice.SOPRANO)
-    fun loadExample() = edit(EXAMPLE.withArrangement(s.score.arrangement), null, Voice.SOPRANO)
 
     // ---------- analysis ----------
 
