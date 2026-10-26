@@ -76,6 +76,13 @@ data class UiState(
     val followTick: Int = 0,
     /** Onsets of block chords whose voices look entered in the wrong order (shown as a prompt). */
     val reorder: List<Fraction> = emptyList(),
+    /** Names of the connected MIDI keyboards. */
+    val midiDevices: List<String> = emptyList(),
+    /** Bluetooth MIDI keyboards found by the current or last search. */
+    val midiFound: List<String> = emptyList(),
+    val midiScanning: Boolean = false,
+    /** Result of the last Bluetooth search or connection, shown in Settings. */
+    val midiNote: String? = null,
     /** Note a tap would add, shown while the finger is down. */
     val ghost: Ghost? = null,
     /** Voice locked for input (hold a voice button): every new note goes to it. */
@@ -162,7 +169,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private var tempoBase: Score? = null
 
     /** MIDI keyboard: notes played within [CHORD_MS] of each other arrive as one chord. */
-    private val midi = MidiIn(app) { n, on -> midiKey(n, on) }
+    private val midi = MidiIn(app, { n, on -> midiKey(n, on) }, { names -> _state.update { it.copy(midiDevices = names) } })
+    private val btFound = mutableListOf<android.bluetooth.BluetoothDevice>()
     private val midiChord = mutableListOf<Int>()
     private var midiJob: Job? = null
 
@@ -171,6 +179,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     init {
+        reconnectMidi()
         val savedUri = prefs.getString("sf2Uri", null)?.let(Uri::parse)
         if (savedUri != null || sf2.exists()) loadJob = viewModelScope.launch(Dispatchers.IO) {
             _state.update { it.copy(soundLoading = true) }
@@ -721,7 +730,43 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         voices.forEach { endTriplets(sc, it) }
     }
 
-    override fun onCleared() { midi.close() }
+    /** Searches for Bluetooth MIDI keyboards (the Bluetooth permissions are already granted). */
+    fun startMidiScan() {
+        btFound.clear()
+        _state.update { it.copy(midiFound = emptyList(), midiScanning = true, midiNote = null) }
+        midi.scan(getApplication(), found = { dev, name ->
+            btFound += dev
+            _state.update { it.copy(midiFound = it.midiFound + name) }
+        }, ended = { m ->
+            _state.update { it.copy(midiScanning = false, midiNote = m ?: if (it.midiFound.isEmpty()) "No Bluetooth MIDI keyboard found." else null) }
+        })
+    }
+
+    fun connectMidi(i: Int) {
+        val dev = btFound.getOrNull(i) ?: return
+        val name = s.midiFound.getOrNull(i)
+        midi.stopScan(getApplication())
+        _state.update { it.copy(midiScanning = false) }
+        midi.connectBluetooth(dev) { ok ->
+            // Remembered, so the keyboard reconnects on the next start
+            if (ok) prefs.edit().putString("midiBt", dev.address).apply()
+            _state.update { it.copy(midiNote = if (ok) null else "Could not connect to $name. Is it on, and not connected to another device?",
+                midiFound = if (ok) emptyList() else it.midiFound) }
+        }
+    }
+
+    /** Reconnects the Bluetooth keyboard used last time (quietly; needs the permission granted earlier). */
+    private fun reconnectMidi() {
+        val addr = prefs.getString("midiBt", null) ?: return
+        val ctx = getApplication<Application>()
+        if (android.os.Build.VERSION.SDK_INT >= 31 && ctx.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED) return
+        val adapter = (ctx.getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager?)?.adapter ?: return
+        if (!adapter.isEnabled) return
+        runCatching { midi.connectBluetooth(adapter.getRemoteDevice(addr)) {} }
+    }
+
+    override fun onCleared() { midi.stopScan(getApplication()); midi.close() }
 
     // ---------- sound ----------
 

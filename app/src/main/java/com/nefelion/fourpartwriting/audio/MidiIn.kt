@@ -1,5 +1,11 @@
 package com.nefelion.fourpartwriting.audio
 
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.midi.MidiDevice
@@ -8,12 +14,19 @@ import android.media.midi.MidiManager
 import android.media.midi.MidiReceiver
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelUuid
+import java.util.UUID
 
 /**
- * Listens to every connected MIDI keyboard (USB, or Bluetooth already paired by the system).
+ * Listens to every connected MIDI keyboard: USB ones at once, Bluetooth ones once connected with [connectBluetooth].
  * [onNote] gets (note, true) for Note On and (note, false) for Note Off, on the main thread.
  */
-class MidiIn(context: Context, private val onNote: (Int, Boolean) -> Unit) {
+class MidiIn(
+    context: Context,
+    private val onNote: (Int, Boolean) -> Unit,
+    /** Names of the connected keyboards, whenever they change. */
+    private val onDevices: (List<String>) -> Unit,
+) {
     private val main = Handler(Looper.getMainLooper())
     private val manager = if (context.packageManager.hasSystemFeature(PackageManager.FEATURE_MIDI))
         context.getSystemService(Context.MIDI_SERVICE) as MidiManager? else null
@@ -48,7 +61,7 @@ class MidiIn(context: Context, private val onNote: (Int, Boolean) -> Unit) {
 
     private val callback = object : MidiManager.DeviceCallback() {
         override fun onDeviceAdded(info: MidiDeviceInfo) = connect(info)
-        override fun onDeviceRemoved(info: MidiDeviceInfo) { open.remove(info.id)?.close() }
+        override fun onDeviceRemoved(info: MidiDeviceInfo) { open.remove(info.id)?.close(); changed() }
     }
 
     init {
@@ -58,19 +71,77 @@ class MidiIn(context: Context, private val onNote: (Int, Boolean) -> Unit) {
         }
     }
 
+    /** Names of the connected keyboards. */
+    private fun changed() = onDevices(open.values.map { d ->
+        d.info.properties.getString(MidiDeviceInfo.PROPERTY_NAME) ?: "MIDI device"
+    })
+
+    /** Listens to all of a keyboard's output ports (what it plays). */
+    private fun listen(dev: MidiDevice) {
+        open[dev.info.id] = dev
+        for (p in 0 until dev.info.outputPortCount) dev.openOutputPort(p)?.connect(receiver)
+        changed()
+    }
+
     private fun connect(info: MidiDeviceInfo) {
-        if (info.outputPortCount == 0 || info.id in open) return
-        manager?.openDevice(info, { dev ->
-            if (dev == null) return@openDevice
-            open[info.id] = dev
-            // A keyboard's "output" port is what it plays; listen to all of them
-            for (p in 0 until info.outputPortCount) dev.openOutputPort(p)?.connect(receiver)
-        }, main)
+        // Bluetooth keyboards are opened through [connectBluetooth] only, or they would be listened to twice
+        if (info.outputPortCount == 0 || info.id in open || info.type == MidiDeviceInfo.TYPE_BLUETOOTH) return
+        manager?.openDevice(info, { dev -> dev?.let(::listen) }, main)
+    }
+
+    /** Opens a Bluetooth MIDI keyboard found by [scan]; [done] gets whether it worked. */
+    fun connectBluetooth(device: BluetoothDevice, done: (Boolean) -> Unit) {
+        val m = manager ?: return done(false)
+        try {
+            m.openBluetoothDevice(device, { dev -> if (dev != null) listen(dev); done(dev != null) }, main)
+        } catch (_: SecurityException) { done(false) }
+    }
+
+    private var scanCallback: ScanCallback? = null
+
+    /**
+     * Looks for Bluetooth MIDI keyboards (they advertise the BLE MIDI service) for [SCAN_MS].
+     * [found] gets each one once; [ended] is called when the search stops. Needs the Bluetooth permissions.
+     */
+    fun scan(context: Context, found: (BluetoothDevice, String) -> Unit, ended: (String?) -> Unit) {
+        val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager?)?.adapter
+        if (adapter == null || !adapter.isEnabled) return ended("Turn on Bluetooth first.")
+        val scanner = adapter.bluetoothLeScanner ?: return ended("Turn on Bluetooth first.")
+        stopScan(context)
+        val seen = HashSet<String>()
+        val cb = object : ScanCallback() {
+            override fun onScanResult(callbackType: Int, result: ScanResult) {
+                if (!seen.add(result.device.address)) return
+                val name = try { result.scanRecord?.deviceName ?: result.device.name } catch (_: SecurityException) { null }
+                found(result.device, name ?: result.device.address)
+            }
+            override fun onScanFailed(errorCode: Int) { scanCallback = null; ended("Bluetooth search failed (error $errorCode).") }
+        }
+        try {
+            scanner.startScan(listOf(ScanFilter.Builder().setServiceUuid(ParcelUuid(MIDI_SERVICE)).build()),
+                ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build(), cb)
+        } catch (_: SecurityException) { return ended("Bluetooth permission is needed to find keyboards.") }
+        scanCallback = cb
+        main.postDelayed({ if (scanCallback === cb) { stopScan(context); ended(null) } }, SCAN_MS)
+    }
+
+    fun stopScan(context: Context) {
+        val cb = scanCallback ?: return
+        scanCallback = null
+        try {
+            (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager?)?.adapter?.bluetoothLeScanner?.stopScan(cb)
+        } catch (_: SecurityException) {}
     }
 
     fun close() {
         manager?.unregisterDeviceCallback(callback)
         open.values.forEach { runCatching { it.close() } }
         open.clear()
+    }
+
+    companion object {
+        /** BLE MIDI service UUID (MIDI over Bluetooth Low Energy spec). */
+        private val MIDI_SERVICE = UUID.fromString("03B80E5A-EDE8-4B33-A751-6CE34EC4C700")
+        private const val SCAN_MS = 15_000L
     }
 }

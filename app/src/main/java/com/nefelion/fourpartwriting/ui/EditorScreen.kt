@@ -649,6 +649,7 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                 FilledTonalButton(onClick = { sf2Picker.launch(arrayOf("*/*")) }, shape = SHAPE) { Text("Load .sf2 file…") }
             }
         }
+        item { MidiGroup(st, vm) }
         item {
             Group("Rules") {
                 Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { rulesOpen = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -678,6 +679,39 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.widthIn(max = 640.dp).padding(horizontal = 4.dp, vertical = 8.dp))
         }
+    }
+}
+
+/** MIDI keyboards: what is connected, and a search for Bluetooth ones (USB ones connect by themselves). */
+@Composable
+private fun MidiGroup(st: UiState, vm: EditorViewModel) {
+    var denied by rememberSaveable { mutableStateOf(false) }
+    val perms = if (android.os.Build.VERSION.SDK_INT >= 31)
+        arrayOf(android.Manifest.permission.BLUETOOTH_SCAN, android.Manifest.permission.BLUETOOTH_CONNECT)
+    else arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
+        denied = !r.values.all { it }
+        if (!denied) vm.startMidiScan()
+    }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Group("MIDI keyboard") {
+        Text(if (st.midiDevices.isEmpty()) "No keyboard connected. A USB keyboard connects by itself when plugged in."
+            else "Connected: ${st.midiDevices.joinToString()}", style = MaterialTheme.typography.bodyMedium, color = muted)
+        FilledTonalButton(onClick = { ask.launch(perms) }, enabled = !st.midiScanning, shape = SHAPE) {
+            Text(if (st.midiScanning) "Searching…" else "Find Bluetooth keyboard")
+        }
+        if (denied) Text("Allow Bluetooth access to find keyboards.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        st.midiNote?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+        st.midiFound.forEachIndexed { i, name ->
+            Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.connectMidi(i) }.padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(name, Modifier.weight(1f))
+                Text("Connect", color = MaterialTheme.colorScheme.primary)
+            }
+        }
+        if (!st.midiScanning && st.midiFound.isEmpty() && st.midiDevices.isEmpty())
+            Text("Switch the keyboard on and into Bluetooth MIDI mode, then search. Pairing in Android's Bluetooth settings is not needed.",
+                style = MaterialTheme.typography.bodySmall, color = muted)
     }
 }
 
