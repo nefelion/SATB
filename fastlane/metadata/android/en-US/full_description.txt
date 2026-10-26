@@ -1,0 +1,29 @@
+<p>Write four-part (SATB) harmony and check it against common-practice voice-leading rules.</p>
+
+<p><b>Writing</b></p>
+<ul>
+<li>Write four voices (S, A, T, B) by tapping notes onto the staff. Touching the staff shows and plays the note before you let go.</li>
+<li>Enter chord by chord: alto, tenor and bass take the rhythm of the voice already written.</li>
+<li>Edit pitch, length, dots, rests, accidentals and ties, with undo/redo.</li>
+<li>Tuplets: triplets with one tap, or any n in the time of m.</li>
+<li>Choose key, time signature, tempo, clefs and staff layout.</li>
+</ul>
+
+<p><b>MIDI keyboard</b></p>
+<ul>
+<li>Plug in a USB keyboard or pair a Bluetooth one. Play a note to write it, or play a chord: the highest note goes to the soprano, the lowest to the bass.</li>
+</ul>
+
+<p><b>Analysis</b></p>
+<ul>
+<li>Harmony check tests 25 voice-leading rules: parallel fifths and octaves, leading tone and seventh resolution, doubling, spacing, voice crossing and more. Each rule can be turned off and has an explanation with an example.</li>
+<li>Chord symbols and Roman numerals for every chord, including inversions and seventh chords.</li>
+<li>Non-chord tones are named: passing and neighbour notes, suspensions, appoggiaturas, anticipations, pedals and the cambiata.</li>
+</ul>
+
+<p><b>Sound and files</b></p>
+<ul>
+<li>Playback with any SoundFont (.sf2) you pick. None is bundled.</li>
+<li>Export to MusicXML (MuseScore, Sibelius, Dorico and others).</li>
+<li>Light and dark theme.</li>
+</ul>

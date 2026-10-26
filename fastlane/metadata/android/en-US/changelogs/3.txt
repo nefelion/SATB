@@ -1,0 +1,5 @@
+- MIDI keyboard input (USB or Bluetooth): play notes or whole chords to write them.
+- Tuplets: triplets with one tap, or any n in the time of m (5:4, 7:8 ...).
+- Chord by chord entry: lower voices take the rhythm already written.
+- The staff previews and plays a note before you let go.
+- Better chord names and non-chord tones in florid writing.

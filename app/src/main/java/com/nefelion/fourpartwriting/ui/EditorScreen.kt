@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -726,6 +727,16 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = { vm.clearScore(); onDismiss(); onUndoable("Score cleared") }, shape = SHAPE,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Clear score") }
+                }
+            }
+        }
+        item {
+            val uri = LocalUriHandler.current
+            Group("About") {
+                Text("SATB is free and open-source software (GPLv3).", style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedButton(onClick = { runCatching { uri.openUri("https://github.com/nefelion/FourPartWriting") } }, shape = SHAPE) {
+                    Text("Source code on GitHub")
                 }
             }
         }

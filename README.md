@@ -49,7 +49,7 @@ For playback, pick a SoundFont (`.sf2`) file in Settings. None is bundled.
 
 ## Build
 
-Requirements: Android Studio with Android SDK 37, NDK `27.0.12077973`, CMake `3.22.1`.
+Requirements: JDK 17+, Android SDK 37, NDK `27.0.12077973`, CMake `3.22.1`. Android Studio is optional; the command line is enough.
 
 ```sh
 ./gradlew assembleDebug            # APK in app/build/outputs/apk/debug/
