@@ -61,6 +61,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -166,8 +169,9 @@ fun EditorScreen(vm: EditorViewModel) {
                 // Clip: zoomed-in music must stay under the toolbars, not paint over them
                 Box(Modifier.weight(1f).fillMaxWidth()
                     .then(if (wide) Modifier.windowInsetsPadding(safe.only(WindowInsetsSides.Top)) else Modifier).clipToBounds()) {
+                    val haptic = LocalHapticFeedback.current
                     ScoreCanvas(
-                        st, vm::tap, vm::nudge, vm::dragPitch,
+                        st, { if (vm.tap(it)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, vm::nudge, vm::dragPitch,
                         onTempoTap = { tempoDialog = true },
                         savedViewport = vm.viewport, onViewport = vm::rememberViewport,
                         edges = edges,
@@ -279,8 +283,11 @@ private fun RowScope.Tool(
     hold: HoldTarget? = null,
     menu: Boolean = false,
     press: (suspend AwaitPointerEventScope.(PointerInputChange, (Offset) -> Offset) -> Unit)? = null,
+    /** Plain long-press action (no drop target), with a haptic tick. */
+    long: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
+    val haptic = LocalHapticFeedback.current
     var shown by remember { mutableStateOf(false) }
     var over by remember { mutableStateOf(false) }
     val click by rememberUpdatedState(onClick)
@@ -304,6 +311,9 @@ private fun RowScope.Tool(
                         f(down) { p -> coords[0]?.takeIf { it.isAttached }?.localToScreen(p) ?: p }
                     }
                 }
+            else if (long != null) Modifier.combinedClickable(role = Role.Button, onLongClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress); long()
+            }, onClick = onClick)
             else if (hold == null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier.semantics {
                 role = Role.Button
                 onClick(label) { click(); true }
@@ -394,7 +404,7 @@ private fun RowScope.VoiceButtons(st: UiState, vm: EditorViewModel) {
     for (v in Voice.entries) {
         val col = LocalScoreColors.current.voices[v.ordinal]
         val on = st.shownVoice == v && !st.moving
-        Tool(on, { vm.selectVoice(v) }, "Voice ${v.label}", color = col, hold = HoldTarget("🔒  ${v.label} only", below = false) { vm.lockVoice(v) }) {
+        Tool(on, { vm.selectVoice(v) }, "Voice ${v.label}", color = col, long = { vm.lockVoice(v) }) {
             Text(v.label + if (st.locked == v) "🔒" else "", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (on) MaterialTheme.colorScheme.surface else col)
         }
     }

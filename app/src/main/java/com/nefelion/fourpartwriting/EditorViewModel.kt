@@ -245,10 +245,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- input ----------
 
-    fun tap(hit: Hit) {
+    /** Returns true when a note was placed. */
+    fun tap(hit: Hit): Boolean {
         if (s.moving) {
             if (hit.near != null) select(hit.near, hit.nearAt) else if (hit.exact != null) select(hit.exact, hit.exactAt)
-            return
+            return false
         }
         val score = s.score
         val v = s.locked ?: s.voice
@@ -258,11 +259,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val appendSlot = hit.time >= end || (hit.afterLast && (measureOf(hit.time) == measureOf(end) ||
             (measureOf(hit.time) == measureOf(end) - 1 && (end / ml).den == 1L)))
 
-        when {
+        return when {
             // In the slot for the next note, only a tap right on an existing note selects it;
             // on another voice's staff (where the input voice can't go) a tap near a note does too.
-            appendSlot && hit.exact != null -> select(hit.exact, hit.exactAt)
-            appendSlot && hit.near != null && hit.staff != score.staffOf(v) -> select(hit.near, hit.nearAt)
+            appendSlot && hit.exact != null -> { select(hit.exact, hit.exactAt); false }
+            appendSlot && hit.near != null && hit.staff != score.staffOf(v) -> { select(hit.near, hit.nearAt); false }
             appendSlot -> {
                 val base = score.clefs[hit.staff].pitchAt(hit.position)
                 val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave))
@@ -279,12 +280,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 resumeVoice = null
                 _state.update { it.copy(accidental = null) }
                 preview(pitch)
+                true
             }
             // A tap in a rest of the input voice (not on a note) puts a note there
-            hit.exact == null && hit.near == null && fillRest(hit, v) -> {}
+            hit.exact == null && hit.near == null && fillRest(hit, v) -> true
             // Tapping the selected head again, or empty space, clears the selection; another head of a tied note selects that head
-            hit.near == null || (hit.near == s.selected && hit.nearAt == s.selectedTime) -> deselect()
-            else -> select(hit.near, hit.nearAt)
+            hit.near == null || (hit.near == s.selected && hit.nearAt == s.selectedTime) -> { deselect(); false }
+            else -> { select(hit.near, hit.nearAt); false }
         }
     }
 
