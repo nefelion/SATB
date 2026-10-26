@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/logo.svg" width="128" alt="SATB logo: a treble staff with four coloured notes rising"></p>
+
 # SATB
 
 An Android app for writing four-part (SATB) harmony and checking it against common-practice voice-leading rules.
@@ -20,7 +22,7 @@ An Android app for writing four-part (SATB) harmony and checking it against comm
 
 <img alt="Harmony check: parallel octaves highlighted in the score, with the list of errors and warnings below" src="docs/images/check.png">
 
-Tap a mistake to see the notes involved. The ⓘ button explains the rule with an example, and lets you ignore it once, for the whole score, or turn it off.
+Tap a mistake to see the notes involved. The ⓘ button explains the rule with an example.
 
 <img alt="Phone screens: harmony check, a rule explanation, and the list of rules" src="docs/images/phone.png">
 
