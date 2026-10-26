@@ -22,10 +22,7 @@ object MusicXml {
     fun export(score: Score): String {
         val ml = score.time.measure
         val written = Voice.entries.flatMap { v ->
-            var t = Fraction.ZERO
-            score.voice(v).flatMapIndexed { i, e ->
-                val segs = Notation.split(t, e.length, score.time, e.pitch == null)
-                t += e.length
+            Notation.splitVoice(score.voice(v), score.time).flatMapIndexed { i, segs ->
                 segs.mapIndexed { k, s -> W(v, i, s, k, k == segs.lastIndex) }
             }
         }
@@ -89,10 +86,9 @@ object MusicXml {
                 }
                 first = false
                 var t = start
-                // A triplet run: consecutive triplet values of this voice inside one beat
-                fun beatOf(x: W) = ((x.seg.onset - start) / score.time.beatLength).let { it.num / it.den }
-                fun joined(a: W?, b: W?) = a != null && b != null && a.seg.tuplet && b.seg.tuplet &&
-                    a.seg.onset + a.seg.length == b.seg.onset && beatOf(a) == beatOf(b)
+                // Neighbouring values of one triplet group
+                fun joined(a: W?, b: W?) = a != null && b != null && a.seg.tuplet && a.seg.group == b.seg.group &&
+                    a.seg.onset + a.seg.length == b.seg.onset
                 for ((j, w) in notes.withIndex()) {
                     if (w.seg.onset > t) { // gap in this voice: forward
                         sb.append("      <forward><duration>${dur(w.seg.onset - t)}</duration><voice>${v.ordinal + 1}</voice><staff>${score.staffOf(v) + 1}</staff></forward>\n")

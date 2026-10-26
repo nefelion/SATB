@@ -63,47 +63,66 @@ class NotationTest {
         assertEquals("4 4", written(f(1, 4), f(1, 2), cut)) // off the half-note beat: split at beat 2
     }
 
-    /** Like [written], triplet values marked "t" (e.g. "t8" = triplet eighth). */
-    private fun w3(onset: Fraction, len: Fraction, t: TimeSig = c44, rest: Boolean = false) =
-        Notation.split(onset, len, t, rest).joinToString(" ") { s ->
-            (if (s.tuplet) "t" else "") + s.dur.base + ".".repeat(s.dur.dots)
+    /**
+     * Written values of a voice of notes with these lengths ("r" before a length = rest), one "|" between
+     * events; triplet values marked "t" (e.g. "t8" = triplet eighth), ties shown as spaces.
+     */
+    private fun w3(vararg ev: String, t: TimeSig = c44): String {
+        val events = ev.map { tok ->
+            val rest = tok.startsWith("r")
+            val (n, d) = tok.removePrefix("r").split("/").map { it.toLong() }
+            com.nefelion.fourpartwriting.model.Event(f(n, d), if (rest) null else com.nefelion.fourpartwriting.model.Pitch.parse("C4"))
         }
+        return Notation.splitVoice(events, t).joinToString(" | ") { segs ->
+            segs.joinToString(" ") { s -> (if (s.tuplet) "t" else "") + s.dur.base + ".".repeat(s.dur.dots) }
+        }
+    }
 
     @Test fun tripletEighths() {
-        assertEquals("t8", w3(f(0, 1), f(1, 12)))
-        assertEquals("t8", w3(f(1, 12), f(1, 12)))
-        assertEquals("t8", w3(f(1, 6), f(1, 12)))
-        assertEquals("t4", w3(f(0, 1), f(1, 6)))      // quarter + eighth triplet
-        assertEquals("t8", w3(f(1, 6), f(1, 12), rest = true))
-        assertEquals("t8", w3(f(5, 4) + f(1, 12), f(1, 12)))  // second bar
+        assertEquals("t8 | t8 | t8 | 4", w3("1/12", "1/12", "1/12", "1/4"))
+        assertEquals("t4 | t8", w3("1/6", "1/12"))           // quarter + eighth
+        assertEquals("t8 | t8 | t8", w3("1/12", "r1/12", "1/12"))
+        assertEquals("1 | t8 | t8 | t8", w3("1/1", "1/12", "1/12", "1/12")) // second bar
+    }
+
+    @Test fun quarterTripletsSpanTwoBeats() {
+        // the user-reported bug: the middle one was two tied triplet eighths
+        assertEquals("t4 | t4 | t4 | 2", w3("1/6", "1/6", "1/6", "1/2"))
+        assertEquals("4 | t4 | t4 | t4 | 4", w3("1/4", "1/6", "1/6", "1/6", "1/4")) // from beat 2
+        assertEquals("t4 | t4 | t4", w3("1/6", "1/6", "1/6", t = TimeSig(2, 2)))
+    }
+
+    @Test fun halfTripletsSpanTheBar() {
+        assertEquals("t2 | t2 | t2", w3("1/3", "1/3", "1/3"))
+    }
+
+    @Test fun tripletsAfterAnOffbeatStart() {
+        // after a plain eighth: the group runs from the "and" of 1, no ties
+        assertEquals("8 | t8 | t8 | t8", w3("1/8", "1/12", "1/12", "1/12"))
+    }
+
+    @Test fun unfinishedGroupStaysInItsGroup() {
+        // two triplet eighths written so far: the voice ends inside the group
+        val segs = Notation.splitVoice(listOf(1, 1).map { com.nefelion.fourpartwriting.model.Event(f(1, 12), null) }, c44)
+        assertEquals(f(0, 1), segs[1].single().group)
+        assertEquals(listOf(com.nefelion.fourpartwriting.engrave.TripletGroup(f(0, 1), f(1, 4))), Notation.groups(listOf(f(1, 12), f(1, 12)), c44))
     }
 
     @Test fun tripletTiedAcrossTheBeat() {
-        // last triplet eighth of beat 1 tied into a quarter on beat 2
-        assertEquals("t8 4", w3(f(1, 6), f(1, 12) + f(1, 4)))
-        // a quarter starting on beat 1 tied to the first triplet eighth of beat 2
-        assertEquals("4 t8", w3(f(0, 1), f(1, 4) + f(1, 12)))
+        // a quarter tied to the first triplet eighth of beat 2
+        assertEquals("4 t8 | t8 | t8", w3("1/3", "1/12", "1/12"))
         // the sounding lengths add up
-        val segs = Notation.split(f(1, 6), f(1, 2), c44, false)
+        val segs = Notation.splitVoice(listOf(com.nefelion.fourpartwriting.model.Event(f(1, 6), null),
+            com.nefelion.fourpartwriting.model.Event(f(1, 2), com.nefelion.fourpartwriting.model.Pitch.parse("C4"))), c44)[1]
         assertEquals(f(1, 2), segs.fold(Fraction.ZERO) { a, s -> a + s.length })
-        assertEquals(segs.zipWithNext().all { (a, b) -> a.onset + a.length == b.onset }, true)
-    }
-
-    @Test fun quarterTripletsInCutTime() {
-        assertEquals("t4", w3(f(0, 1), f(1, 6), TimeSig(2, 2)))
-        assertEquals("t4", w3(f(1, 6), f(1, 6), TimeSig(2, 2)))
-        assertEquals("t4", w3(f(1, 3), f(1, 6), TimeSig(2, 2)))
+        assertEquals(true, segs.zipWithNext().all { (a, b) -> a.onset + a.length == b.onset })
     }
 
     @Test fun sixteenthTriplets() {
-        assertEquals("t16", w3(f(0, 1), f(1, 24)))
-        assertEquals("t16", w3(f(1, 24), f(1, 24)))
-        assertEquals("t16", w3(f(1, 12), f(1, 24)))
-        assertEquals("8", w3(f(1, 8), f(1, 8)))  // plain eighth after them
+        assertEquals("t16 | t16 | t16 | 8", w3("1/24", "1/24", "1/24", "1/8"))
     }
 
     @Test fun plainValuesAreNotTriplets() {
-        assertEquals("4", w3(f(0, 1), f(1, 4)))
-        assertEquals("2", w3(f(1, 4), f(1, 2)))
+        assertEquals("4 | 2", w3("1/4", "1/2"))
     }
 }

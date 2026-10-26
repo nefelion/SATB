@@ -23,6 +23,8 @@ object Smufl {
     const val HEAD_WHOLE = ''
     const val HEAD_HALF = ''
     const val HEAD_BLACK = ''
+    /** Tuplet number 3 (bold italic, unlike bar numbers). */
+    const val TUPLET_3 = ''
     const val DOT = ''
     val FLAG_UP = charArrayOf('', '', '', '')
     val FLAG_DOWN = charArrayOf('', '', '', '')

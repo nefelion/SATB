@@ -170,13 +170,12 @@ object Engraver {
         val all = mutableListOf<Item>()
         for (v in Voice.entries) {
             if (v !in shown) continue
-            var t = Fraction.ZERO
+            val split = Notation.splitVoice(score.voice(v), score.time)
             for ((i, e) in score.voice(v).withIndex()) {
-                val segs = Notation.split(t, e.length, score.time, e.pitch == null)
+                val segs = split[i]
                 val staff = score.staffOf(v)
                 for ((k, s) in segs.withIndex())
                     all += Item(v, i, s, k, e.pitch != null && k < segs.lastIndex, staff, e.pitch?.let { score.clefs[staff].position(it) })
-                t += e.length
             }
         }
         val total = score.length
@@ -189,7 +188,8 @@ object Engraver {
             val t = score.length(v)
             if (t >= barEnd) continue
             val staff = score.staffOf(v)
-            for ((k, s) in Notation.split(t, barEnd - t, score.time, true).withIndex())
+            val groups = Notation.groups(score.voice(v).map { it.length }, score.time)
+            for ((k, s) in Notation.split(t, barEnd - t, score.time, true, groups).withIndex())
                 all += Item(v, score.voice(v).size, s, k, false, staff, null)
         }
         val measures = (0 until barCount).map { m ->
@@ -511,19 +511,11 @@ object Engraver {
             if (!u.hasStem || u in beamedUnits) continue
             stemAndFlag(u, c.x, sy, syf(u.staff, 4f), marks)
         }
-        // Triplets: a "3" over (stem up) or under each voice's run of triplet values within a beat
+        // Triplets: a "3" over (stem up) or under each triplet group of each voice
         val colOf = HashMap<Item, Col>()
         for (c in m.cols) for (it in c.items) colOf[it] = c
-        val beat = score.time.beatLength
         for (v in Voice.entries) {
-            val runs = mutableListOf<MutableList<Item>>()
-            for (it in m.items.filter { it.voice == v && it.seg.tuplet }.sortedBy { it.seg.onset }) {
-                val last = runs.lastOrNull()?.last()
-                val sameBeat = last != null && ((last.seg.onset - m.start) / beat).let { f -> f.num / f.den } ==
-                    ((it.seg.onset - m.start) / beat).let { f -> f.num / f.den }
-                if (last != null && sameBeat && last.seg.onset + last.seg.length == it.seg.onset) runs.last() += it else runs += mutableListOf(it)
-            }
-            for (run in runs) {
+            for (run in m.items.filter { it.voice == v && it.seg.tuplet }.groupBy { it.seg.group }.values) {
                 val xs = run.mapNotNull { colOf[it]?.let { c -> c.x + it.xOff } }
                 if (xs.isEmpty()) continue
                 val staff = run.first().staff
@@ -531,7 +523,7 @@ object Engraver {
                 val up = (notes.firstOrNull()?.dir ?: 1) > 0
                 val y = if (up) min(sy(staff, 8) - 0.8f, (notes.minOfOrNull { sy(staff, it.pos!!) } ?: sy(staff, 8)) - 4.6f)
                     else max(sy(staff, 0) + 2.0f, (notes.maxOfOrNull { sy(staff, it.pos!!) } ?: sy(staff, 0)) + 5.4f)
-                marks += TextMark("3", (xs.min() + xs.max()) / 2 + Smufl.HEAD_W / 2 - 0.3f, y, 1.2f, TextStyle.MEASURE_NO)
+                marks += GlyphMark(Smufl.TUPLET_3, (xs.min() + xs.max()) / 2 + Smufl.HEAD_W / 2 - 0.45f, y)
             }
         }
     }

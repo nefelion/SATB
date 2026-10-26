@@ -537,7 +537,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         // A tapped head with a tie going out of it: remove that tie (the note splits in two)
         if (e.pitch != null) {
             val t = onsetOf(r)
-            val segs = Notation.split(t, e.length, s.score.time, false)
+            val segs = Notation.splitVoice(s.score.voice(r.voice), s.score.time)[r.index]
             val k = segs.indexOfLast { it.onset <= (s.selectedTime ?: t) }
             if (k < segs.lastIndex) { edit(Edit.untie(s.score, r.voice, r.index, segs[k + 1].onset)); return }
         }
@@ -560,7 +560,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val t = onsetOf(r)
         // A tied note: delete only the tapped head
         val e = list[r.index]
-        val segs = if (e.pitch == null) emptyList() else Notation.split(t, e.length, score.time, false)
+        val segs = if (e.pitch == null) emptyList() else Notation.splitVoice(score.voice(r.voice), score.time)[r.index]
         val at = s.selectedTime ?: t
         val seg = segs.takeIf { it.size > 1 }?.firstOrNull { at >= it.onset && at < it.onset + it.length }
         if (seg != null) {
