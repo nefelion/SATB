@@ -56,6 +56,25 @@ data class Pitch(val step: Int, val alter: Int, val octave: Int) {
 
     companion object {
         fun fromDiatonic(d: Int, alter: Int) = Pitch(Math.floorMod(d, 7), alter, Math.floorDiv(d, 7))
+
+        /**
+         * Spells MIDI note [midi] in [key]: a scale note as the key signature has it; in minor the raised
+         * 6th and 7th; otherwise sharps in sharp keys and C, flats in flat keys.
+         */
+        fun fromMidi(midi: Int, key: Key): Pitch {
+            val pc = Math.floorMod(midi, 12)
+            val t = key.tonic.step
+            val raised = if (key.mode == Mode.MINOR) listOf((t + 5) % 7, (t + 6) % 7) else emptyList()
+            val chroma = if (key.fifths >= 0) 1 else -1
+            // (step, offset from the key signature), most likely spelling first
+            val tries = (0..6).map { it to 0 } + raised.map { it to 1 } + (0..6).map { it to chroma } + (0..6).map { it to -chroma }
+            for ((step, off) in tries) {
+                val a = key.sigAlter(step) + off
+                if (a !in -2..2 || Math.floorMod(STEP_SEMIS[step] + a, 12) != pc) continue
+                return Pitch(step, a, Math.floorDiv(midi - STEP_SEMIS[step] - a, 12) - 1)
+            }
+            error("no spelling for $midi") // every pitch class is a scale note or a semitone from one
+        }
         /** Parses "C4", "F#3", "Bb2", "Ex4" (double sharp), "Abb3". */
         fun parse(s: String): Pitch {
             val step = STEP_NAMES.indexOf(s[0].uppercaseChar())

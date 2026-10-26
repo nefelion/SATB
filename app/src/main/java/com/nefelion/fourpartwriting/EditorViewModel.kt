@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.nefelion.fourpartwriting.audio.MidiIn
 import com.nefelion.fourpartwriting.audio.Synth
 import com.nefelion.fourpartwriting.engrave.Hit
 import com.nefelion.fourpartwriting.engrave.NOTE_POSITIONS
@@ -126,6 +127,8 @@ val EXAMPLE = Score(
     ),
 )
 
+private const val CHORD_MS = 40L
+
 class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("satb", Context.MODE_PRIVATE)
     private val scoreFile = File(app.filesDir, "score.txt")
@@ -157,6 +160,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private var waitJob: Job? = null
     private var saveJob: Job? = null
     private var tempoBase: Score? = null
+
+    /** MIDI keyboard: notes played within [CHORD_MS] of each other arrive as one chord. */
+    private val midi = MidiIn(app) { n, on -> midiKey(n, on) }
+    private val midiChord = mutableListOf<Int>()
+    private var midiJob: Job? = null
 
     /** Last zoom (px per staff space) and horizontal offset, restored on the next start. */
     var viewport: Pair<Float, Float>? = prefs.getFloat("viewSp", -1f).takeIf { it > 0 }?.let { it to prefs.getFloat("viewX", 0f) }
@@ -668,10 +676,60 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putStringSet("rulesOff", (Rule.entries - s.rules).map { it.name }.toSet()).apply()
     }
 
+    // ---------- MIDI keyboard ----------
+
+    private fun midiKey(n: Int, on: Boolean) {
+        // Sound follows the keys, so a silent controller can be played like an instrument
+        if (s.soundLoaded && !s.playing) if (on) Synth.noteOn(n) else Synth.noteOff(n)
+        if (!on) return
+        midiChord += n
+        if (midiJob?.isActive != true) midiJob = viewModelScope.launch {
+            delay(CHORD_MS)
+            val notes = midiChord.toList().also { midiChord.clear() }
+            muted = true
+            try { midiNotes(notes) } finally { muted = false }
+        }
+    }
+
+    /**
+     * Writes notes played on a MIDI keyboard. A selected note gets the pitch (then the next note is selected,
+     * for a pitch pass over written rhythm). Otherwise one note goes to the input voice like a tap; a chord
+     * (not locked) fills the voices that end earliest, highest note to the highest voice.
+     */
+    internal fun midiNotes(notes: List<Int>) {
+        if (notes.isEmpty() || s.playing) return
+        val key = s.score.key
+        val desc = notes.distinct().sortedDescending().map { Pitch.fromMidi(it, key) }
+        fun pick(v: Voice) = if (v == Voice.BASS) desc.last() else desc.first()
+        val sel = s.selected
+        if (sel != null && s.selectedEvent != null) {
+            editSelected { sc, v, i -> Edit.setPitch(sc, v, i, pick(v)) }
+            if (sel.index < s.score.voice(sel.voice).lastIndex) step(1) else deselect()
+            return
+        }
+        if (s.moving) return
+        val voices = if (s.locked != null || desc.size == 1) listOf(s.locked ?: s.voice)
+            else Edit.chordVoices(s.score, desc.size)
+        // Five or more keys: keep the top three and the bass
+        val pitches = if (voices.size == 1) listOf(pick(voices[0])) else if (desc.size > 4) desc.take(3) + desc.last() else desc
+        var sc = s.score
+        for ((v, p) in voices.zip(pitches)) sc = Edit.append(sc, v, inputLength(sc, v, sc.length(v)), p)
+        val last = voices.last()
+        edit(sc, NoteRef(last, sc.voice(last).lastIndex), nextVoice(sc))
+        resumeVoice = null
+        _state.update { it.copy(accidental = null) }
+        voices.forEach { endTriplets(sc, it) }
+    }
+
+    override fun onCleared() { midi.close() }
+
     // ---------- sound ----------
 
+    /** MIDI input is heard from the keys themselves, not again as a preview. */
+    private var muted = false
+
     private fun preview(p: Pitch) {
-        if (!s.soundLoaded || s.playing) return
+        if (!s.soundLoaded || s.playing || muted) return
         Synth.noteOn(p.midi)
         viewModelScope.launch { delay(450); Synth.noteOff(p.midi) }
     }

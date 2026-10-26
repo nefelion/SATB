@@ -22,6 +22,9 @@ object Edit {
             s.onsets(o).indexOf(at).takeIf { it >= 0 }?.let { s.voice(o)[it].length }
         }
 
+    /** Voices for a chord of [n] notes: the [n] that end earliest (ties S first), top to bottom. */
+    fun chordVoices(s: Score, n: Int): List<Voice> = Voice.entries.sortedBy { s.length(it) }.take(n).sorted()
+
     /**
      * Puts a note at [at] inside a rest of [v]. It takes [length] but at most what is left of the rest,
      * so later notes never move; the rest's other parts stay rests. Returns the score and the note's

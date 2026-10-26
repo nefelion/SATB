@@ -155,4 +155,14 @@ class EditTest {
         // No event starts at 1/4 in another voice
         assertEquals(null, Edit.followLength(sc, Voice.ALTO, q))
     }
+
+    @Test fun chordVoicesAreTheEarliestEndingTopToBottom() {
+        val empty = Score()
+        assertEquals(Voice.entries, Edit.chordVoices(empty, 4))
+        assertEquals(listOf(S, Voice.ALTO), Edit.chordVoices(empty, 2))
+        // Soprano and bass already have a note: a two-note chord goes to alto and tenor
+        val sb = empty.withVoice(S, listOf(Event(q, Pitch.parse("C5")))).withVoice(Voice.BASS, listOf(Event(q, Pitch.parse("C3"))))
+        assertEquals(listOf(Voice.ALTO, Voice.TENOR), Edit.chordVoices(sb, 2))
+        assertEquals(Voice.entries, Edit.chordVoices(sb, 6))
+    }
 }

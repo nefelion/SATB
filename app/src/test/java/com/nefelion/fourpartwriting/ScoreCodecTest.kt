@@ -66,4 +66,18 @@ class ScoreCodecTest {
             listOf(Event(Fraction.of(1, 12), Pitch.parse("C4")), Event(Fraction.of(1, 6), null)))
         assertEquals(sc, ScoreCodec.decode(ScoreCodec.encode(sc)))
     }
+
+    @Test fun midiNotesAreSpelledByTheKey() {
+        fun sp(m: Int, fifths: Int, mode: Mode = Mode.MAJOR) = Pitch.fromMidi(m, Key(fifths, mode)).name
+        assertEquals("C4", sp(60, 0))
+        assertEquals("C♯4", sp(61, 0))
+        assertEquals("D♭4", sp(61, -1))
+        assertEquals("G♯4", sp(68, 0, Mode.MINOR))   // A minor leading tone
+        assertEquals("B4", sp(71, -3, Mode.MINOR))   // C minor leading tone, not C♭
+        assertEquals("A4", sp(69, -3, Mode.MINOR))   // C minor raised 6th
+        assertEquals("E♭4", sp(63, -3))
+        assertEquals("C♭4", sp(59, -6))              // G♭ major: C♭ is a scale note, octave 4
+        assertEquals("E♯4", sp(65, 6))               // F♯ major
+        for (m in 21..108) for (f in -7..7) assertEquals(m, Pitch.fromMidi(m, Key(f, Mode.MAJOR)).midi)
+    }
 }
