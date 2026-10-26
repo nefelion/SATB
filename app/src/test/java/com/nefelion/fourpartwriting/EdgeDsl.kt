@@ -1,8 +1,8 @@
 package com.nefelion.fourpartwriting
 
 import com.nefelion.fourpartwriting.engrave.NoteRef
-import com.nefelion.fourpartwriting.model.Duration
 import com.nefelion.fourpartwriting.model.Event
+import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Mode
 import com.nefelion.fourpartwriting.model.Pitch
@@ -23,10 +23,13 @@ val KC = Key(0, Mode.MAJOR)
 
 fun chordOf(key: Key, vararg notes: String): Chord = ChordAnalyzer.analyze(notes.map { Pitch.parse(it) }, key)
 
-/** One voice line: "C5:8 D5:4. r:4" (default length a quarter). */
+/** One voice line: "C5:8 D5:4. r:4" (default length a quarter); any n is 1/n ("C5:12" is a triplet eighth), "C5:5/12" a plain fraction. */
 fun voiceLine(s: String) = s.split(" ").map { tok ->
     val (p, d) = tok.split(":").let { it[0] to (it.getOrNull(1) ?: "4") }
-    Event(Duration(d.trimEnd('.').toInt(), d.count { it == '.' }), if (p == "r") null else Pitch.parse(p))
+    val dots = 1L shl d.count { it == '.' }
+    val len = if ("/" in d) d.split("/").let { Fraction.of(it[0].toLong(), it[1].toLong()) }
+        else Fraction.of(2 * dots - 1, d.trimEnd('.').toLong() * dots)
+    Event(len, if (p == "r") null else Pitch.parse(p))
 }
 
 /** Voice lines S, A, T, B. */

@@ -143,15 +143,29 @@ object VoiceLeading {
         // The voice sounding the bass of a slice (the bass part may rest)
         fun low(si: Int) = V.lastOrNull { slices[si].notes[it.ordinal] != null } ?: Voice.BASS
 
-        fun isNct(s: Slice, v: Voice) = s.eventIndex[v.ordinal] >= 0 &&
-            com.nefelion.fourpartwriting.engrave.NoteRef(v, s.eventIndex[v.ordinal]) in ncts
+        // A held note may be a non-chord tone at one chord point and a chord tone at another (a pedal under ii° then VI)
+        val chordAt = slices.indices.associate { slices[it].time to chords[it] }
+        // (a note struck again shares the name of its earlier strikes)
+        fun named(v: Voice, idx: Int): Boolean {
+            val evs = score.voice(v)
+            var k = idx
+            while (com.nefelion.fourpartwriting.engrave.NoteRef(v, k) !in ncts) { if (k == 0 || evs[k - 1].pitch != evs[k].pitch) return false; k-- }
+            return true
+        }
+        fun isNct(s: Slice, v: Voice) = s.eventIndex[v.ordinal] >= 0 && named(v, s.eventIndex[v.ordinal]) &&
+            s.notes[v.ordinal]?.let { p -> chordAt[s.time]?.member(p.pc)?.let { it in setOf(0, 2, 4, 6) } } != true
 
         // Non-chord tones that are not explained by any standard pattern
         for ((ref, nct) in ncts) {
             val v = ref.voice
             val p = score.voice(v).getOrNull(ref.index)?.pitch ?: continue
-            // The slice where it acts as a non-chord tone: a chord point it sounds at, else its attack
-            val i = points.firstOrNull { slices[it].eventIndex[v.ordinal] == ref.index }
+            // A dissonance struck again is one dissonance
+            val before = ncts[com.nefelion.fourpartwriting.engrave.NoteRef(v, ref.index - 1)]
+            if (nct.type == NctType.UNRESOLVED && before?.type == NctType.UNRESOLVED && score.voice(v)[ref.index - 1].pitch == p) continue
+            // The slice where it acts as a non-chord tone: a chord point it sounds at (and is foreign to), else its attack
+            var last = ref.index
+            while (score.voice(v).getOrNull(last + 1)?.pitch == p) last++
+            val i = points.firstOrNull { slices[it].eventIndex[v.ordinal] in ref.index..last && chords[it].recognized && chords[it].member(p.pc) !in setOf(0, 2, 4, 6) }
                 ?: slices.indexOfFirst { it.eventIndex[v.ordinal] == ref.index && it.attacked[v.ordinal] }
             if (i < 0) continue
             val s = slices[i]
@@ -215,8 +229,9 @@ object VoiceLeading {
             // The same chord from a weak beat to the downbeat blurs the bar line (one held since the last downbeat does not)
             val ml = score.time.measure
             fun same(c: Chord) = c.root == chord.root && c.quality == q && c.bass == chord.bass
+            // (an arpeggiating bass, I–I⁶–I⁶₄–I, keeps the harmony that began on the downbeat)
             var runStart = k - 1
-            while (runStart > 0 && same(chords[points[runStart - 1]])) runStart--
+            while (runStart > 0 && chords[points[runStart - 1]].let { it.root == chord.root && it.quality == q }) runStart--
             if (prevI != null && prev != null && same(prev) &&
                 (s.time / ml).den == 1L && (slices[points[runStart]].time / ml).den != 1L
             ) add(Severity.WARNING, i, Rule.HARMONIC_RHYTHM, "${chord.roman} is repeated from a weak beat to the downbeat.")
@@ -301,8 +316,11 @@ object VoiceLeading {
                 val q = evs[to].pitch ?: return
                 if ((from + 1..to).count { evs[it].pitch != evs[it - 1].pitch } < 2) return
                 val iv = Interval.between(p, q)
+                // (at the first strike of a note struck again)
+                fun firstOf(k: Int): Int { var x = k; while (x > 0 && evs[x - 1].pitch == evs[x].pitch) x--; return x }
                 if ((iv.number == 4 && iv.quality == IntervalQuality.A) || (iv.number == 5 && iv.quality == IntervalQuality.D))
-                    add(Severity.WARNING, sliceOf(to), Rule.LEAPS, "${v.label}: the line ${p.name}–${q.name} outlines a tritone.", sliceOf(from) to v, sliceOf(to) to v)
+                    add(Severity.WARNING, sliceOf(firstOf(to)), Rule.LEAPS, "${v.label}: the line ${p.name}–${q.name} outlines a tritone.",
+                        sliceOf(firstOf(from)) to v, sliceOf(firstOf(to)) to v)
             }
             for (j in 1..evs.size) {
                 val p = evs.getOrNull(j)?.pitch

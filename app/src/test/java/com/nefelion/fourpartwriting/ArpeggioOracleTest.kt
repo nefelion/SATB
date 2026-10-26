@@ -29,8 +29,15 @@ class ArpeggioOracleTest {
 
     private val triads = setOf(Quality.MAJOR, Quality.MINOR, Quality.DIM, Quality.AUG)
 
-    @Test fun arpeggiatedVoicesKeepTheChord() {
-        val r = Random(4242)
+    @Test fun arpeggiatedVoicesKeepTheChord() = run(4242, tuplets = false)
+
+    /** The same broken into tuplets: triplets, quintuplets, duplets and quadruplets in 6/8. */
+    @Test fun tupletArpeggiosKeepTheChord() = run(4243, tuplets = true)
+
+    private val tupletUnits = listOf(Fraction.of(1, 6), Fraction.of(1, 12), Fraction.of(1, 10), Fraction.of(1, 20), Fraction.of(3, 16), Fraction.of(3, 32))
+
+    private fun run(seed: Int, tuplets: Boolean) {
+        val r = Random(seed)
         val fails = LinkedHashMap<String, String>()
         var checked = 0
         repeat(6000) { n ->
@@ -52,7 +59,8 @@ class ArpeggioOracleTest {
             if (plain.any { it.quality !in triads }) return@repeat
             val movers = (0 until 4).shuffled(r).take(r.nextInt(1, 3)).toSet()
             // Pieces of a span: quarters or eighths (dotted beats split in three eighths in 6/8)
-            val unit = if (time.isCompound) Fraction.of(1, 8) else listOf(Fraction.of(1, 4), Fraction.of(1, 8)).random(r)
+            val unit = if (tuplets) tupletUnits.filter { (span / it).den == 1L }.random(r)
+                else if (time.isCompound) Fraction.of(1, 8) else listOf(Fraction.of(1, 4), Fraction.of(1, 8)).random(r)
             val pieces = (span / unit).let { (it.num / it.den).toInt() }
             val lines = List(4) { v ->
                 chords.flatMapIndexed { ci, c ->

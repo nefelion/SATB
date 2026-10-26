@@ -3,6 +3,7 @@ package com.nefelion.fourpartwriting.theory
 import com.nefelion.fourpartwriting.engrave.NoteRef
 import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.Interval
+import com.nefelion.fourpartwriting.model.IntervalQuality
 import com.nefelion.fourpartwriting.model.Pitch
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.Slice
@@ -74,10 +75,11 @@ object HarmonyAnalyzer {
          */
         fun figure(v: Voice, idx: Int, np: Int?, nextChord: Chord?): Nct {
             val p = pitchOf(v, idx)!!
+            val first = distinct(v, idx, -1) + 1
             val last = distinct(v, idx, 1) - 1
-            // (it comes on a weaker beat than the chord it anticipates)
+            // (it comes on a weaker beat than the chord it anticipates, counted from its first strike)
             if (np != null && nextChord != null && slices[np].eventIndex[v.ordinal] in idx..last && isChordTone(nextChord, p) &&
-                VoiceLeading.weight(score.onsets(v)[idx], score.time) < VoiceLeading.weight(slices[np].time, score.time))
+                VoiceLeading.weight(score.onsets(v)[first], score.time) < VoiceLeading.weight(slices[np].time, score.time))
                 return Nct(NctType.ANT, "ant")
             return classify(around(v, idx, -1), p, around(v, idx, 1), around(v, distinct(v, idx, 1), 1))
         }
@@ -88,8 +90,51 @@ object HarmonyAnalyzer {
             val voices = V.filter { s.notes[it.ordinal] != null }
             val direct = ChordAnalyzer.analyze(voices.map { s.notes[it.ordinal]!! }, score.key)
             val directQ = direct.quality
+            // Candidate accented NCTs per voice, with the pitch that replaces them in the chord
+            data class Cand(val v: Voice, val nct: Nct, val replace: Pitch?, val rank: Int)
+            val prevPoint = points.lastOrNull { it < p }
+            val prevChord = prevPoint?.let { pointChord[it] }?.takeIf { it.recognized }
+            val np = points.firstOrNull { it > p }
+            // No new harmony: one or two voices ornament the previous chord while another holds it
+            // (C–B–A over a held C chord), each resolving by the next chord point; a member left out
+            // for a moment (C–E–C over held C–G) is still heard. An ornament struck after the previous
+            // chord point may still sound here (a syncopated passing tone).
+            fun continued(): Pair<Chord, List<Cand>>? {
+                val pc = prevChord ?: return null
+                val foreign = voices.filter { !isChordTone(pc, s.notes[it.ordinal]!!) }
+                if (foreign.size > 2 || voices.all { s.attacked[it.ordinal] || it in foreign }) return null
+                val nextChord = np?.let { ChordAnalyzer.analyze(slices[it].pitches, score.key) }
+                return pc to foreign.map { v ->
+                    val idx = s.eventIndex[v.ordinal]
+                    // (a note struck again counts from its first strike)
+                    val first = distinct(v, idx, -1) + 1
+                    val late = if (s.attacked[v.ordinal]) first == idx else score.onsets(v)[first] > slices[prevPoint!!].time
+                    if (!late) return null
+                    val f = figure(v, first, np, nextChord)
+                    // A note held into the next chord belongs to it; an anticipation is short and struck again there
+                    if (f.type == NctType.ANT && (!slices[np!!].attacked[v.ordinal] && slices[np].eventIndex[v.ordinal] in first until distinct(v, idx, 1) ||
+                            score.voice(v)[idx].length > beat)) return null
+                    val resolved = f.type == NctType.ANT || np == null ||
+                        score.onsets(v).getOrNull(distinct(v, idx, 1))?.let { it <= slices[np].time } == true
+                    if (f.type == NctType.UNRESOLVED || !resolved) return null
+                    Cand(v, f, null, 3)
+                }
+            }
             // A complete triad needs no explanation; sevenths, incomplete and sus chords may hide a suspension.
-            if (directQ != null && !directQ.seventh && !directQ.incomplete && !directQ.name.contains("SUS")) { pointChord[p] = direct; continue }
+            // Only ornaments of the chord before make no chord of their own: each struck here is gone again before
+            // the next chord point (a triplet neighbour on the beat); one struck earlier is already an ornament.
+            // A bass leaping to its note makes a new chord.
+            if (directQ != null && !directQ.seventh && !directQ.incomplete && !directQ.name.contains("SUS")) {
+                val orn = continued()?.takeIf { c ->
+                    c.second.isNotEmpty() && c.second.all { o ->
+                        o.nct.type != NctType.ANT && (o.v != Voice.BASS || o.nct.type in setOf(NctType.PT, NctType.NT)) && (!s.attacked[o.v.ordinal] ||
+                            score.onsets(o.v).getOrNull(distinct(o.v, s.eventIndex[o.v.ordinal], 1))?.let { np == null || it < slices[np].time } == true)
+                    }
+                }
+                pointChord[p] = orn?.first ?: direct
+                orn?.second?.forEach { ncts[ref(s, it.v)] = it.nct }
+                continue
+            }
             // An open fifth or octave in florid writing: the third comes later (an arpeggiating voice) before any
             // other note joins, or another voice just left it (the chord before still sounds)
             // (a bare third too: A–C may be the top of F♯–A–C)
@@ -109,11 +154,15 @@ object HarmonyAnalyzer {
                 }
                 val held = points.lastOrNull { it < p }?.let { pointChord[it] }
                     ?.takeIf { c -> fits(c) && !voices.all { s.attacked[it.ordinal] } && s.pitches.all { isChordTone(c, it) } }
+                // (an ornament of the chord before, such as a syncopated neighbour, comes first)
+                continued()?.takeIf { it.second.isNotEmpty() }?.let { c ->
+                    pointChord[p] = c.first
+                    c.second.forEach { ncts[ref(s, it.v)] = it.nct }
+                    continue
+                }
                 (late ?: held)?.let { pointChord[p] = it; continue }
             }
 
-            // Candidate accented NCTs per voice, with the pitch that replaces them in the chord
-            data class Cand(val v: Voice, val nct: Nct, val replace: Pitch?, val rank: Int)
             val cands = mutableListOf<Cand>()
             val bass = s.notes[Voice.BASS.ordinal]
             // A bass reached by step may itself be an ornament; one reached by leap (or held) is a real bass note
@@ -130,9 +179,11 @@ object HarmonyAnalyzer {
                 val i = s.eventIndex[v.ordinal]
                 val cur = s.notes[v.ordinal]!!
                 val prev = pitchOf(v, i - 1)
-                val next = pitchOf(v, i + 1)
+                // The next different note (struck again before the next chord point only delays it)
+                var nextIdx = i + 1
+                while (pitchOf(v, nextIdx) == cur && (np == null || score.onsets(v)[nextIdx] < slices[np].time)) nextIdx++
+                val next = pitchOf(v, nextIdx)
                 // Struck again counts as held only when prepared at the previous chord point (not after an anticipation)
-                val prevPoint = points.lastOrNull { it < p }
                 // The preparation is the first of the repeated notes (C C | C is prepared by the first C)
                 var first = i - 1
                 while (first > 0 && pitchOf(v, first - 1) == cur) first--
@@ -155,17 +206,17 @@ object HarmonyAnalyzer {
                 val aOut = nOut?.let { motion(cur, it) }
                 // An ornamented resolution first leaps to another note (or steps up a whole tone), then steps down
                 // (C–A–B, C–D–B over G); the ornament may be struck again first
-                var j2 = i + 2
+                var j2 = nextIdx + 1
                 while (next != null && pitchOf(v, j2) == next) j2++
                 val next2 = pitchOf(v, j2)
                 // (the ornament comes before the next chord point)
                 val ornamented = held && dOut != null && (abs(dOut) > 1 || dOut == 1 && next!!.midi - cur.midi == 2) &&
                     next2 != null && motion(cur, next2) == -1 &&
-                    points.firstOrNull { it > p }.let { np -> np == null || score.onsets(v)[i + 1] < slices[np].time }
+                    points.firstOrNull { it > p }.let { np -> np == null || score.onsets(v)[nextIdx] < slices[np].time }
                 val res = if (ornamented) next2 else next
                 val dRes = res?.let { motion(cur, it) }
                 // A suspension resolves over the same bass; resolving only when the bass moves on is not one
-                val resAt = score.onsets(v).getOrNull(if (ornamented) j2 else i + 1)
+                val resAt = score.onsets(v).getOrNull(if (ornamented) j2 else nextIdx)
                 fun othersHold(skip: Voice) = resAt == null || V.all { o -> o == v || o == skip ||
                     score.eventAt(o, resAt).let { e -> e >= 0 && score.voice(o)[e].pitch == s.notes[o.ordinal] } }
                 val bassAtRes = resAt?.let { t -> score.eventAt(Voice.BASS, t).takeIf { it >= 0 }?.let { score.voice(Voice.BASS)[it].pitch } }
@@ -180,8 +231,11 @@ object HarmonyAnalyzer {
                     else bassAtRes?.pc == bass?.pc && (bassKept(s.time, resAt, false) || bassKept(s.time, resAt, true) && othersHold(Voice.BASS))
                 // Only a dissonance against the bass (2nd/9th, 4th, 7th) is suspended
                 val dissonant = v == Voice.BASS || bass == null || Interval.between(bass, cur).simpleNumber in setOf(2, 4, 7)
+                // Struck after the chord before as one of its dissonances (a syncopated passing tone), it was never prepared
+                val unprepared = prevPoint != null && score.onsets(v)[start] > slices[prevPoint].time &&
+                    prevChord?.let { !isChordTone(it, cur) } == true
                 // In a real seventh chord a re-struck note is a chord tone unless it is the 7th/9th itself
-                val suspendable = held && sameBass && dissonant && (directQ == null || directQ.name.contains("SUS") ||
+                val suspendable = held && !unprepared && sameBass && dissonant && (directQ == null || directQ.name.contains("SUS") ||
                     !s.attacked[v.ordinal] || direct.member(cur.pc) == 6 || direct.member(cur.pc) == 1)
                 when {
                     carried != null -> cands += Cand(v, carried, around(v, i, 1), 0)
@@ -220,30 +274,13 @@ object HarmonyAnalyzer {
                 }
                 return null
             }
-            val singles = cands.sortedBy { it.rank }.map { listOf(it) }
-            val pairs = cands.flatMapIndexed { a, x -> cands.drop(a + 1).map { y -> listOf(x, y) } }.sortedBy { it.sumOf { c -> c.rank } }
-            val prevChord = points.lastOrNull { it < p }?.let { pointChord[it] }?.takeIf { it.recognized }
-            // No new harmony: one or two voices ornament the previous chord while another holds it
-            // (C–B–A over a held C chord), each resolving by the next chord point; a member left out
-            // for a moment (C–E–C over held C–G) is still heard
-            fun continued(): Pair<Chord, List<Cand>>? {
-                val pc = prevChord ?: return null
-                val foreign = voices.filter { !isChordTone(pc, s.notes[it.ordinal]!!) }
-                if (foreign.size > 2 || voices.all { s.attacked[it.ordinal] }) return null
-                val np = points.firstOrNull { it > p }
-                val nextChord = np?.let { ChordAnalyzer.analyze(slices[it].pitches, score.key) }
-                return pc to foreign.map { v ->
-                    val idx = s.eventIndex[v.ordinal]
-                    if (!s.attacked[v.ordinal] || pitchOf(v, idx - 1) == pitchOf(v, idx)) return null
-                    val f = figure(v, idx, np, nextChord)
-                    // A note held into the next chord belongs to it; an anticipation is short and struck again there
-                    if (f.type == NctType.ANT && (slices[np!!].eventIndex[v.ordinal] == idx || score.voice(v)[idx].length > beat)) return null
-                    val resolved = f.type == NctType.ANT || np == null ||
-                        score.onsets(v).getOrNull(distinct(v, idx, 1))?.let { it <= slices[np].time } == true
-                    if (f.type == NctType.UNRESOLVED || !resolved) return null
-                    Cand(v, f, null, 3)
-                }
-            }
+            // An accented figure is a dissonance against the bass: an upper note consonant with it (a chord tone shaped
+            // like an appoggiatura) is tried after the ones that clash with the bass
+            fun order(c: Cand) = c.rank + if (c.rank in 2..3 && c.v != Voice.BASS && bass != null &&
+                Interval.between(bass, s.notes[c.v.ordinal]!!).let { it.simpleNumber in setOf(1, 3, 5, 6) && it.quality !in setOf(IntervalQuality.A, IntervalQuality.D, IntervalQuality.AA, IntervalQuality.DD) }
+            ) 3 else 0
+            val singles = cands.sortedBy(::order).map { listOf(it) }
+            val pairs = cands.flatMapIndexed { a, x -> cands.drop(a + 1).map { y -> listOf(x, y) } }.sortedBy { it.sumOf(::order) }
             // A passing seventh over a held dominant (V8–7) makes V⁷
             val passingSeventh = directQ in setOf(Quality.DOM7, Quality.DOM7_NO5) && direct.root == prevChord?.root
             // A recognized seventh/incomplete chord stays unless a suspension turns it into a complete triad (7–6, 9–8 ...)
@@ -264,7 +301,8 @@ object HarmonyAnalyzer {
                 }
             if (best != null) {
                 pointChord[p] = best.first
-                for (c in best.second) ncts[ref(s, c.v)] = c.nct
+                // (a note that came in as a dissonance is no pedal later)
+                for (c in best.second) if (c.nct.type != NctType.PED || ref(s, c.v) !in ncts) ncts[ref(s, c.v)] = c.nct
             } else {
                 // One voice struck on a dissonance no figure explains, over the others holding the chord before:
                 // that note is the problem, not the chord
@@ -303,6 +341,9 @@ object HarmonyAnalyzer {
                 val p = s.notes[v.ordinal] ?: continue
                 if (isChordTone(chord, p)) continue
                 val idx = s.eventIndex[v.ordinal]
+                // A note struck again that already sounded at the chord point was judged there, and keeps that name
+                val first = distinct(v, idx, -1) + 1
+                if (first < idx && score.onsets(v)[first] <= slices[cur].time) { ncts[NoteRef(v, first)]?.let { ncts[NoteRef(v, idx)] = it }; continue }
                 ncts[NoteRef(v, idx)] = figure(v, idx, np, nextPoint)
             }
         }

@@ -3,6 +3,7 @@ package com.nefelion.fourpartwriting
 import com.nefelion.fourpartwriting.engrave.NoteRef
 import com.nefelion.fourpartwriting.model.Duration
 import com.nefelion.fourpartwriting.model.Event
+import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Mode
 import com.nefelion.fourpartwriting.model.Pitch
@@ -30,8 +31,20 @@ class FloridOracleTest {
         return p
     }
 
-    @Test fun ornamentsOnTheBeatKeepTheChord() {
-        val r = Random(2026)
+    @Test fun ornamentsOnTheBeatKeepTheChord() = run(2026, tuplets = false)
+
+    /** The same in triplets and syncopations: a moving note may fall off the beat or sound across it. */
+    @Test fun tupletOrnamentsKeepTheChord() = run(2027, tuplets = true)
+
+    private fun f(n: Long, d: Long) = Fraction.of(n, d)
+    private val rhythms = listOf(
+        listOf(f(1, 6), f(1, 6), f(1, 6), f(1, 2)), listOf(f(1, 2), f(1, 6), f(1, 6), f(1, 6)), listOf(f(1, 12), f(1, 12), f(1, 12), f(3, 4)),
+        listOf(f(1, 3), f(1, 3), f(1, 6), f(1, 6)), listOf(f(1, 8), f(1, 4), f(1, 8), f(1, 2)), listOf(f(1, 6), f(1, 3), f(1, 6), f(1, 3)),
+        listOf(f(1, 4), f(1, 12), f(1, 12), f(7, 12)),
+    )
+
+    private fun run(seed: Int, tuplets: Boolean) {
+        val r = Random(seed)
         val fails = LinkedHashMap<String, String>()
         repeat(4000) { n ->
             val key = Key(r.nextInt(-6, 7), if (r.nextBoolean()) Mode.MAJOR else Mode.MINOR)
@@ -67,13 +80,14 @@ class FloridOracleTest {
                         d = nd
                         line += note(d)
                     }
-                    lines[v] += line.map { Event(Duration(4), it) }
+                    val rhythm = if (tuplets) rhythms.random(r) else List(4) { Duration(4).value }
+                    lines[v] += line.mapIndexed { j, p -> Event(rhythm[j], p) }
                 }
                 plan += Bar(m.toSet(), moving, starts)
             }
             val sc = Score(key = key, voices = lines)
             val a = sc.analysis()
-            val desc = { "#$n ${key.name} ${a.romans()} ncts=${a.ncts} | ${lines.map { l -> l.joinToString(" ") { "${it.pitch}:${it.length.den / it.length.num}" } }}" }
+            val desc = { "#$n ${key.name} ${a.romans()} ncts=${a.ncts} | ${lines.map { l -> l.joinToString(" ") { "${it.pitch}:${it.length.num}/${it.length.den}" } }}" }
             for ((k, bar) in plan.withIndex()) {
                 val bt = Duration(1).value * com.nefelion.fourpartwriting.model.Fraction.of(k.toLong(), 1)
                 val pts = a.points.filter { a.slices[it].time >= bt && a.slices[it].time < bt + Duration(1).value }

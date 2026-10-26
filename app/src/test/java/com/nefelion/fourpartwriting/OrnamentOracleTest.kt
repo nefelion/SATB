@@ -32,8 +32,17 @@ class OrnamentOracleTest {
 
     private val triads = setOf(Quality.MAJOR, Quality.MINOR, Quality.DIM, Quality.AUG)
 
-    @Test fun ornamentsAtChordChanges() {
-        val r = Random(77)
+    @Test fun ornamentsAtChordChanges() = run(77, tuplets = false)
+    @Test fun ornamentsAtChordChangesOtherSeed() = run(78, tuplets = false)
+
+    /** The same with the beat split in triplets (⅓ + ⅔, ⅔ + ⅓, an ornamented suspension ⅓ + ⅓ + ⅓). */
+    @Test fun tupletOrnamentsAtChordChanges() = run(78, tuplets = true)
+
+    /** Two voices ornamenting one chord change in different splits (halves against thirds). */
+    @Test fun crossRhythmOrnamentsAtChordChanges() = run(79, tuplets = true, cross = true)
+
+    private fun run(seed: Int, tuplets: Boolean, cross: Boolean = false) {
+        val r = Random(seed)
         val fails = LinkedHashMap<String, String>()
         var checked = 0
         val byKind = HashMap<NctType, Int>()
@@ -58,38 +67,44 @@ class OrnamentOracleTest {
             val plain = chords.map { ChordAnalyzer.analyze(it, key) }
             if (plain.any { it.quality !in triads }) return@repeat
             data class Orn(val v: Int, val k: Int, val kind: NctType, val host: Int, val nct: Pitch, val events: List<Event>)
-            val half = beat * Fraction.of(1, 2)
-            val quarter = beat * Fraction.of(1, 4)
             fun ornament(v: Int, k: Int): Orn? {
+                val h1 = beat * when {
+                    cross -> listOf(Fraction.of(1, 3), Fraction.of(1, 2), Fraction.of(2, 3)).random(r)
+                    tuplets -> Fraction.of(r.nextInt(1, 3).toLong(), 3)
+                    else -> Fraction.of(1, 2)
+                }
+                val h2 = beat - h1
+                val quarter = h2 * Fraction.of(1, 2)
                 val a = chords[k][v]; val b = chords[k + 1][v]
                 val d = b.diatonic - a.diatonic
                 val s = listOf(-1, 1).random(r)
                 val opts = mutableListOf<Orn>()
                 if (Math.abs(d) == 2) note(a.diatonic + d / 2).let { m ->
-                    opts += Orn(v, k, NctType.PT, k, m, listOf(Event(half, a), Event(half, m)))
-                    if (v != 3) opts += Orn(v, k, NctType.PT, k + 1, m, listOf(Event(half, m), Event(half, b)))
+                    opts += Orn(v, k, NctType.PT, k, m, listOf(Event(h1, a), Event(h2, m)))
+                    if (v != 3) opts += Orn(v, k, NctType.PT, k + 1, m, listOf(Event(h1, m), Event(h2, b)))
                 }
-                if (d == 0) note(a.diatonic + s).let { m -> opts += Orn(v, k, NctType.NT, k, m, listOf(Event(half, a), Event(half, m))) }
+                if (d == 0) note(a.diatonic + s).let { m -> opts += Orn(v, k, NctType.NT, k, m, listOf(Event(h1, a), Event(h2, m))) }
                 if (Math.abs(d) == 1) {
-                    opts += Orn(v, k, NctType.ANT, k, b, listOf(Event(half, a), Event(half, b)))
-                    note(a.diatonic - d).let { m -> opts += Orn(v, k, NctType.ESC, k, m, listOf(Event(half, a), Event(half, m))) }
+                    opts += Orn(v, k, NctType.ANT, k, b, listOf(Event(h1, a), Event(h2, b)))
+                    note(a.diatonic - d).let { m -> opts += Orn(v, k, NctType.ESC, k, m, listOf(Event(h1, a), Event(h2, m))) }
                 }
                 if (v != 3) note(b.diatonic + s).let { m ->
-                    if ((m.diatonic - a.diatonic) * s >= 2) opts += Orn(v, k, NctType.APP, k + 1, m, listOf(Event(half, m), Event(half, b)))
+                    if ((m.diatonic - a.diatonic) * s >= 2) opts += Orn(v, k, NctType.APP, k + 1, m, listOf(Event(h1, m), Event(h2, b)))
                 }
                 if (v != 3 && d == -1) {
-                    opts += Orn(v, k, NctType.SUS, k + 1, a, listOf(Event(half, a), Event(half, b)))
+                    opts += Orn(v, k, NctType.SUS, k + 1, a, listOf(Event(h1, a), Event(h2, b)))
                     // Ornamented: a leap down to a chord tone first (C–A–B)
                     note(b.diatonic - 1).takeIf { x -> x.pc in chords[k + 1].map { it.pc } }?.let { x ->
-                        opts += Orn(v, k, NctType.SUS, k + 1, a, listOf(Event(half, a), Event(quarter, x), Event(quarter, b)))
+                        opts += Orn(v, k, NctType.SUS, k + 1, a, listOf(Event(h1, a), Event(quarter, x), Event(quarter, b)))
                     }
                 }
-                if (v != 3 && d == 1 && b.midi - a.midi == 1) opts += Orn(v, k, NctType.RET, k + 1, a, listOf(Event(half, a), Event(half, b)))
+                if (v != 3 && d == 1 && b.midi - a.midi == 1) opts += Orn(v, k, NctType.RET, k + 1, a, listOf(Event(h1, a), Event(h2, b)))
                 return opts.randomOrNull(r)
             }
-            val voicesUsed = (0 until 4).shuffled(r).take(r.nextInt(1, 3))
-            val orns = voicesUsed.mapNotNull { v -> ornament(v, r.nextInt(count - 1)) }
-            if (orns.isEmpty() || orns.map { it.host }.distinct().size < orns.size) return@repeat
+            val voicesUsed = (0 until 4).shuffled(r).take(if (cross) 2 else r.nextInt(1, 3))
+            val k0 = r.nextInt(count - 1)
+            val orns = voicesUsed.mapNotNull { v -> ornament(v, if (cross) k0 else r.nextInt(count - 1)) }
+            if (orns.isEmpty() || !cross && orns.map { it.host }.distinct().size < orns.size) return@repeat
             val ok = orns.all { o ->
                 val hostChord = chords[o.host]
                 val sus = o.kind == NctType.SUS || o.kind == NctType.RET
@@ -98,7 +113,8 @@ class OrnamentOracleTest {
                     // Ambiguous by design: the ornament with the others makes another chord
                     ChordAnalyzer.analyze(hostChord.toMutableList().also { it[o.v] = o.nct }, key).quality == null
             }
-            if (!ok) return@repeat
+            // (ornaments of one chord together must not make another chord either)
+            if (!ok || orns.groupBy { it.host }.values.any { g -> ChordAnalyzer.analyze(chords[g[0].host].toMutableList().also { c -> g.forEach { c[it.v] = it.nct } }, key).quality != null }) return@repeat
             val lines = List(4) { vi ->
                 val o = orns.firstOrNull { it.v == vi }
                 chords.flatMapIndexed { ci, c ->
