@@ -275,7 +275,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     measureOf(hit.time) > measureOf(end) -> (ml * Fraction.of(measureOf(hit.time), 1)).coerceAtLeast(end)
                     else -> end
                 }
-                val new = Edit.append(score, v, s.duration.value, pitch, at)
+                val new = Edit.append(score, v, inputLength(score, v, at), pitch, at)
                 edit(new, NoteRef(v, new.voice(v).lastIndex), nextVoice(new))
                 resumeVoice = null
                 _state.update { it.copy(accidental = null) }
@@ -294,13 +294,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val score = s.score
         val base = score.clefs[hit.staff].pitchAt(hit.position)
         val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave))
-        val (new, i) = Edit.fillRest(score, v, hit.time, s.duration.value, pitch) ?: return false
+        val (new, i) = Edit.fillRest(score, v, hit.time, inputLength(score, v, hit.time), pitch) ?: return false
         edit(new, NoteRef(v, i), nextVoice(new))
         resumeVoice = null
         _state.update { it.copy(accidental = null) }
         preview(pitch)
         return true
     }
+
+    /** Length of a new event at [at]: in chord mode (no lock) it copies the voice entered first, else the palette value. */
+    private fun inputLength(sc: Score, v: Voice, at: Fraction) =
+        (if (s.locked == null) Edit.followLength(sc, v, at) else null) ?: s.duration.value
 
     /** Voice for the next new note: the locked one, else the one ending earliest in [sc] (ties go S→A→T→B). */
     private fun nextVoice(sc: Score) = s.locked ?: earliestVoice(sc)
@@ -460,7 +464,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (editSelected { sc, v, i -> Edit.dropEmptyLastBars(Edit.setPitch(sc, v, i, null)) }) return
         if (s.moving) return
         val v = s.locked ?: s.voice
-        val new = Edit.append(s.score, v, s.duration.value, null)
+        val new = Edit.append(s.score, v, inputLength(s.score, v, s.score.length(v)), null)
         edit(new, null, nextVoice(new))
         resumeVoice = null
     }

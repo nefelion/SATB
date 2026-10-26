@@ -143,4 +143,16 @@ class EditTest {
         val sc = s("r:2", "C4:1", "D4:4")
         assertEquals("r:1/2 C4:1/2 C4:1/2 D4:1/4", str(Edit.untie(sc, S, 1, Fraction.of(1, 1))))
     }
+
+    @Test fun followLengthCopiesTheNearestVoiceAboveThatStartsThere() {
+        val sc = s("C4:2", "D4:8").withVoice(Voice.BASS, listOf(Event(q, Pitch.parse("C3"))))
+        // Alto at 0: soprano (above) wins over bass
+        assertEquals(h, Edit.followLength(sc, Voice.ALTO, Fraction.ZERO))
+        // Alto at 1/2: the soprano's eighth starts there
+        assertEquals(e8, Edit.followLength(sc, Voice.ALTO, h))
+        // Soprano at 0: nothing above, so the bass below
+        assertEquals(q, Edit.followLength(sc, S, Fraction.ZERO))
+        // No event starts at 1/4 in another voice
+        assertEquals(null, Edit.followLength(sc, Voice.ALTO, q))
+    }
 }

@@ -14,6 +14,15 @@ object Edit {
     }
 
     /**
+     * Length of the event starting at [at] in the nearest voice above [v] (else below), so a chord
+     * entered voice by voice copies the rhythm of the voice entered first. Null when none starts there.
+     */
+    fun followLength(s: Score, v: Voice, at: Fraction): Fraction? =
+        (Voice.entries.take(v.ordinal).reversed() + Voice.entries.drop(v.ordinal + 1)).firstNotNullOfOrNull { o ->
+            s.onsets(o).indexOf(at).takeIf { it >= 0 }?.let { s.voice(o)[it].length }
+        }
+
+    /**
      * Puts a note at [at] inside a rest of [v]. It takes [length] but at most what is left of the rest,
      * so later notes never move; the rest's other parts stay rests. Returns the score and the note's
      * index, or null when [at] is not in a rest.
