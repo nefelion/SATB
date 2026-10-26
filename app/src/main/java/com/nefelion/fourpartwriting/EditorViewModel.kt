@@ -73,6 +73,8 @@ data class UiState(
     val followTick: Int = 0,
     /** Onsets of block chords whose voices look entered in the wrong order (shown as a prompt). */
     val reorder: List<Fraction> = emptyList(),
+    /** Note a tap would add, shown while the finger is down. */
+    val ghost: Ghost? = null,
     /** Voice locked for input (hold a voice button): every new note goes to it. */
     val locked: Voice? = null,
     /** A selected note's pitch is being dragged. */
@@ -91,6 +93,9 @@ data class UiState(
     /** Duration shown on the palette: the selected note's written value if it has one. */
     val shownDuration: Duration get() = selectedEvent?.let { Notation.representable(it.length) } ?: duration
 }
+
+/** Preview notehead: staff, staff position, onset. */
+data class Ghost(val staff: Int, val pos: Int, val at: Fraction)
 
 private fun chorale(vararg chords: String): List<List<Event>> {
     val parsed = chords.map { it.split(" ") }
@@ -245,61 +250,83 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- input ----------
 
-    /** Returns true when a note was placed. */
-    fun tap(hit: Hit): Boolean {
-        if (s.moving) {
-            if (hit.near != null) select(hit.near, hit.nearAt) else if (hit.exact != null) select(hit.exact, hit.exactAt)
-            return false
-        }
+    /** Where a tap at [hit] puts a note: its pitch, time, and whether it fills a rest (else appends). Null = no note. */
+    private data class Target(val pitch: Pitch, val at: Fraction, val inRest: Boolean)
+
+    private fun measureOf(t: Fraction) = (t / s.score.time.measure).let { it.num / it.den }
+
+    /** The tap is in the slot for the input voice's next note (at or after its end). */
+    private fun appendSlot(hit: Hit): Boolean {
+        val end = s.score.length(s.locked ?: s.voice)
+        return hit.time >= end || (hit.afterLast && (measureOf(hit.time) == measureOf(end) ||
+            (measureOf(hit.time) == measureOf(end) - 1 && (end / s.score.time.measure).den == 1L)))
+    }
+
+    private fun target(hit: Hit): Target? {
+        if (s.moving) return null
         val score = s.score
         val v = s.locked ?: s.voice
         val end = score.length(v)
         val ml = score.time.measure
-        fun measureOf(t: Fraction) = (t / ml).let { it.num / it.den }
-        val appendSlot = hit.time >= end || (hit.afterLast && (measureOf(hit.time) == measureOf(end) ||
-            (measureOf(hit.time) == measureOf(end) - 1 && (end / ml).den == 1L)))
-
-        return when {
-            // In the slot for the next note, only a tap right on an existing note selects it;
-            // on another voice's staff (where the input voice can't go) a tap near a note does too.
-            appendSlot && hit.exact != null -> { select(hit.exact, hit.exactAt); false }
-            appendSlot && hit.near != null && hit.staff != score.staffOf(v) -> { select(hit.near, hit.nearAt); false }
-            appendSlot -> {
-                val base = score.clefs[hit.staff].pitchAt(hit.position)
-                val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave))
-                // The note goes where it was tapped; the time skipped becomes a rest. A tap after the last
-                // column of a later bar means that bar's start; of the current bar, right after the end.
-                val at = when {
-                    hit.time <= end -> end
-                    !hit.afterLast -> hit.time
-                    measureOf(hit.time) > measureOf(end) -> (ml * Fraction.of(measureOf(hit.time), 1)).coerceAtLeast(end)
-                    else -> end
-                }
-                val new = Edit.append(score, v, inputLength(score, v, at), pitch, at)
-                edit(new, NoteRef(v, new.voice(v).lastIndex), nextVoice(new))
-                resumeVoice = null
-                _state.update { it.copy(accidental = null) }
-                preview(pitch)
-                true
-            }
-            // A tap in a rest of the input voice (not on a note) puts a note there
-            hit.exact == null && hit.near == null && fillRest(hit, v) -> true
-            // Tapping the selected head again, or empty space, clears the selection; another head of a tied note selects that head
-            hit.near == null || (hit.near == s.selected && hit.nearAt == s.selectedTime) -> { deselect(); false }
-            else -> { select(hit.near, hit.nearAt); false }
-        }
-    }
-
-    private fun fillRest(hit: Hit, v: Voice): Boolean {
-        val score = s.score
         val base = score.clefs[hit.staff].pitchAt(hit.position)
         val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave))
-        val (new, i) = Edit.fillRest(score, v, hit.time, inputLength(score, v, hit.time), pitch) ?: return false
-        edit(new, NoteRef(v, i), nextVoice(new))
-        resumeVoice = null
-        _state.update { it.copy(accidental = null) }
-        preview(pitch)
-        return true
+        if (appendSlot(hit)) {
+            // In the slot for the next note, only a tap right on an existing note selects it;
+            // on another voice's staff (where the input voice can't go) a tap near a note does too.
+            if (hit.exact != null || (hit.near != null && hit.staff != score.staffOf(v))) return null
+            // The note goes where it was tapped; the time skipped becomes a rest. A tap after the last
+            // column of a later bar means that bar's start; of the current bar, right after the end.
+            val at = when {
+                hit.time <= end -> end
+                !hit.afterLast -> hit.time
+                measureOf(hit.time) > measureOf(end) -> (ml * Fraction.of(measureOf(hit.time), 1)).coerceAtLeast(end)
+                else -> end
+            }
+            return Target(pitch, at, false)
+        }
+        // A tap in a rest of the input voice (not on a note) puts a note there
+        if (hit.exact != null || hit.near != null) return null
+        val i = score.eventAt(v, hit.time).takeIf { it >= 0 } ?: return null
+        return if (score.voice(v)[i].pitch == null) Target(pitch, hit.time, true) else null
+    }
+
+    /** Finger down on the score: show and play the note a tap there would add, before the finger lifts. */
+    fun press(hit: Hit?) {
+        val t = hit?.let(::target)
+        val v = s.locked ?: s.voice
+        _state.update { it.copy(ghost = t?.let { g -> Ghost(it.score.staffOf(v), it.score.clefs[it.score.staffOf(v)].position(g.pitch), g.at) }) }
+        t?.let { preview(it.pitch) }
+    }
+
+    /** Returns true when a note was placed. */
+    fun tap(hit: Hit): Boolean {
+        _state.update { it.copy(ghost = null) }
+        if (s.moving) {
+            if (hit.near != null) select(hit.near, hit.nearAt) else if (hit.exact != null) select(hit.exact, hit.exactAt)
+            return false
+        }
+        val t = target(hit)
+        if (t != null) {
+            val score = s.score
+            val v = s.locked ?: s.voice
+            val len = inputLength(score, v, t.at)
+            val (new, i) = if (t.inRest) Edit.fillRest(score, v, t.at, len, t.pitch) ?: return false
+                else Edit.append(score, v, len, t.pitch, t.at).let { it to it.voice(v).lastIndex }
+            edit(new, NoteRef(v, i), nextVoice(new))
+            resumeVoice = null
+            _state.update { it.copy(accidental = null) }
+            // Already heard on finger-down
+            return true
+        }
+        val slot = appendSlot(hit)
+        when {
+            slot && hit.exact != null -> select(hit.exact, hit.exactAt)
+            slot && hit.near != null -> select(hit.near, hit.nearAt)
+            // Tapping the selected head again, or empty space, clears the selection; another head of a tied note selects that head
+            hit.near == null || (hit.near == s.selected && hit.nearAt == s.selectedTime) -> deselect()
+            else -> select(hit.near, hit.nearAt)
+        }
+        return false
     }
 
     /** Length of a new event at [at]: in chord mode (no lock) it copies the voice entered first, else the palette value. */

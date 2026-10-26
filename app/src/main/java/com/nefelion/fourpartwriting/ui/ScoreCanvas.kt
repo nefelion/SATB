@@ -76,6 +76,8 @@ fun rememberBravura(): Typeface {
 fun ScoreCanvas(
     state: UiState,
     onTap: (Hit) -> Unit,
+    /** Finger down at a hit (null: the touch became a drag or pinch, or hit the tempo mark). */
+    onPress: (Hit?) -> Unit,
     onNudge: (Int) -> Unit,
     onDrag: (Boolean?) -> Unit,
     onTempoTap: () -> Unit,
@@ -210,6 +212,7 @@ fun ScoreCanvas(
 
         val paints = remember(bravura) { Paints(bravura) }
         val tap by rememberUpdatedState(onTap)
+        val press by rememberUpdatedState(onPress)
         val nudge by rememberUpdatedState(onNudge)
         val drag by rememberUpdatedState(onDrag)
         val tempoTap by rememberUpdatedState(onTempoTap)
@@ -223,6 +226,11 @@ fun ScoreCanvas(
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         var mode = 0 // 0 = undecided (maybe tap), 1 = pitch drag, 2 = pan, 3 = pinch
+                        val dx = (down.position.x - offX) / sp; val dy = (down.position.y - offY) / sp
+                        val tb = currentLayout.tempoBox
+                        val onTempo = dx in tb[0]..tb[2] && dy in tb[1]..tb[3]
+                        val downHit = if (onTempo) null else currentLayout.hitTest(dx, dy)
+                        press(downHit)
                         var moved = Offset.Zero
                         var acc = 0f
                         while (true) {
@@ -230,10 +238,7 @@ fun ScoreCanvas(
                             val pressed = ev.changes.filter { it.pressed }
                             if (pressed.isEmpty()) {
                                 if (mode == 0) {
-                                    val x = (down.position.x - offX) / sp; val y = (down.position.y - offY) / sp
-                                    val tb = currentLayout.tempoBox
-                                    if (x in tb[0]..tb[2] && y in tb[1]..tb[3]) tempoTap()
-                                    else tap(currentLayout.hitTest(x, y))
+                                    if (downHit == null) tempoTap() else tap(downHit)
                                 }
                                 if (mode == 1) drag(true)
                                 break
@@ -241,6 +246,7 @@ fun ScoreCanvas(
                             if (pressed.size >= 2) {
                                 // A second finger always means pinch/pan; undo a pitch drag it interrupted
                                 if (mode == 1) drag(false)
+                                if (mode == 0) press(null)
                                 mode = 3
                                 val zoom = ev.calculateZoom()
                                 val pan = ev.calculatePan()
@@ -263,6 +269,7 @@ fun ScoreCanvas(
                                 // (a second finger may still be on its way).
                                 if (moved.getDistance() < slop || ch.uptimeMillis - down.uptimeMillis < 120) continue
                                 mode = if (hasSelection && abs(moved.y) > abs(moved.x) * 1.3f) 1 else 2
+                                press(null)
                                 if (mode == 1) { drag(null); acc = moved.y } else { offX += moved.x; offY += moved.y }
                             } else if (mode == 1) acc += d.y
                             else { offX += d.x; offY += d.y }
@@ -300,6 +307,24 @@ fun ScoreCanvas(
                     paints.text.typeface = paints.bold
                     paints.text.textAlign = Paint.Align.CENTER
                     nc.drawText(state.shownVoice.label, (caretX + 0.6f) * sp, (cTop - 0.4f) * sp, paints.text)
+                }
+                // The note a tap here would add, while the finger is down
+                state.ghost?.let { g ->
+                    paints.glyph.color = sc.voices[state.shownVoice.ordinal].copy(alpha = 0.55f).toArgb()
+                    paints.glyph.textSize = 4f * sp
+                    val gy = layout.staffTop[g.staff] + 4 - g.pos / 2f
+                    val gx = layout.xFor(g.at)
+                    nc.drawText(Smufl.HEAD_BLACK.toString(), gx * sp, gy * sp, paints.glyph)
+                    paints.line.color = paints.glyph.color
+                    paints.line.strokeWidth = Smufl.LEDGER * sp
+                    // Ledger lines above or below the staff
+                    val top = layout.staffTop[g.staff]
+                    var p = if (g.pos > 8) 10 else -2
+                    while ((g.pos > 8 && p <= g.pos) || (g.pos < 0 && p >= g.pos)) {
+                        val ly = (top + 4 - p / 2f) * sp
+                        nc.drawLine((gx - Smufl.LEDGER_EXT) * sp, ly, (gx + Smufl.HEAD_W + Smufl.LEDGER_EXT) * sp, ly, paints.line)
+                        p += if (g.pos > 8) 2 else -2
+                    }
                 }
                 val visL = -offX / sp - 6f
                 val visR = (-offX + vw) / sp + 6f

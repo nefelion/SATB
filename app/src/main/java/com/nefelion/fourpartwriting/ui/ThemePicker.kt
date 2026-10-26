@@ -56,7 +56,7 @@ private fun ThemeHalf(st: UiState, dark: Boolean, insets: WindowInsets, onPick: 
                     Text(name, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 24.dp, top = 20.dp, end = 24.dp))
                     Box(Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
                         // Preview only: no caret, no selection; taps are taken by the overlay below
-                        ScoreCanvas(st.copy(playing = true, selected = null), onTap = {}, onNudge = {}, onDrag = {}, onTempoTap = {},
+                        ScoreCanvas(st.copy(playing = true, selected = null), onTap = {}, onPress = {}, onNudge = {}, onDrag = {}, onTempoTap = {},
                             savedViewport = null, onViewport = { _, _ -> })
                     }
                     Text("Tap to use $name · you can change it in Settings", style = MaterialTheme.typography.bodyMedium,

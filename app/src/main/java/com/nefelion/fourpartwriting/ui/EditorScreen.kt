@@ -171,7 +171,7 @@ fun EditorScreen(vm: EditorViewModel) {
                     .then(if (wide) Modifier.windowInsetsPadding(safe.only(WindowInsetsSides.Top)) else Modifier).clipToBounds()) {
                     val haptic = LocalHapticFeedback.current
                     ScoreCanvas(
-                        st, { if (vm.tap(it)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, vm::nudge, vm::dragPitch,
+                        st, { if (vm.tap(it)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, vm::press, vm::nudge, vm::dragPitch,
                         onTempoTap = { tempoDialog = true },
                         savedViewport = vm.viewport, onViewport = vm::rememberViewport,
                         edges = edges,
