@@ -67,6 +67,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     // Dialogs and menus stay open on rotation
     var menuFor by rememberSaveable { mutableStateOf<String?>(null) }
     var naming by rememberSaveable { mutableStateOf(false) }
+    var editingScore by rememberSaveable { mutableStateOf<String?>(null) }
     var renaming by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     var exporting by rememberSaveable { mutableStateOf<String?>(null) }
@@ -96,6 +97,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
                     @Composable fun item(label: String, danger: Boolean = false, action: () -> Unit) = DropdownMenuItem(
                         text = { Text(label, color = if (danger) MaterialTheme.colorScheme.error else Color.Unspecified) },
                         onClick = { menuFor = null; action() })
+                    item("Edit") { editingScore = name }
                     item("Rename") { renaming = name }
                     item("Duplicate") { vm.duplicateScore(name) }
                     item("Save to file…") { exporting = name; saver.launch("$name${ScoreLibrary.EXT}") }
@@ -127,8 +129,16 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
             }
         }
     }
-    if (naming) NewScoreDialog(onDismiss = { naming = false }) { name, settings ->
+    if (naming) ScoreDialog("New score", "", Score(), askName = true, action = "Create", onDismiss = { naming = false }) { name, settings ->
         naming = false; vm.newScore(name, settings); onDismiss()
+    }
+    editingScore?.let { name ->
+        // The open score's file may lag its last edit, so its settings come from the editor
+        val sc = if (name == st.scoreName) st.score else st.scores.firstOrNull { it.first == name }?.second
+        if (sc == null) editingScore = null
+        else ScoreDialog("Edit score", name, sc, askName = true, action = "Save", onDismiss = { editingScore = null }) { newName, settings ->
+            editingScore = null; vm.editScore(name, newName, settings)
+        }
     }
     renaming?.let { old -> NameDialog("Rename score", old, "Rename", onDismiss = { renaming = null }) { vm.renameScore(old, it); renaming = null } }
     deleting?.let { name ->
@@ -153,27 +163,34 @@ private fun summary(sc: Score): String {
 }
 
 /**
- * New score in two steps: the name, then a summary of key, time signature, tempo and staves (defaults to start with).
- * Tapping a row opens a small window with just that setting.
+ * A score's name and settings: with [askName], first the name, then a summary of key, time signature, tempo and staves;
+ * tapping a row opens a small window with just that setting. Used for New score, Edit and taps on the score's header.
+ * [onDone] gets the name and a note-less score holding the settings.
  */
 @Composable
-private fun NewScoreDialog(onDismiss: () -> Unit, onCreate: (String, Score) -> Unit) {
-    var step by rememberSaveable { mutableIntStateOf(0) }
-    var name by rememberSaveable { mutableStateOf("") }
+internal fun ScoreDialog(label: String, startName: String, start: Score, askName: Boolean, action: String,
+                         onDismiss: () -> Unit, onDone: (String, Score) -> Unit) {
+    val steps = if (askName) 2 else 1
+    var step by rememberSaveable { mutableIntStateOf(if (askName) 0 else 1) }
+    var name by rememberSaveable { mutableStateOf(startName) }
     // The choices as a note-less score; kept as score-file text so they survive rotation
-    var draft by rememberSaveable(stateSaver = Saver({ ScoreCodec.encode(it) }, { ScoreCodec.decode(it) })) { mutableStateOf(Score()) }
+    var draft by rememberSaveable(stateSaver = Saver({ ScoreCodec.encode(it) }, { ScoreCodec.decode(it) })) {
+        mutableStateOf(start.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet()))
+    }
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
     fun next() {
         if (name.isBlank()) return
-        if (step == 1) onCreate(name, draft) else step++
+        if (step == 1) onDone(name, draft) else step++
     }
     AlertDialog(
         onDismissRequest = onDismiss,
+        // New/Edit show the name being set; opened from the score, only the small label
         title = {
             Column {
-                Text("New score · ${step + 1} of 2", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(if (step == 0) "Name" else name.trim(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (steps > 1) "$label · ${step + 1} of 2" else label, style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (askName) Text(if (step == 0) "Name" else name.trim(), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         },
         text = {
@@ -193,8 +210,11 @@ private fun NewScoreDialog(onDismiss: () -> Unit, onCreate: (String, Score) -> U
                 SettingRow("Staves", draft.arrangement.label) { editing = "Staves" }
             }
         },
-        confirmButton = { TextButton(onClick = ::next, enabled = name.isNotBlank()) { Text(if (step == 1) "Create" else "Next") } },
-        dismissButton = { TextButton(onClick = { if (step == 0) onDismiss() else step-- }) { Text(if (step == 0) "Cancel" else "Back") } },
+        confirmButton = { TextButton(onClick = ::next, enabled = name.isNotBlank()) { Text(if (step == 1) action else "Next") } },
+        dismissButton = {
+            val back = askName && step == 1
+            TextButton(onClick = { if (back) step-- else onDismiss() }) { Text(if (back) "Back" else "Cancel") }
+        },
     )
     editing?.let { what ->
         Dialog(onDismissRequest = { editing = null }) {

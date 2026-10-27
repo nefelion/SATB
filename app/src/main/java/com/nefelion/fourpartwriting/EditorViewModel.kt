@@ -752,6 +752,22 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         show(name, sc)
     }
 
+    /** Gives score [name] the key, time, tempo, staves and clefs of [settings], then the name [newName]. The open score changes as one undo step. */
+    fun editScore(name: String, newName: String, settings: Score) {
+        fun apply(sc: Score) = sc.copy(key = settings.key, time = settings.time, tempo = settings.tempo.coerceIn(20, 300),
+            arrangement = settings.arrangement, clefs = settings.clefs)
+        if (name == s.scoreName) {
+            edit(apply(s.score))
+            Synth.setTempo(s.score.tempo)
+        } else {
+            flushScore()
+            val sc = library.read(name) ?: return msg("Could not read $name.")
+            if (!library.write(name, apply(sc))) return msg("Could not save $name.")
+        }
+        renameScore(name, newName)
+        refreshScores()
+    }
+
     fun renameScore(from: String, to: String) {
         val name = ScoreLibrary.clean(to)
         if (name == from) return

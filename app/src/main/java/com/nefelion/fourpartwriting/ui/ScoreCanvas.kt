@@ -228,7 +228,9 @@ fun ScoreCanvas(
                         var mode = 0 // 0 = undecided (maybe tap), 1 = pitch drag, 2 = pan, 3 = pinch
                         val dx = (down.position.x - offX) / sp; val dy = (down.position.y - offY) / sp
                         val tb = currentLayout.tempoBox
-                        val onTempo = dx in tb[0]..tb[2] && dy in tb[1]..tb[3]
+                        val hb = currentLayout.headerBox
+                        // Tempo, clef, key or time signature: opens the score settings
+                        val onTempo = (dx in tb[0]..tb[2] && dy in tb[1]..tb[3]) || (dx in hb[0]..hb[2] && dy in hb[1]..hb[3])
                         val downHit = if (onTempo) null else currentLayout.hitTest(dx, dy)
                         press(downHit)
                         var moved = Offset.Zero

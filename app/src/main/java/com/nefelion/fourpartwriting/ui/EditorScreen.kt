@@ -232,16 +232,9 @@ fun EditorScreen(vm: EditorViewModel) {
         },
         dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
     )
-    if (tempoDialog) Dialog(onDismissRequest = { tempoDialog = false }) {
-        KeepRefreshRate()
-        Surface(Modifier.clearFocusOnTap(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("Tempo", style = MaterialTheme.typography.titleLarge)
-                TempoEditor(st.score.tempo, vm::setTempo, vm::commitTempo)
-                FilledTonalButton(onClick = { tempoDialog = false }, shape = SHAPE, modifier = Modifier.align(Alignment.End)) { Text("Done") }
-            }
-        }
-    }
+    // Tapping the tempo, clef, key or time signature: the score's settings, applied as one undo step
+    if (tempoDialog) ScoreDialog("Score settings", st.scoreName, st.score, askName = false, action = "Save",
+        onDismiss = { tempoDialog = false }) { _, settings -> tempoDialog = false; vm.editScore(st.scoreName, st.scoreName, settings) }
 }
 
 /** Quarter-note tempo: type it, step it, or slide it. [onChange] runs live; [onCommit] ends one change (one undo step in the editor). */
