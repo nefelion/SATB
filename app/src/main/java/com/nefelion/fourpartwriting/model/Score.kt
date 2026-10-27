@@ -5,8 +5,12 @@ package com.nefelion.fourpartwriting.model
  * split at barlines and beats) is decided by the engraver, not stored here. Only [tuplet] keeps
  * the ratio the user picked, since the length alone cannot tell 5:4 from 5:2.
  * [figures]: figured-bass lines, top to bottom ("6", "#", "b7"; see FiguredBass); used on bass notes only.
+ * [chord]: the chord the user named at this note ("G7/B", "V65"; see ChordText), shown above the score.
  */
-data class Event(val length: Fraction, val pitch: Pitch?, val tuplet: Tuplet? = null, val figures: List<String> = emptyList()) {
+data class Event(
+    val length: Fraction, val pitch: Pitch?, val tuplet: Tuplet? = null,
+    val figures: List<String> = emptyList(), val chord: String? = null,
+) {
     constructor(d: Duration, pitch: Pitch?) : this(d.value, pitch)
 }
 

@@ -30,7 +30,10 @@ import com.nefelion.fourpartwriting.model.TimeSig
 import com.nefelion.fourpartwriting.model.Tuplet
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Analysis
+import com.nefelion.fourpartwriting.theory.ChordAnalyzer
 import com.nefelion.fourpartwriting.theory.Exercises
+import com.nefelion.fourpartwriting.theory.FiguredBass
+import com.nefelion.fourpartwriting.theory.Voicer
 import com.nefelion.fourpartwriting.theory.Severity
 import com.nefelion.fourpartwriting.theory.Rule
 import com.nefelion.fourpartwriting.theory.VoiceLeading
@@ -100,6 +103,7 @@ data class UiState(
     val midiNote: String? = null,
     /** Note a tap would add, shown while the finger is down. */
     val ghost: Ghost? = null,
+    val hint: Hint? = null,
     /** Voice locked for input (hold a voice button): every new note goes to it. */
     val locked: Voice? = null,
     /** A selected note's pitch is being dragged. */
@@ -138,7 +142,11 @@ data class UiState(
 fun tupletLength(d: Duration, t: Pair<Int, Int>?) = if (t == null) d.value else d.value * Fraction.of(t.second.toLong(), t.first.toLong())
 
 /** Preview notehead: staff, staff position, onset. */
-data class Ghost(val staff: Int, val pos: Int, val at: Fraction)
+/** A faded note: the tap preview, or a hint ([voice] colours it; [alter]: an accidental to show). */
+data class Ghost(val staff: Int, val pos: Int, val at: Fraction, val voice: Voice? = null, val alter: Int? = null)
+
+/** Notes suggested by Hint, shown while the score is still [score] (any edit hides them). */
+data class Hint(val score: Score, val notes: List<Ghost>)
 
 private fun chorale(vararg chords: String): List<List<Event>> {
     val parsed = chords.map { it.split(" ") }
@@ -270,8 +278,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edited: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice,
         selectedAt: Fraction? = if (selected == s.selected) s.selectedAt else null,
     ) {
-        // An exercise's given voices stay as they are
-        s.score.given.firstOrNull { it in edited.given && edited.voice(it) != s.score.voice(it) }?.let { v ->
+        // An exercise's given voices stay as they are (naming their chords is fine)
+        s.score.given.firstOrNull { v -> v in edited.given && edited.voice(v).map { it.copy(chord = null) } != s.score.voice(v).map { it.copy(chord = null) } }?.let { v ->
             return msg("The ${v.name.lowercase()} is given in this exercise.")
         }
         val new = if (dragBase != null) edited else VoiceLeading.pruneMutes(edited)
@@ -490,6 +498,67 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val e = evs.getOrNull(r.index)?.takeIf { it.pitch != null } ?: return
         edit(s.score.withVoice(Voice.BASS, evs.toMutableList().also { it[r.index] = e.copy(figures = figures) }))
     }
+
+    /** Selects a note to name a chord on: the one selected, else the soprano at the selected time, else the first. False if the score is empty. */
+    fun startChords(): Boolean {
+        if (s.selectedEvent?.pitch != null) return true
+        val v = Voice.entries.firstOrNull { v -> s.score.voice(v).any { it.pitch != null } } ?: run { msg("Write some notes first."); return false }
+        val at = s.selectedTime?.let { s.score.eventAt(v, it) }?.takeIf { it >= 0 && s.score.voice(v)[it].pitch != null }
+        select(NoteRef(v, at ?: s.score.voice(v).indexOfFirst { it.pitch != null }))
+        _state.update { it.copy(followTick = it.followTick + 1) }
+        return true
+    }
+
+    /** Chord name on the selected note (blank clears it); checked by the Named chords rule. */
+    fun setChord(name: String) {
+        val r = s.selected ?: return
+        val evs = s.score.voice(r.voice)
+        val e = evs.getOrNull(r.index)?.takeIf { it.pitch != null } ?: return
+        val clean = name.filter { !it.isWhitespace() && it !in ":@!," }.ifEmpty { null }
+        val spec = clean?.let { com.nefelion.fourpartwriting.theory.ChordText.parse(it, s.score.key) }
+        if (clean != null && spec == null) return msg("\"$clean\" is not a chord. Try C, F#m, G7/B, Bm7b5, V65, ii6 or V7/V.")
+        // Over a given (locked) bass the figures fix the chord: only a name with exactly its notes and bass fits
+        if (spec != null && Voice.BASS in s.score.given) {
+            val t = s.score.onsets(r.voice)[r.index]
+            val b = s.score.eventAt(Voice.BASS, t).takeIf { it >= 0 }?.let { s.score.voice(Voice.BASS)[it] }
+            val bp = b?.pitch
+            if (bp != null) {
+                val want = FiguredBass.realize(bp, b.figures, s.score.key).values.toSet() + bp.pc
+                if (spec.pcs.toSet() != want || (spec.bass ?: spec.pcs[0]) != bp.pc)
+                    return msg("$clean doesn't fit the bass ${bp.pc.name}${if (b.figures.isEmpty()) "" else " with figures " + FiguredBass.display(b.figures)}. Read the figures again.")
+            }
+        }
+        edit(s.score.withVoice(r.voice, evs.toMutableList().also { it[r.index] = e.copy(chord = clean) }))
+    }
+
+    /** Names the chord and the notes for the next beat where a voice is missing; writes nothing. */
+    fun hint() = viewModelScope.launch {
+        val sc = s.score
+        val out = withContext(Dispatchers.Default) { Voicer.attempt(sc) }
+        val filled = when (out) {
+            is Voicer.Outcome.Done -> out.score
+            is Voicer.Outcome.Stuck -> return@launch msg("Your notes up to bar ${barOf(out.time)} leave no clean way on. Press ✓ to find the problem.")
+            Voicer.Outcome.Empty -> return@launch msg("Write a melody or a bass first.")
+        }
+        // The first beat where the fill adds a note
+        val t = Voice.entries.mapNotNull { v ->
+            val start = sc.length(v)
+            filled.onsets(v).withIndex().firstOrNull { (i, on) -> on >= start && filled.voice(v)[i].pitch != null }?.value
+        }.minOrNull() ?: return@launch msg("Every voice is written. Press ✓ to check.")
+        val notes = Voice.entries.map { v -> filled.eventAt(v, t).takeIf { it >= 0 }?.let { filled.voice(v)[it].pitch } }
+        val chord = ChordAnalyzer.analyze(notes.filterNotNull(), sc.key)
+        val ghosts = Voice.entries.filter { sc.length(it) <= t }.mapNotNull { v ->
+            val p = notes[v.ordinal] ?: return@mapNotNull null
+            val staff = sc.staffOf(v)
+            Ghost(staff, sc.clefs[staff].position(p), t, v, p.alter.takeIf { it != sc.key.sigAlter(p.step) })
+        }
+        _state.update { it.copy(hint = Hint(sc, ghosts), followTick = it.followTick + 1) }
+        // Plain digits: the snackbar cannot stack figures
+        val roman = chord.roman.map { c -> "⁰¹²³⁴⁵⁶⁷⁸⁹".indexOf(c).takeIf { it >= 0 }?.let { '0' + it } ?: "₀₁₂₃₄₅₆₇₈₉".indexOf(c).takeIf { it >= 0 }?.let { '0' + it } ?: c }.joinToString("")
+        msg("Hint for bar ${barOf(t)}: ${roman.ifEmpty { chord.symbol }} (${chord.symbol}). The faded notes show one way to voice it.")
+    }
+
+    private fun barOf(t: Fraction) = (t / s.score.time.measure).let { it.num / it.den + 1 }
 
     /** Next (+1) or previous (-1) bass note, skipping rests. */
     fun stepBass(dir: Int) {
@@ -792,8 +861,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Writes the upper voices of an exercise over its figured bass (one undo step). */
     fun showSolution() = viewModelScope.launch {
         val sc = s.score
-        val solved = withContext(Dispatchers.Default) { Exercises.solve(sc) } ?: return@launch msg("No solution found for this bass.")
-        if (s.score == sc) edit(solved, null)
+        // Your notes are kept when they can be continued; otherwise the answer starts over from the given voices
+        val fresh = sc.copy(voices = Voice.entries.map { if (it in sc.given) sc.voice(it) else emptyList() })
+        val (solved, note) = withContext(Dispatchers.Default) {
+            when (val out = Voicer.attempt(sc)) {
+                is Voicer.Outcome.Done -> out.score to null
+                is Voicer.Outcome.Stuck -> Voicer.fill(fresh) to "Your notes up to bar ${barOf(out.time)} can't be continued cleanly, so this answer starts over. Undo brings yours back."
+                Voicer.Outcome.Empty -> null to null
+            }
+        }
+        if (solved == null) return@launch msg("No solution found for this bass.")
+        if (s.score == sc) { edit(solved, null); note?.let(::msg) }
     }
 
     private fun newBlank(wanted: String = "Untitled", sc: Score = blank()) {

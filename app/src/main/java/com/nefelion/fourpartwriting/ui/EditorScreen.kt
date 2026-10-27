@@ -134,6 +134,7 @@ import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Mode
 import com.nefelion.fourpartwriting.model.TimeSig
 import com.nefelion.fourpartwriting.model.Voice
+import com.nefelion.fourpartwriting.theory.ChordText
 import com.nefelion.fourpartwriting.theory.FiguredBass
 import com.nefelion.fourpartwriting.theory.Rule
 import com.nefelion.fourpartwriting.theory.VoiceLeading
@@ -155,6 +156,7 @@ fun EditorScreen(vm: EditorViewModel) {
     var scores by rememberSaveable { mutableStateOf(false) }
     var figures by rememberSaveable { mutableStateOf(false) }
     var exercise by rememberSaveable { mutableStateOf(false) }
+    var chords by rememberSaveable { mutableStateOf(false) }
     // Generic type: providers keep an unknown .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
     val xmlSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         uri?.let(vm::exportMusicXml)
@@ -169,7 +171,9 @@ fun EditorScreen(vm: EditorViewModel) {
                 item("New exercise", false) { exercise = true }
                 HorizontalDivider()
             }
-            item("Bass figures", false) { if (vm.startFigures()) figures = true }
+            item("Hint", false) { vm.hint() }
+            item("Chord names", false) { if (vm.startChords()) { chords = true; figures = false } }
+            item("Bass figures", false) { if (vm.startFigures()) { figures = true; chords = false } }
             item("Export MusicXML", false) { xmlSaver.launch("${st.scoreName}.musicxml") }
             item("Clear score", true) { confirmClear = true }
             HorizontalDivider()
@@ -217,6 +221,7 @@ fun EditorScreen(vm: EditorViewModel) {
                 }
                 st.analysis?.let { IssuesStrip(st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide, onUndoable = { undoable = it }) }
                 if (figures) { HorizontalDivider(); FiguresPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { figures = false } }
+                if (chords) { HorizontalDivider(); ChordPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { chords = false } }
                 HorizontalDivider()
                 Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
                     .height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -344,6 +349,37 @@ private fun FiguresPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets,
                 vm.setFigures(l)
             }, label = "Delete figure", long = { vm.setFigures(emptyList()) }) { Text("⌫", fontSize = 18.sp, color = ink) }
         }
+    }
+}
+
+/** Chord name for the selected note: a common chord of the key in one tap, or any name typed (applied on Enter, ‹ › or Done). */
+@Composable
+private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, onClose: () -> Unit) {
+    val e = st.selectedEvent?.takeIf { it.pitch != null }
+    val ink = MaterialTheme.colorScheme.onSurface
+    var text by rememberSaveable(st.selected, e?.chord) { mutableStateOf(e?.chord.orEmpty()) }
+    val bad = text.isNotBlank() && ChordText.parse(text, st.score.key) == null
+    fun apply() { if (e != null && text.trim() != e.chord.orEmpty()) vm.setChord(text) }
+    val common = if (st.score.key.mode == Mode.MAJOR) listOf("I", "ii", "IV", "V", "V7", "vi") else listOf("i", "iv", "V", "V7", "VI", "ii°6")
+    Column(Modifier.fillMaxWidth().windowInsetsPadding(insets).padding(horizontal = 4.dp)) {
+        Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+            Tool(onClick = { apply(); vm.step(-1) }, label = "Previous note") { Text("‹", fontSize = 30.sp, color = ink) }
+            if (e == null) Text("Select a note", Modifier.weight(6f), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else for (c in common) Tool(e.chord == c, { text = c; vm.setChord(c) }, "Chord $c") {
+                Text(c, fontSize = 17.sp, color = ink, fontFamily = FontFamily.Serif)
+            }
+            Tool(onClick = { apply(); vm.step(1) }, label = "Next note") { Text("›", fontSize = 30.sp, color = ink) }
+            TextButton(onClick = { apply(); onClose() }) { Text("Done") }
+        }
+        androidx.compose.material3.OutlinedTextField(
+            value = text, onValueChange = { text = it.take(16) }, singleLine = true, shape = SHAPE, isError = bad, enabled = e != null,
+            placeholder = { Text("Any chord: C, Am7, G7/B, V65, V7/V") },
+            supportingText = if (bad) ({ Text("Not a chord name") }) else null,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Done, autoCorrectEnabled = false),
+            keyboardActions = KeyboardActions(onDone = { apply() }),
+            trailingIcon = { if (e?.chord != null) TextButton(onClick = { text = ""; vm.setChord("") }) { Text("Clear") } },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+        )
     }
 }
 

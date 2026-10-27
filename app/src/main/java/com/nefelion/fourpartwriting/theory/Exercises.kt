@@ -114,11 +114,7 @@ object Exercises {
             return listOfNotNull(root, ChordAnalyzer.transpose(root, 2, 4), ChordAnalyzer.transpose(root, 4, 7),
                 if (st.seventh) ChordAnalyzer.transpose(root, 6, 10) else null)
         }
-        val raise = key.mode == Mode.MINOR && st.degree in setOf(4, 6)
-        return (0 until if (st.seventh) 4 else 3).map { k ->
-            val pc = key.degree(st.degree + 2 * k)
-            if (raise && pc.step == key.leadingTone.step) key.leadingTone else pc
-        }
+        return Voicer.diatonic(key, st.degree, st.seventh)
     }
 
     /** Bass notes (quarters, the last a whole note in 4/4) with figures; null if the figures would not spell the chord. */
@@ -161,133 +157,6 @@ object Exercises {
         return lines
     }
 
-    // ---------- solver ----------
-
-    private const val NO = 1e6
-
-    /** The chord over one bass note: its notes, the members that must sound, and what the analyzer knows of it. */
-    private class Target(val bass: Pitch, val pcs: Set<PitchClass>, val required: Set<PitchClass>, val chord: Chord, val cadential: Boolean)
-
-    /**
-     * The score with soprano, alto and tenor written over its figured bass (rhythm of the bass): the voicing
-     * with the smoothest, rule-abiding lines. Null if the bass has rests or some figure has no voicing.
-     */
-    fun solve(score: Score): Score? {
-        val bass = score.voice(Voice.BASS)
-        if (bass.isEmpty() || bass.any { it.pitch == null }) return null
-        val key = score.key
-        val targets = bass.mapIndexed { i, e ->
-            val b = e.pitch!!
-            val above = FiguredBass.realize(b, e.figures, key).values.toSet()
-            val chord = ChordAnalyzer.analyze(listOf(b) + above.map { Pitch(it.step, it.alter, 4) }, key)
-            val fifth = above.firstOrNull { chord.member(it) == 4 }
-            // A seventh chord may leave out its fifth (and double the root instead)
-            val optional = if (chord.quality?.seventh == true && fifth != null && e.figures.none { it.filter(Char::isDigit) == "5" }) setOf(fifth) else emptySet()
-            val next = bass.getOrNull(i + 1)?.pitch
-            Target(b, above + b.pc, above + b.pc - optional, chord, chord.inversion == 2 && chord.degree == 0 && next != null && next.pc == b.pc)
-        }
-        val states = targets.map { voicings(it) }
-        if (states.any { it.isEmpty() }) return null
-        // Cheapest path through one voicing per chord
-        var cost = states[0].map { node(it, targets[0]) }.toDoubleArray()
-        val back = mutableListOf<IntArray>()
-        for (i in 1 until states.size) {
-            val c = DoubleArray(states[i].size) { NO }
-            val from = IntArray(states[i].size) { -1 }
-            for ((k, v) in states[i].withIndex()) {
-                val own = node(v, targets[i])
-                for ((j, u) in states[i - 1].withIndex()) {
-                    if (cost[j] >= NO) continue
-                    val t = cost[j] + own + move(u, v, targets[i - 1], targets[i])
-                    if (t < c[k]) { c[k] = t; from[k] = j }
-                }
-            }
-            cost = c
-            back += from
-        }
-        var k = cost.indices.minByOrNull { cost[it] } ?: return null
-        if (cost[k] >= NO) return null
-        val path = IntArray(states.size)
-        for (i in states.lastIndex downTo 0) { path[i] = k; if (i > 0) k = back[i - 1][k] }
-        val upper = (0 until 3).map { v -> bass.mapIndexed { i, e -> Event(e.length, states[i][path[i]][v], e.tuplet) } }
-        return score.copy(voices = upper + listOf(bass))
-    }
-
-    /** All S, A, T over the bass that spell the chord, in range, uncrossed and spaced. Index 0..3 = S A T B. */
-    private fun voicings(t: Target): List<List<Pitch>> {
-        fun cands(v: Voice) = t.pcs.flatMap { pc -> (2..5).map { Pitch(pc.step, pc.alter, it) } }
-            .filter { it.midi in VoiceLeading.RANGES.getValue(v) }
-        val out = mutableListOf<List<Pitch>>()
-        val b = t.bass
-        val lt = t.chord.leadingTone
-        val seventh = t.chord.seventh
-        for (tn in cands(Voice.TENOR)) {
-            if (tn.midi <= b.midi || Interval.between(b, tn).number > 12) continue
-            for (a in cands(Voice.ALTO)) {
-                if (a.midi <= tn.midi || a.midi - tn.midi > 12) continue
-                for (s in cands(Voice.SOPRANO)) {
-                    if (s.midi <= a.midi || s.midi - a.midi > 12) continue
-                    val v = listOf(s, a, tn, b)
-                    val pcs = v.map { it.pc }
-                    if (!pcs.containsAll(t.required)) continue
-                    // Tendency tones are never doubled
-                    if (lt != null && pcs.count { it == lt } > 1) continue
-                    if (seventh != null && pcs.count { it == seventh } > 1) continue
-                    out += v
-                }
-            }
-        }
-        return out
-    }
-
-    /** Doubling preference: the root (the bass of a cadential ⁶₄), then the fifth, then the third. */
-    private fun node(v: List<Pitch>, t: Target): Double {
-        val pcs = v.map { it.pc }
-        val doubled = pcs.groupingBy { it }.eachCount().filter { it.value > 1 }.keys
-        var c = 0.0
-        for (pc in doubled) c += when {
-            t.cadential && pc == t.bass.pc -> 0.0
-            else -> when (t.chord.member(pc)) { 0 -> 0.0; 4 -> 2.0; 2 -> 4.0; else -> 6.0 }
-        }
-        if (t.cadential && t.bass.pc !in doubled) c += 4
-        return c
-    }
-
-    /** Cost of moving from voicing [p] to [c]: forbidden motion is [NO], the rest is how far the upper voices move. */
-    private fun move(p: List<Pitch>, c: List<Pitch>, tp: Target, tc: Target): Double {
-        var cost = 0.0
-        // Parallel (or contrary) fifths and octaves between any two voices
-        for (i in 0 until 4) for (j in i + 1 until 4) {
-            if (p[i] == c[i] && p[j] == c[j]) continue
-            val a = Math.floorMod(p[i].midi - p[j].midi, 12)
-            val b = Math.floorMod(c[i].midi - c[j].midi, 12)
-            if (a == b && (a == 0 || a == 7)) return NO
-        }
-        val dirs = IntArray(4) { (c[it].midi - p[it].midi).sign }
-        for (v in 0 until 3) {
-            val d = c[v].midi - p[v].midi
-            if (d == 0) continue
-            val iv = Interval.between(p[v], c[v])
-            if (iv.quality == IntervalQuality.A || iv.quality == IntervalQuality.AA || iv.simpleNumber == 7 || iv.number > 8) return NO
-            if (iv.quality == IntervalQuality.D || iv.quality == IntervalQuality.DD) cost += 20
-            cost += abs(d)
-            if (abs(d) > 4) cost += 6
-            // Overlap: past the previous note of a neighbour
-            if (c[v].midi < p[v + 1].midi) return NO
-            if (v > 0 && c[v].midi > p[v - 1].midi) return NO
-        }
-        if (c[3].midi > p[2].midi) return NO
-        // Outer voices: no leap of the soprano in similar motion into a fifth or octave
-        val outer = Math.floorMod(c[0].midi - c[3].midi, 12)
-        if ((outer == 0 || outer == 7) && dirs[0] == dirs[3] && dirs[0] != 0 && abs(c[0].midi - p[0].midi) > 2) return NO
-        if (dirs.all { it == 1 } || dirs.all { it == -1 }) cost += 15
-        // The leading tone of a resolving dominant rises to its target; the seventh falls by step
-        val lt = tp.chord.leadingTone
-        if (lt != null && tc.chord.root == tp.chord.target) for (v in 0 until 3) if (p[v].pc == lt) {
-            if (c[v].pc != tp.chord.target || c[v].midi < p[v].midi) cost += if (v == 0) NO else 40.0
-        }
-        val sev = tp.chord.seventh
-        if (sev != null) for (v in 0 until 3) if (p[v].pc == sev && p[v].diatonic - c[v].diatonic != 1) return NO
-        return cost
-    }
+    /** The score with its upper voices written over the figured bass (see [Voicer]); null if no voicing fits. */
+    fun solve(score: Score): Score? = Voicer.fill(score)
 }

@@ -35,7 +35,7 @@ data class TieMark(val x1: Float, val x2: Float, val y: Float, val above: Boolea
 data class TextMark(val text: String, override val x: Float, val y: Float, val size: Float, val style: TextStyle) : Mark {
     override val ref: NoteRef? get() = null
 }
-enum class TextStyle { ROMAN, SYMBOL, TEMPO, MEASURE_NO, NCT, FIGURE }
+enum class TextStyle { ROMAN, SYMBOL, TEMPO, MEASURE_NO, NCT, FIGURE, NAME }
 
 data class ChordLabel(val symbol: String, val roman: String)
 
@@ -221,8 +221,10 @@ object Engraver {
         // Bass figures stack under the bottom staff, above the roman numerals
         val figRows = if (Voice.BASS in shown) score.voice(Voice.BASS).maxOfOrNull { if (it.pitch != null) it.figures.size else 0 } ?: 0 else 0
         val figH = if (figRows > 0) figRows * 1.25f + 0.6f else 0f
+        // Chord names the user wrote get their own row above the music (and above the analysis labels)
+        val nameH = if (Voice.entries.any { v -> v in shown && score.voice(v).any { it.chord != null } }) 2.2f else 0f
         val st = FloatArray(n)
-        var y = 3.2f + (if (hasLabels) 2.8f else 0f) + max(0f, (maxP[0] - 8) * 0.5f)
+        var y = 3.2f + (if (hasLabels) 2.8f else 0f) + nameH + max(0f, (maxP[0] - 8) * 0.5f)
         for (s in 0 until n) {
             if (s > 0) y += max(5f, (0 - minP[s - 1]) * 0.5f + (maxP[s] - 8) * 0.5f + 1.5f)
             st[s] = y
@@ -263,7 +265,7 @@ object Engraver {
 
         // Header: clef, key signature, time signature, tempo
         var hx = x0 + 0.8f
-        val tempoY = top - max(2.2f, (maxP[0] - 8) * 0.5f + 1.2f) - (if (hasLabels) 2.8f else 0f)
+        val tempoY = top - max(2.2f, (maxP[0] - 8) * 0.5f + 1.2f) - (if (hasLabels) 2.8f else 0f) - nameH
         val tx = x0 + if (n > 2) 1.6f else 0.8f // clear the bracket hook
         var tempoX = tx + 1.2f
         // Bare: clefs only on two staves, where the notes cannot be read without them
@@ -339,6 +341,12 @@ object Engraver {
             val lab = nctLabels[h.ref] ?: continue
             if (!labelled.add(h.ref)) continue
             marks += TextMark(lab, h.x + 1.1f, h.y - 0.9f, 1.0f, TextStyle.NCT)
+        }
+        val named = HashSet<NoteRef>()
+        for (h in heads) {
+            if (!named.add(h.ref)) continue
+            val name = score.voice(h.ref.voice).getOrNull(h.ref.index)?.chord ?: continue
+            marks += TextMark(name, h.x + Smufl.HEAD_W / 2, labelTop - (if (hasLabels) 2.9f else 0.3f), 1.4f, TextStyle.NAME)
         }
         val figured = HashSet<NoteRef>()
         for (h in heads) {

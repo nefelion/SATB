@@ -314,12 +314,15 @@ fun ScoreCanvas(
                     nc.drawText(state.shownVoice.label, (caretX + 0.6f) * sp, (cTop - 0.4f) * sp, paints.text)
                 }
                 // The note a tap here would add, while the finger is down
-                state.ghost?.let { g ->
-                    paints.glyph.color = sc.voices[state.shownVoice.ordinal].copy(alpha = 0.55f).toArgb()
+                // The note a tap here would add, while the finger is down; hint notes until the next edit
+                val ghosts = listOfNotNull(state.ghost) + (state.hint?.takeIf { it.score == state.score }?.notes ?: emptyList())
+                for (g in ghosts) {
+                    paints.glyph.color = sc.voices[(g.voice ?: state.shownVoice).ordinal].copy(alpha = 0.55f).toArgb()
                     paints.glyph.textSize = 4f * sp
                     val gy = layout.staffTop[g.staff] + 4 - g.pos / 2f
                     val gx = layout.xFor(g.at)
                     nc.drawText(Smufl.HEAD_BLACK.toString(), gx * sp, gy * sp, paints.glyph)
+                    g.alter?.let { a -> nc.drawText(Smufl.accidental(a).toString(), (gx - Smufl.accidentalWidth(a) - 0.25f) * sp, gy * sp, paints.glyph) }
                     paints.line.color = paints.glyph.color
                     paints.line.strokeWidth = Smufl.LEDGER * sp
                     // Ledger lines above or below the staff
@@ -474,6 +477,7 @@ private fun drawText(nc: android.graphics.Canvas, t: TextMark, sp: Float, p: Pai
         TextStyle.SYMBOL -> { paint.typeface = p.bold; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.NCT -> { paint.typeface = p.italic; paint.textAlign = Paint.Align.LEFT; paint.color = p.nct; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.ROMAN -> drawRoman(nc, t, sp, p)
+        TextStyle.NAME -> { paint.typeface = p.roman; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.FIGURE -> { paint.typeface = p.roman; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
     }
 }

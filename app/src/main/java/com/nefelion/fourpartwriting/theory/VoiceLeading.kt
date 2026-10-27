@@ -46,6 +46,8 @@ enum class Rule(val label: String, val desc: String, val why: String) {
         "A dissonance makes sense only when the ear hears where it comes from and where it goes; otherwise it sounds like a mistake."),
     CADENCE("Final cadence", "End on the tonic in root position after V or IV.",
         "The ending must confirm the key; V–I or IV–I in root position gives the strongest sense of arrival."),
+    NAMED_CHORD("Named chords", "The notes play the chord you named.",
+        "Choosing the chord first and then voicing it is the core of four-part writing; a note outside it changes the harmony you meant."),
     FIGURES("Figured bass", "The upper voices play the notes the bass figures ask for.",
         "The figures are a shorthand for the harmony over each bass note; any other note changes the chord they ask for."),
     PROGRESSION("Chord progression", "Move tonic → predominant → dominant → tonic; avoid going backwards.",
@@ -353,6 +355,30 @@ object VoiceLeading {
             val missing = want.filter { (n, pc) -> pc !in heard && !FiguredBass.optional(n, e.figures) }.values
             if (upper.isNotEmpty() && missing.isNotEmpty())
                 add(Severity.WARNING, i, Rule.FIGURES, "$fig over ${b.pc.name} also asks for ${missing.joinToString(", ") { it.name }}.", i to Voice.BASS)
+        }
+
+        // Named chords: the notes at a named note against the chord's notes (non-chord tones excepted)
+        for (v0 in V) for ((idx, e) in score.voice(v0).withIndex()) {
+            val name = e.chord ?: continue
+            val i = slices.indexOfFirst { it.eventIndex[v0.ordinal] == idx && it.attacked[v0.ordinal] }
+            if (i < 0) continue
+            val spec = ChordText.parse(name, score.key)
+            if (spec == null) { add(Severity.WARNING, i, Rule.NAMED_CHORD, "\"$name\" is not a chord name I can read (try C, Am7, G7/B, V65, ii6)."); continue }
+            val s = slices[i]
+            val sounding = V.filter { s.notes[it.ordinal] != null }
+            for (v in sounding) {
+                val p = s.notes[v.ordinal]!!
+                if (p.pc !in spec.pcs && !isNct(s, v))
+                    add(Severity.ERROR, i, Rule.NAMED_CHORD, "${v.label}: $name has no ${p.pc.name} (${spec.pcs.joinToString(", ") { it.name }}).", i to v)
+            }
+            val low = sounding.lastOrNull()
+            if (spec.bass != null && low != null && s.notes[low.ordinal]!!.pc != spec.bass)
+                add(Severity.ERROR, i, Rule.NAMED_CHORD, "$name needs ${spec.bass.name} in the bass.", i to low)
+            val heard = sounding.map { s.notes[it.ordinal]!!.pc }.toSet()
+            val fifth = spec.pcs.getOrNull(2)
+            val missing = spec.pcs.filter { it !in heard && !(spec.pcs.size == 4 && it == fifth) }
+            if (sounding.size == 4 && missing.isNotEmpty())
+                add(Severity.WARNING, i, Rule.NAMED_CHORD, "$name is missing ${missing.joinToString(", ") { it.name }}.")
         }
 
         // Errors first, then warnings; each by position in the score (slices are in time order)
