@@ -85,6 +85,8 @@ fun ScoreCanvas(
     onNudge: (Int) -> Unit,
     onDrag: (Boolean?) -> Unit,
     onTempoTap: () -> Unit,
+    /** Finger held and moved to a hit: show the note a release there would add. False if none can go there. */
+    onAim: (Hit) -> Boolean = { false },
     /** The caret stands on the selected note (while naming its chord or figures) instead of after the voice. */
     caretAtSelection: Boolean = false,
     savedViewport: Pair<Float, Float>?,
@@ -227,6 +229,7 @@ fun ScoreCanvas(
         val paints = remember(bravura) { Paints(bravura) }
         val tap by rememberUpdatedState(onTap)
         val press by rememberUpdatedState(onPress)
+        val aimTo by rememberUpdatedState(onAim)
         val nudge by rememberUpdatedState(onNudge)
         val drag by rememberUpdatedState(onDrag)
         val tempoTap by rememberUpdatedState(onTempoTap)
@@ -267,10 +270,14 @@ fun ScoreCanvas(
                         var aim = downHit
                         fun aimAt(p: Offset) {
                             loupe = p
-                            // Keep the down point's staff, time and refs: only the pitch follows the finger
+                            val d = downHit ?: return
+                            val h = currentLayout.hitTest((p.x - offX) / sp, (p.y - offY) / sp)
+                            // Keep the down point's staff and refs: pitch and time follow the finger
                             // (the nearest staff would flip between the staves, making the note jump)
-                            val a = downHit?.let { it.copy(position = ((currentLayout.staffTop[it.staff] + 4 - (p.y - offY) / sp) * 2).roundToInt()) }
-                            if (a != aim) { aim = a; press(a) }
+                            val a = d.copy(position = ((currentLayout.staffTop[d.staff] + 4 - (p.y - offY) / sp) * 2).roundToInt(),
+                                time = h.time, afterLast = h.afterLast)
+                            // Where no note can go, the ghost stays at the last place one could
+                            if (a != aim && aimTo(a)) aim = a
                         }
                         while (true) {
                             // Held still where a note can go: start aiming

@@ -220,6 +220,7 @@ fun EditorScreen(vm: EditorViewModel) {
                     val haptic = LocalHapticFeedback.current
                     ScoreCanvas(
                         st, { if (vm.tap(it)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, vm::press, vm::nudge, vm::dragPitch,
+                        onAim = vm::aim,
                         caretAtSelection = chords || figures,
                         onTempoTap = { tempoDialog = true },
                         savedViewport = vm.viewport, onViewport = vm::rememberViewport,
