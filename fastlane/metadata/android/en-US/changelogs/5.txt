@@ -1,0 +1,7 @@
+- Exercises: figured bass or given soprano (Easy, Medium, Hard), with hints and a solution.
+- Figured bass: add figures under the bass and check the upper voices.
+- Name the chord on a note and check that your notes play it.
+- Fix this chord: rewrites a chord the clean way closest to yours.
+- Score library: create, rename, copy, delete; save and open .satb files.
+- Hold and slide to aim a note with a magnifier.
+- Tap the key, time or tempo to edit them; new key picker; rules per score.
