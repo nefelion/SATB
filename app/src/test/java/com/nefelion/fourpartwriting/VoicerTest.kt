@@ -139,4 +139,25 @@ class VoicerTest {
         // Nothing to move when every voice is given
         assertNull(Voicer.fix(sc.copy(given = Voice.entries.toSet()), Fraction.of(1, 4)))
     }
+
+    @Test fun polishNeverAddsFlagsOrMovesTheBass() {
+        fun flags(sc: Score) = VoiceLeading.check(sc).issues.sumOf { if (it.severity == Severity.ERROR) 1000 else 1 }
+        for (level in com.nefelion.fourpartwriting.theory.Exercises.Level.entries) repeat(3) {
+            val ex = com.nefelion.fourpartwriting.theory.Exercises.generate(level) ?: return@repeat
+            val solved = Voicer.fill(ex) ?: return@repeat
+            val t0 = System.nanoTime()
+            val out = Voicer.polish(solved, ex)
+            println("POLISH $level ${flags(solved)} -> ${flags(out)} in ${(System.nanoTime() - t0) / 1_000_000} ms")
+            assertTrue(flags(out) <= flags(solved))
+            assertEquals(ex.voice(Voice.BASS), out.voice(Voice.BASS))
+        }
+        for (m in listOf("E5 D5 C5 B4 C5", "G4 A4 B4 C5 D5 E5 D5 C5", "C5 B4 A4 G4 F4 E4 D4 C4", "E5 F5 G5 C5 A4 B4 C5", "G4 C5 B4 A4 F#4 G4")) {
+            val sc = melody(m)
+            val solved = Voicer.fill(sc) ?: continue
+            val out = Voicer.polish(solved, sc)
+            println("POLISH $m ${flags(solved)} -> ${flags(out)}")
+            assertTrue(flags(out) <= flags(solved))
+            assertEquals(sc.voice(Voice.SOPRANO), out.voice(Voice.SOPRANO))
+        }
+    }
 }

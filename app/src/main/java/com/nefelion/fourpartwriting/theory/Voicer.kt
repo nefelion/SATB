@@ -165,6 +165,25 @@ object Voicer {
         return if (best.second < flags(score)) best.first else score
     }
 
+    /**
+     * [solved] with every flagged chord the solver wrote revoiced by [fix], in two passes over the checker's
+     * findings ([rules]). Notes already written in [mine] (and given voices) stay.
+     */
+    fun polish(solved: Score, mine: Score, rules: Set<Rule> = Rule.entries.toSet()): Score {
+        var cur = solved
+        repeat(2) {
+            val a = VoiceLeading.check(cur, rules)
+            val times = a.issues.flatMap { i -> listOf(i.slice) + i.notes.map { it.first } }
+                .mapNotNull { a.slices.getOrNull(it)?.time }.distinct().sorted()
+            if (times.isEmpty()) return cur
+            for (t in times) {
+                val movable = Voice.entries.filter { mine.length(it) <= t }.toSet()
+                if (movable.isNotEmpty()) cur = fix(cur, t, rules, movable) ?: cur
+            }
+        }
+        return cur
+    }
+
     /** The chord the written [notes] spell, keeping its bass. */
     private fun actual(notes: List<Pitch?>, key: Key): Option {
         val ps = notes.filterNotNull()

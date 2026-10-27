@@ -886,10 +886,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val sc = s.score
         // Your notes are kept when they can be continued; otherwise the answer starts over from the given voices
         val fresh = sc.copy(voices = Voice.entries.map { if (it in sc.given) sc.voice(it) else emptyList() })
+        val rules = s.rules
         val (solved, note) = withContext(Dispatchers.Default) {
+            // The checker may flag chords the solver wrote (it doesn't model every rule): polish revoices them
             when (val out = Voicer.attempt(sc)) {
-                is Voicer.Outcome.Done -> out.score to null
-                is Voicer.Outcome.Stuck -> Voicer.fill(fresh) to "Your notes up to bar ${barOf(out.time)} can't be continued cleanly, so this answer starts over. Undo brings yours back."
+                is Voicer.Outcome.Done -> Voicer.polish(out.score, sc, rules) to null
+                is Voicer.Outcome.Stuck -> Voicer.fill(fresh)?.let { Voicer.polish(it, fresh, rules) } to "Your notes up to bar ${barOf(out.time)} can't be continued cleanly, so this answer starts over. Undo brings yours back."
                 Voicer.Outcome.Empty -> null to null
             }
         }
