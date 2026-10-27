@@ -60,11 +60,13 @@ import com.nefelion.fourpartwriting.EditorViewModel
 import com.nefelion.fourpartwriting.ScoreLibrary
 import com.nefelion.fourpartwriting.UiState
 import com.nefelion.fourpartwriting.model.Score
+import com.nefelion.fourpartwriting.theory.Rule
+import androidx.compose.runtime.key
 import com.nefelion.fourpartwriting.theory.Exercises
 import com.nefelion.fourpartwriting.model.ScoreCodec
 import androidx.compose.runtime.saveable.Saver
 
-/** Saved scores: open, start a new one, rename, copy, delete, save to or add from a .satb file. */
+/** Saved scores: open, start a new one, edit, set its rules, rename, copy, delete, save to or add from a .satb file. */
 @Composable
 internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { vm.refreshScores() }
@@ -73,6 +75,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     var exercise by rememberSaveable { mutableStateOf(false) }
     var naming by rememberSaveable { mutableStateOf(false) }
     var editingScore by rememberSaveable { mutableStateOf<String?>(null) }
+    var rulesFor by rememberSaveable { mutableStateOf<String?>(null) }
     var renaming by rememberSaveable { mutableStateOf<String?>(null) }
     var duplicating by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
@@ -104,6 +107,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
                         text = { Text(label, color = if (danger) MaterialTheme.colorScheme.error else Color.Unspecified) },
                         onClick = { menuFor = null; action() })
                     item("Edit") { editingScore = name }
+                    item("Rules") { rulesFor = name }
                     item("Rename") { renaming = name }
                     item("Duplicate") { duplicating = name }
                     item("Save to file…") { exporting = name; saver.launch("$name${ScoreLibrary.EXT}") }
@@ -146,9 +150,13 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
         // The open score's file may lag its last edit, so its settings come from the editor
         val sc = if (name == st.scoreName) st.score else st.scores.firstOrNull { it.first == name }?.second
         if (sc == null) editingScore = null
-        else ScoreDialog("Edit score", name, sc, askName = true, action = "Save", onDismiss = { editingScore = null }) { newName, settings ->
-            editingScore = null; vm.editScore(name, newName, settings)
+        else ScoreDialog("Edit $name", name, sc, askName = false, action = "Save", onDismiss = { editingScore = null }) { _, settings ->
+            editingScore = null; vm.editScore(name, settings)
         }
+    }
+    rulesFor?.let { name ->
+        val sc = if (name == st.scoreName) st.score else st.scores.firstOrNull { it.first == name }?.second
+        if (sc == null) rulesFor = null else ScoreRulesPage(name, sc, st, vm) { rulesFor = null }
     }
     renaming?.let { old -> NameDialog("Rename score", old, "Rename", onDismiss = { renaming = null }) { vm.renameScore(old, it); renaming = null } }
     duplicating?.let { from ->
@@ -165,6 +173,24 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
             },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
         )
+    }
+}
+
+/** Rules checked in score [name] only; rules off in Settings are off everywhere, so they are not listed. */
+@Composable
+private fun ScoreRulesPage(name: String, sc: Score, st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
+    var info by rememberSaveable { mutableStateOf<Rule?>(null) }
+    info?.let { r -> RuleInfoDialog(r, r.name !in sc.rulesOff, onToggle = { vm.toggleScoreRule(name, r) }) { info = null } }
+    FullScreenPage("Rules · $name", onDismiss) {
+        item {
+            Group("Checked in this score") {
+                for (r in Rule.entries.filter { it in st.rules }) key(r.name) {
+                    RuleRow(r, r.name !in sc.rulesOff, onInfo = { info = r }) { vm.toggleScoreRule(name, r) }
+                }
+                if (st.rules.size < Rule.entries.size) Text("Rules switched off in Settings are not checked in any score.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 

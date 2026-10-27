@@ -248,7 +248,7 @@ fun EditorScreen(vm: EditorViewModel) {
             SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(safe).padding(bottom = 64.dp))
         }
     }
-    if (settings) SettingsDialog(st, vm, onUndoable = { undoable = it }) { settings = false }
+    if (settings) SettingsDialog(st, vm) { settings = false }
     if (about) AboutDialog { about = false }
     if (exercise) ExerciseDialog(onDismiss = { exercise = false }) { level -> exercise = false; vm.newExercise(level) }
     if (scores) ScoresPage(st, vm) { scores = false }
@@ -264,7 +264,7 @@ fun EditorScreen(vm: EditorViewModel) {
     )
     // Tapping the tempo, clef, key or time signature: the score's settings, applied as one undo step
     if (tempoDialog) ScoreDialog("Score settings", st.scoreName, st.score, askName = false, action = "Save",
-        onDismiss = { tempoDialog = false }) { _, settings -> tempoDialog = false; vm.editScore(st.scoreName, st.scoreName, settings) }
+        onDismiss = { tempoDialog = false }) { _, settings -> tempoDialog = false; vm.editScore(st.scoreName, settings) }
 }
 
 /** Tempo in beats of [time]: type it, step it, or slide it. [onChange] runs live; [onCommit] ends one change (one undo step in the editor). */
@@ -829,13 +829,10 @@ internal fun keyLabel(k: Key) = k.name + when {
 }
 
 @Composable
-private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String) -> Unit, onDismiss: () -> Unit) {
+private fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
     val sf2Picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importSf2) }
-    val score = st.score
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
     if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
-    var ignoredOpen by rememberSaveable { mutableStateOf(false) }
-    if (ignoredOpen) IgnoredDialog(st.score.rulesOff, vm, onUndoable) { ignoredOpen = false }
     FullScreenPage("Settings", onDismiss) {
         item {
             Group("Appearance") {
@@ -846,19 +843,7 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
             }
         }
         item {
-            Group("Notation") {
-                Label("Key")
-                KeyPicker(score.key, vm::setKey)
-                Label("Time signature")
-                TimeSigPicker(score.time, vm::setTime)
-                Label("Staves")
-                StavesPicker(score, vm::setArrangement, vm::setClef)
-            }
-        }
-        item {
             Group("Playback") {
-                Label("Tempo")
-                TempoEditor(score.tempo, score.time, vm::setTempo, vm::commitTempo)
                 Label("Sound")
                 Text(if (st.soundLoading) "Loading…" else if (st.soundLoaded) "Loaded: ${st.soundName ?: "SoundFont"}" else "No SoundFont loaded. Pick any .sf2 file (piano, choir, strings…).",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -871,11 +856,6 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
                 Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { rulesOpen = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Rules to check", Modifier.weight(1f))
                     Text("${st.rules.size} of ${Rule.entries.size} on  ›", color = MaterialTheme.colorScheme.primary)
-                }
-                val n = score.rulesOff.size
-                if (n > 0) Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { ignoredOpen = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Ignored in this score", Modifier.weight(1f))
-                    Text("$n  ›", color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -917,30 +897,6 @@ private fun MidiGroup(st: UiState, vm: EditorViewModel) {
     }
 }
 
-/** Rules switched off for this score only, each with a button to check it again. */
-@Composable
-private fun IgnoredDialog(off: Set<String>, vm: EditorViewModel, onUndoable: (String) -> Unit, onDismiss: () -> Unit) {
-    // Last one restored: nothing left to show
-    LaunchedEffect(off.isEmpty()) { if (off.isEmpty()) onDismiss() }
-    FullScreenPage("Ignored in this score", onDismiss) {
-        item {
-            Group("Rules not checked in this score") {
-                for (r in Rule.entries.filter { it.name in off }) key(r.name) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(r.label)
-                            Text(r.desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        TextButton(onClick = { vm.unignoreRule(r.name); onUndoable("${r.label} checked again") }, shape = SHAPE) { Text("Restore") }
-                    }
-                }
-                if (off.size > 1) TextButton(onClick = { vm.resetIgnores(); onUndoable("All rules checked again") },
-                    shape = SHAPE, modifier = Modifier.align(Alignment.End)) { Text("Restore all") }
-            }
-        }
-    }
-}
-
 @Composable
 private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
     var info by rememberSaveable { mutableStateOf<Rule?>(null) }
@@ -954,7 +910,7 @@ private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
 
 /** Rule name and one-line description, an ⓘ button for the animated example, and its switch. */
 @Composable
-private fun RuleRow(r: Rule, checked: Boolean, onInfo: () -> Unit, onToggle: () -> Unit) {
+internal fun RuleRow(r: Rule, checked: Boolean, onInfo: () -> Unit, onToggle: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(onClick = onToggle).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(r.label)

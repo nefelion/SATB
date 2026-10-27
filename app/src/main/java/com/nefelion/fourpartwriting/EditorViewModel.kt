@@ -16,17 +16,13 @@ import com.nefelion.fourpartwriting.engrave.NOTE_POSITIONS
 import com.nefelion.fourpartwriting.engrave.NoteRef
 import com.nefelion.fourpartwriting.engrave.Notation
 import com.nefelion.fourpartwriting.export.MusicXml
-import com.nefelion.fourpartwriting.model.Arrangement
-import com.nefelion.fourpartwriting.model.Clef
 import com.nefelion.fourpartwriting.model.Duration
 import com.nefelion.fourpartwriting.model.Edit
 import com.nefelion.fourpartwriting.model.Event
 import com.nefelion.fourpartwriting.model.Fraction
-import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Pitch
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.ScoreCodec
-import com.nefelion.fourpartwriting.model.TimeSig
 import com.nefelion.fourpartwriting.model.Tuplet
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Analysis
@@ -211,7 +207,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private var loadJob: Job? = null
     private var waitJob: Job? = null
     private var saveJob: Job? = null
-    private var tempoBase: Score? = null
 
     /** MIDI keyboard: keys pressed together (held until all are released) arrive as one chord. */
     private val midi = MidiIn(app, { n, on -> midiKey(n, on) }, { names ->
@@ -814,24 +809,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- score settings ----------
 
-    fun setKey(k: Key) = edit(s.score.copy(key = k))
-
-    /** Live tempo change while dragging; one undo step is added in [commitTempo]. */
-    fun setTempo(t: Int) {
-        if (tempoBase == null) tempoBase = s.score
-        _state.update { it.copy(score = it.score.copy(tempo = t.coerceIn(20, 300))) }
-        Synth.setTempo(s.score.qpm) // a playing score follows at once
-    }
-
-    fun commitTempo() {
-        val base = tempoBase ?: return
-        tempoBase = null
-        if (base != s.score) _state.update { it.copy(undo = (it.undo + base).takeLast(200), redo = emptyList()) }
-    }
-
-    fun setClef(staff: Int, c: Clef) = edit(s.score.copy(clefs = s.score.clefs.toMutableList().also { it[staff] = c }))
-    fun setArrangement(a: Arrangement) = edit(s.score.withArrangement(a))
-    fun setTime(t: TimeSig) = edit(s.score.copy(time = t))
     fun clearScore() = edit(blank(), null, earliestVoice(blank()))
 
     /** The open score's key, time, tempo and staves with no notes (an exercise keeps its given voices). */
@@ -905,8 +882,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         show(name, sc)
     }
 
-    /** Gives score [name] the key, time, tempo, staves and clefs of [settings], then the name [newName]. The open score changes as one undo step. */
-    fun editScore(name: String, newName: String, settings: Score) {
+    /** Gives score [name] the key, time, tempo, staves and clefs of [settings]. The open score changes as one undo step. */
+    fun editScore(name: String, settings: Score) {
         // An exercise keeps its key and time signature (its figures and cadence depend on them)
         fun apply(sc: Score) = sc.copy(key = if (sc.given.isEmpty()) settings.key else sc.key, time = if (sc.given.isEmpty()) settings.time else sc.time,
             tempo = settings.tempo.coerceIn(20, 300),
@@ -919,7 +896,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             val sc = library.read(name) ?: return msg("Could not read $name.")
             if (!library.write(name, apply(sc))) return msg("Could not save $name.")
         }
-        renameScore(name, newName)
         refreshScores()
     }
 
@@ -1031,8 +1007,16 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edit(s.score.copy(ignored = s.score.ignored + VoiceLeading.ignoreKey(issue, a.slices)))
     }
     fun ignoreRuleInScore(r: Rule) = edit(s.score.copy(rulesOff = s.score.rulesOff + r.name))
-    fun resetIgnores() = edit(s.score.copy(rulesOff = emptySet()))
-    fun unignoreRule(name: String) = edit(s.score.copy(rulesOff = s.score.rulesOff - name))
+
+    /** Switches rule [r] on or off for score [name] only; the open score changes as one undo step. */
+    fun toggleScoreRule(name: String, r: Rule) {
+        fun apply(sc: Score) = sc.copy(rulesOff = if (r.name in sc.rulesOff) sc.rulesOff - r.name else sc.rulesOff + r.name)
+        if (name == s.scoreName) return edit(apply(s.score))
+        flushScore()
+        val sc = library.read(name) ?: return msg("Could not read $name.")
+        if (!library.write(name, apply(sc))) return msg("Could not save $name.")
+        refreshScores()
+    }
 
     fun toggleRule(r: Rule) {
         _state.update {
