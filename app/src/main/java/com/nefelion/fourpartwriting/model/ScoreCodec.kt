@@ -5,7 +5,7 @@ object ScoreCodec {
 
     /** [title]: the score's name, kept in files saved for sharing so an import gets it back. */
     fun encode(s: Score, title: String? = null): String = buildString {
-        appendLine("v1")
+        appendLine("v2")
         title?.let { appendLine("title " + it.replace('\n', ' ')) }
         appendLine("key ${s.key.fifths} ${s.key.mode.name}")
         appendLine("time ${s.time.beats} ${s.time.beatUnit} ${s.time.symbol.name}")
@@ -56,7 +56,8 @@ object ScoreCodec {
     /** Returns null for anything that is not a valid score file. */
     fun decode(text: String): Score? = runCatching {
         val lines = text.lines().filter { it.isNotBlank() }
-        require(lines.first().trim() == "v1")
+        val version = lines.first().trim()
+        require(version == "v1" || version == "v2")
         val map = lines.drop(1).associate { l -> l.substringBefore(' ') to l.substringAfter(' ', "") }
         // Optional lines; "ignore" repeats, so it is not read from the map
         val ignored = lines.filter { it.startsWith("ignore ") }.map { it.removePrefix("ignore ") }.toSet()
@@ -75,10 +76,13 @@ object ScoreCodec {
                 Event(frac(parts[1]), if (parts[0] == "r") null else Pitch.parse(parts[0]), tup)
             }
         }
+        val time = TimeSig(t[0].toInt(), t[1].toInt(), TimeSig.Symbol.valueOf(t[2]))
+        val tempo = map.getValue("tempo").trim().toInt()
         Score(
             key = Key(k[0].toInt(), Mode.valueOf(k[1])),
-            time = TimeSig(t[0].toInt(), t[1].toInt(), TimeSig.Symbol.valueOf(t[2])),
-            tempo = map.getValue("tempo").trim().toInt().coerceIn(20, 300),
+            time = time,
+            // v1 stored quarter notes per minute; v2 stores beats
+            tempo = (if (version == "v1") Math.round(tempo / (time.beatLength.toDouble() * 4)).toInt() else tempo).coerceIn(20, 300),
             arrangement = arr,
             clefs = clefs,
             voices = voices,

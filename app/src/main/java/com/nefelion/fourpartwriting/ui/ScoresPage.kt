@@ -55,6 +55,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nefelion.fourpartwriting.engrave.Smufl
 import com.nefelion.fourpartwriting.EditorViewModel
 import com.nefelion.fourpartwriting.ScoreLibrary
 import com.nefelion.fourpartwriting.UiState
@@ -213,7 +214,7 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
                 HorizontalDivider()
                 SettingRow("Time signature", "${draft.time.beats}/${draft.time.beatUnit}") { editing = "Time signature" }
                 HorizontalDivider()
-                SettingRow("Tempo", "♩ = ${draft.tempo}") { editing = "Tempo" }
+                SettingRow("Tempo", "= ${draft.tempo}", Smufl.beatMark(draft.time)) { editing = "Tempo" }
                 HorizontalDivider()
                 SettingRow("Staves", draft.arrangement.label) { editing = "Staves" }
             }
@@ -236,7 +237,7 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
                         when (what) {
                             "Key" -> KeyPicker(draft.key) { draft = draft.copy(key = it) }
                             "Time signature" -> TimeSigPicker(draft.time) { draft = draft.copy(time = it) }
-                            "Tempo" -> TempoEditor(draft.tempo, { draft = draft.copy(tempo = it.coerceIn(20, 300)) }, {})
+                            "Tempo" -> TempoEditor(draft.tempo, draft.time, { draft = draft.copy(tempo = it.coerceIn(20, 300)) }, {})
                             else -> StavesPicker(draft, { draft = draft.withArrangement(it) }) { i, c ->
                                 draft = draft.copy(clefs = draft.clefs.toMutableList().also { it[i] = c })
                             }
@@ -251,10 +252,11 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
 
 /** One setting in the new-score summary: name on the left, value and › on the right; tap to change it. */
 @Composable
-private fun SettingRow(label: String, value: String, onClick: () -> Unit) {
+private fun SettingRow(label: String, value: String, glyph: String? = null, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        glyph?.let { GlyphIcon(it, 28, MaterialTheme.colorScheme.primary) }
         Text("$value  ›", fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
     }
 }

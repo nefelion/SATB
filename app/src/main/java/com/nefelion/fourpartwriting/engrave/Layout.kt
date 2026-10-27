@@ -261,6 +261,7 @@ object Engraver {
         var hx = x0 + 0.8f
         val tempoY = top - max(2.2f, (maxP[0] - 8) * 0.5f + 1.2f) - (if (hasLabels) 2.8f else 0f)
         val tx = x0 + if (n > 2) 1.6f else 0.8f // clear the bracket hook
+        var tempoX = tx + 1.2f
         // Bare: clefs only on two staves, where the notes cannot be read without them
         if (!bare || n > 1) for (s in 0 until n) marks += GlyphMark(Smufl.clefGlyph(score.clefs[s]), hx, sy(s, (score.clefs[s].line - 1) * 2))
         hx += Smufl.CLEF_W + 0.8f
@@ -278,8 +279,18 @@ object Engraver {
                 hx += keySigWidth(f) + 0.6f
             }
             for (s in 0 until n) timeSig(score.time, hx, ::sy, s, marks)
-            marks += GlyphMark(Smufl.MET_QUARTER, tx, tempoY, scale = 0.75f)
-            marks += TextMark("= ${score.tempo}", tx + 1.2f, tempoY, 1.6f, TextStyle.TEMPO)
+            val beat = Smufl.beatMark(score.time)
+            val i = Smufl.MET_NOTES.indexOf(beat[0])
+            marks += GlyphMark(beat[0], tx, tempoY, scale = 0.75f)
+            var end = tx + Smufl.MET_W[i] * 0.75f
+            if (beat.length > 1) {
+                // The dot follows the head, below any flag
+                val dx = tx + (if (i == 0) Smufl.MET_W[0] else Smufl.MET_W[2]) * 0.75f + 0.1f
+                marks += GlyphMark(beat[1], dx, tempoY, scale = 0.75f)
+                end = max(end, dx + Smufl.MET_DOT_W * 0.75f)
+            }
+            tempoX = end + 0.3f
+            marks += TextMark("= ${score.tempo}", tempoX, tempoY, 1.6f, TextStyle.TEMPO)
         }
 
         // Measures
@@ -325,7 +336,7 @@ object Engraver {
             if (!labelled.add(h.ref)) continue
             marks += TextMark(lab, h.x + 1.1f, h.y - 0.9f, 1.0f, TextStyle.NCT)
         }
-        val tempoBox = floatArrayOf(tx - 0.5f, tempoY - 3.2f, tx + 6.5f, tempoY + 0.8f)
+        val tempoBox = floatArrayOf(tx - 0.5f, tempoY - 3.2f, tempoX + 5.3f, tempoY + 0.8f)
         // From the page edge (brace or bracket included) to the first bar
         val headerBox = if (bare) FloatArray(4) else floatArrayOf(0f, top - 1f, x0 + header, bot + 1f)
         return ScoreLayout(xEnd + TAIL, height, marks, st, boxes, heads, total, tempoBox, headerBox,

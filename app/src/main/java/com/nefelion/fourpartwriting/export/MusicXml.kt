@@ -60,8 +60,15 @@ object MusicXml {
                     sb.append("</clef>\n")
                 }
                 sb.append("      </attributes>\n")
-                sb.append("      <direction placement=\"above\"><direction-type><metronome><beat-unit>quarter</beat-unit>" +
-                    "<per-minute>${score.tempo}</per-minute></metronome></direction-type><sound tempo=\"${score.tempo}\"/></direction>\n")
+                val t = score.time
+                val unit = when (if (t.isCompound) t.beatUnit / 2 else t.beatUnit) {
+                    1 -> "whole"; 2 -> "half"; 4 -> "quarter"; 8 -> "eighth"; 16 -> "16th"; 32 -> "32nd"; else -> "64th"
+                }
+                val qpm = "%.4f".format(java.util.Locale.ROOT, score.qpm).trimEnd('0').trimEnd('.')
+                // <sound tempo> is always quarter notes per minute
+                sb.append("      <direction placement=\"above\"><direction-type><metronome><beat-unit>$unit</beat-unit>" +
+                    (if (t.isCompound) "<beat-unit-dot/>" else "") +
+                    "<per-minute>${score.tempo}</per-minute></metronome></direction-type><sound tempo=\"$qpm\"/></direction>\n")
             }
             // Accidental display state per staff, as the engraver shows it
             val state = HashMap<Pair<Int, Int>, Int>()

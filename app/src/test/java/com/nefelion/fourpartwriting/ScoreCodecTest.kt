@@ -34,6 +34,14 @@ class ScoreCodecTest {
         assertEquals(EXAMPLE, ScoreCodec.decode(ScoreCodec.encode(EXAMPLE).replace("arr 0 0 1 1", "arr CLOSED")))
     }
 
+    @Test fun oldFilesStoredQuarterTempo() {
+        val s = Score(time = TimeSig(6, 8), tempo = 60)
+        val v1 = ScoreCodec.encode(s).replace("v2", "v1").replace("tempo 60", "tempo 90")
+        assertEquals(s, ScoreCodec.decode(v1))
+        assertEquals(90.0, s.qpm, 0.0)
+        assertEquals(60.0, Score(time = TimeSig(2, 2), tempo = 30).qpm, 0.0)
+    }
+
     @Test fun ignoresRoundTrip() {
         val s = EXAMPLE.copy(rulesOff = setOf("SPACING", "RANGE"), ignored = setOf("DOUBLING@1/4|Doubled third in a major triad (E); double the root."))
         assertEquals(s, ScoreCodec.decode(ScoreCodec.encode(s)))

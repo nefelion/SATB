@@ -23,7 +23,7 @@ object Synth {
     fun position(): Double? = nativePosition().takeIf { it >= 0 }
 
     /** Quarter notes per minute; applies at once, also to a score that is playing. */
-    fun setTempo(qpm: Int) = nativeSetTempo(qpm.toDouble())
+    fun setTempo(qpm: Double) = nativeSetTempo(qpm)
 
     /** Schedules the whole score in musical time; the native side applies the current tempo. */
     fun play(score: Score) {
@@ -39,7 +39,7 @@ object Synth {
                 t = end
             }
         }
-        setTempo(score.tempo)
+        setTempo(score.qpm)
         nativePlay(ev.toDoubleArray())
     }
 

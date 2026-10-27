@@ -73,6 +73,7 @@ data class Arrangement(val staffOf: List<Int>) {
 data class Score(
     val key: Key = Key(0, Mode.MAJOR),
     val time: TimeSig = TimeSig(4, 4),
+    /** Beats per minute, in the meter's beat (dotted quarter in 6/8, half in 2/2); see [qpm]. */
     val tempo: Int = 80,
     val arrangement: Arrangement = Arrangement.CLOSED,
     val clefs: List<Clef> = arrangement.defaultClefs,
@@ -83,6 +84,9 @@ data class Score(
     val ignored: Set<String> = emptySet(),
 ) {
     init { require(clefs.size == arrangement.staves) }
+
+    /** Quarter notes per minute. */
+    val qpm get() = tempo * time.beatLength.toDouble() * 4
 
     fun voice(v: Voice) = voices[v.ordinal]
     fun staffOf(v: Voice) = arrangement.staffOf[v.ordinal]

@@ -673,7 +673,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 analysis = it.analysis?.let { _ -> VoiceLeading.check(prev, it.rules) })
         }
         checkOrder()
-        Synth.setTempo(s.score.tempo) // undoing a tempo change applies to playback too
+        Synth.setTempo(s.score.qpm) // undoing a tempo change applies to playback too
     }
 
     fun redo() {
@@ -683,7 +683,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 analysis = it.analysis?.let { _ -> VoiceLeading.check(next, it.rules) })
         }
         checkOrder()
-        Synth.setTempo(s.score.tempo) // undoing a tempo change applies to playback too
+        Synth.setTempo(s.score.qpm) // undoing a tempo change applies to playback too
     }
 
     // ---------- score settings ----------
@@ -694,7 +694,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setTempo(t: Int) {
         if (tempoBase == null) tempoBase = s.score
         _state.update { it.copy(score = it.score.copy(tempo = t.coerceIn(20, 300))) }
-        Synth.setTempo(s.score.tempo) // a playing score follows at once
+        Synth.setTempo(s.score.qpm) // a playing score follows at once
     }
 
     fun commitTempo() {
@@ -728,7 +728,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(scoreName = name, score = score, scores = library.list(), undo = emptyList(), redo = emptyList(),
                 selected = null, selectedAt = null, placed = false, analysis = null, focusedIssue = null, reorder = emptyList())
         }
-        Synth.setTempo(score.tempo)
+        Synth.setTempo(score.qpm)
         checkOrder()
     }
 
@@ -758,7 +758,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             arrangement = settings.arrangement, clefs = settings.clefs)
         if (name == s.scoreName) {
             edit(apply(s.score))
-            Synth.setTempo(s.score.tempo)
+            Synth.setTempo(s.score.qpm)
         } else {
             flushScore()
             val sc = library.read(name) ?: return msg("Could not read $name.")

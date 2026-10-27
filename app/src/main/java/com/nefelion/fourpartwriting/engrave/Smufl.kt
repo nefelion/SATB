@@ -1,6 +1,7 @@
 package com.nefelion.fourpartwriting.engrave
 
 import com.nefelion.fourpartwriting.model.Clef
+import com.nefelion.fourpartwriting.model.TimeSig
 
 /**
  * SMuFL code points and Bravura metrics (from bravura_metadata, in staff spaces, y up).
@@ -39,9 +40,18 @@ object Smufl {
     const val REST_WHOLE = ''
     const val REST_HALF = ''
     val RESTS = charArrayOf('', '', '', '', '', '', '')
-    const val MET_QUARTER = ''
+    const val MET_DOT = '\uECB7'
     // Palette glyphs: metronome notes whole..64th (stem up).
     val MET_NOTES = charArrayOf('', '', '', '', '', '', '')
+    /** Advance widths of [MET_NOTES] (flags make 8th and shorter wider). */
+    val MET_W = floatArrayOf(1.836f, 1.364f, 1.328f, 2.136f, 2.088f, 2.152f, 2.148f)
+    const val MET_DOT_W = 0.4f
+    /** Metronome-mark note for one beat of [t]; with a dot in compound meters. */
+    fun beatMark(t: TimeSig): String {
+        val den = if (t.isCompound) t.beatUnit / 2 else t.beatUnit
+        val note = MET_NOTES[Integer.numberOfTrailingZeros(den).coerceIn(0, MET_NOTES.lastIndex)]
+        return if (t.isCompound) "$note$MET_DOT" else "$note"
+    }
 
     // engravingDefaults
     const val STAFF_LINE = 0.13f

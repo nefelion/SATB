@@ -519,15 +519,18 @@ private fun drawRoman(nc: android.graphics.Canvas, t: TextMark, sp: Float, p: Pa
 
 /** A single SMuFL glyph centred in a box, for toolbar buttons. */
 @Composable
-fun GlyphIcon(c: Char, sizeDp: Int, color: Color, modifier: Modifier = Modifier) {
+fun GlyphIcon(c: Char, sizeDp: Int, color: Color, modifier: Modifier = Modifier) = GlyphIcon(c.toString(), sizeDp, color, modifier)
+
+/** [str]: one glyph, or a few drawn as one (a dotted note), centered. */
+@Composable
+fun GlyphIcon(str: String, sizeDp: Int, color: Color, modifier: Modifier = Modifier) {
     val bravura = rememberBravura()
     val paint = remember(bravura) { Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = bravura } }
     val bounds = remember { Rect() }
     Canvas(modifier.size(sizeDp.dp)) {
         paint.textSize = size.height * 0.62f
         paint.color = color.toArgb()
-        val str = c.toString()
-        paint.getTextBounds(str, 0, 1, bounds)
+        paint.getTextBounds(str, 0, str.length, bounds)
         drawIntoCanvas {
             it.nativeCanvas.drawText(str, size.width / 2 - bounds.exactCenterX(), size.height / 2 - bounds.exactCenterY(), paint)
         }

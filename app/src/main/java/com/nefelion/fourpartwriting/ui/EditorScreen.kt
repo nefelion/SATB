@@ -237,15 +237,15 @@ fun EditorScreen(vm: EditorViewModel) {
         onDismiss = { tempoDialog = false }) { _, settings -> tempoDialog = false; vm.editScore(st.scoreName, st.scoreName, settings) }
 }
 
-/** Quarter-note tempo: type it, step it, or slide it. [onChange] runs live; [onCommit] ends one change (one undo step in the editor). */
+/** Tempo in beats of [time]: type it, step it, or slide it. [onChange] runs live; [onCommit] ends one change (one undo step in the editor). */
 @Composable
-internal fun TempoEditor(tempo: Int, onChange: (Int) -> Unit, onCommit: () -> Unit) {
+internal fun TempoEditor(tempo: Int, time: TimeSig, onChange: (Int) -> Unit, onCommit: () -> Unit) {
     var text by remember(tempo) { mutableStateOf(tempo.toString()) }
     fun commit(v: Int) { onChange(v); onCommit() }
     val focus = LocalFocusManager.current
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GlyphIcon(Smufl.MET_NOTES[2], 36, MaterialTheme.colorScheme.onSurface)
+            GlyphIcon(Smufl.beatMark(time), 36, MaterialTheme.colorScheme.onSurface)
             Text("=", style = MaterialTheme.typography.titleMedium)
             // Steps of 5, snapping to the 5-grid (83 -> 80 / 85); any value can still be typed
             Small("−") { commit((tempo - 1) / 5 * 5) }
@@ -739,7 +739,7 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
         item {
             Group("Playback") {
                 Label("Tempo")
-                TempoEditor(score.tempo, vm::setTempo, vm::commitTempo)
+                TempoEditor(score.tempo, score.time, vm::setTempo, vm::commitTempo)
                 Label("Sound")
                 Text(if (st.soundLoading) "Loading…" else if (st.soundLoaded) "Loaded: ${st.soundName ?: "SoundFont"}" else "No SoundFont loaded. Pick any .sf2 file (piano, choir, strings…).",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
