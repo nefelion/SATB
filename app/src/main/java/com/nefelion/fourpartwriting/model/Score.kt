@@ -4,8 +4,9 @@ package com.nefelion.fourpartwriting.model
  * A note (pitch != null) or a rest of any [length]. How it is written (tied values,
  * split at barlines and beats) is decided by the engraver, not stored here. Only [tuplet] keeps
  * the ratio the user picked, since the length alone cannot tell 5:4 from 5:2.
+ * [figures]: figured-bass lines, top to bottom ("6", "#", "b7"; see FiguredBass); used on bass notes only.
  */
-data class Event(val length: Fraction, val pitch: Pitch?, val tuplet: Tuplet? = null) {
+data class Event(val length: Fraction, val pitch: Pitch?, val tuplet: Tuplet? = null, val figures: List<String> = emptyList()) {
     constructor(d: Duration, pitch: Pitch?) : this(d.value, pitch)
 }
 
@@ -82,6 +83,8 @@ data class Score(
     val rulesOff: Set<String> = emptySet(),
     /** Issues ignored one by one (see VoiceLeading.ignoreKey). */
     val ignored: Set<String> = emptySet(),
+    /** Voices given by an exercise: shown grey and not editable. */
+    val given: Set<Voice> = emptySet(),
 ) {
     init { require(clefs.size == arrangement.staves) }
 

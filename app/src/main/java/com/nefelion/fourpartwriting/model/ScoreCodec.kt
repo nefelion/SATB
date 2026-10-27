@@ -1,6 +1,7 @@
 package com.nefelion.fourpartwriting.model
 
-/** Plain-text score file. One setting per line; one line per voice: "S E4:1/4 r:1/2 ...". A tuplet adds ":n:m:unit" ("E4:1/20:5:4:1/16"). */
+/** Plain-text score file. One setting per line; one line per voice: "S E4:1/4 r:1/2 ...". A tuplet adds ":n:m:unit" ("E4:1/20:5:4:1/16"),
+ * bass figures "@lines" ("E3:1/4@6,4"). */
 object ScoreCodec {
 
     /** [title]: the score's name, kept in files saved for sharing so an import gets it back. */
@@ -13,6 +14,7 @@ object ScoreCodec {
         appendLine("arr " + s.arrangement.staffOf.joinToString(" "))
         appendLine("clefs " + s.clefs.joinToString(" ") { it.name })
         if (s.rulesOff.isNotEmpty()) appendLine("off " + s.rulesOff.joinToString(" "))
+        if (s.given.isNotEmpty()) appendLine("given " + s.given.joinToString(" ") { it.label })
         for (k in s.ignored) appendLine("ignore " + k.replace('\n', ' '))
         for (v in Voice.entries) {
             append(v.label)
@@ -21,6 +23,7 @@ object ScoreCodec {
                 append(e.pitch?.let { p -> "${"CDEFGAB"[p.step]}${alterCode(p.alter)}${p.octave}" } ?: "r")
                 append(':').append(e.length.num).append('/').append(e.length.den)
                 e.tuplet?.let { append(":${it.n}:${it.m}:${it.unit.num}/${it.unit.den}") }
+                if (e.figures.isNotEmpty()) append('@').append(e.figures.joinToString(","))
             }
             appendLine()
         }
@@ -69,11 +72,13 @@ object ScoreCodec {
         val arr = legacy[arrText] ?: Arrangement(arrText.split(" ").map { it.toInt() })
         val clefs = map.getValue("clefs").trim().split(" ").map { Clef.valueOf(it) }
         val voices = Voice.entries.map { v ->
-            map[v.label].orEmpty().trim().split(" ").filter { it.isNotEmpty() }.map { tok ->
+            map[v.label].orEmpty().trim().split(" ").filter { it.isNotEmpty() }.map { token ->
+                val tok = token.substringBefore('@')
+                val figs = token.substringAfter('@', "").split(",").filter { it.isNotEmpty() }
                 val parts = tok.split(":")
                 fun frac(x: String) = x.split("/").map { it.toLong() }.let { (n, d) -> require(n > 0 && d > 0); Fraction.of(n, d) }
                 val tup = if (parts.size >= 5) Tuplet(parts[2].toInt(), parts[3].toInt(), frac(parts[4])) else null
-                Event(frac(parts[1]), if (parts[0] == "r") null else Pitch.parse(parts[0]), tup)
+                Event(frac(parts[1]), if (parts[0] == "r") null else Pitch.parse(parts[0]), tup, figs)
             }
         }
         val time = TimeSig(t[0].toInt(), t[1].toInt(), TimeSig.Symbol.valueOf(t[2]))
@@ -88,6 +93,7 @@ object ScoreCodec {
             voices = voices,
             rulesOff = map["off"].orEmpty().split(" ").filter { it.isNotBlank() }.toSet(),
             ignored = ignored,
+            given = map["given"].orEmpty().split(" ").mapNotNull { l -> Voice.entries.firstOrNull { it.label == l } }.toSet(),
         )
     }.getOrNull()
 }

@@ -146,6 +146,9 @@ fun ScoreCanvas(
         val colors = remember(analysis, flagged, state.selected, state.playTime, state.score, sc, paper) {
             val play = sc.play.toArgb()
             val m = HashMap<NoteRef, Int>()
+            // An exercise's given voices are grey
+            val grey = lerp(paper, sc.ink, 0.5f).toArgb()
+            for (v in state.score.given) for (i in state.score.voice(v).indices) m[NoteRef(v, i)] = grey
             if (analysis != null && flagged.isNotEmpty()) {
                 // Check with an issue picked: its notes stay plain ink (rings mark them), the rest fades toward paper, opaque so staff lines don't show through
                 val keep = flagged.values.flatten().map { it.ref }.toSet()
@@ -471,6 +474,7 @@ private fun drawText(nc: android.graphics.Canvas, t: TextMark, sp: Float, p: Pai
         TextStyle.SYMBOL -> { paint.typeface = p.bold; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.NCT -> { paint.typeface = p.italic; paint.textAlign = Paint.Align.LEFT; paint.color = p.nct; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.ROMAN -> drawRoman(nc, t, sp, p)
+        TextStyle.FIGURE -> { paint.typeface = p.roman; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
     }
 }
 

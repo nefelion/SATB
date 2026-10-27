@@ -16,15 +16,18 @@ import com.nefelion.fourpartwriting.model.Voice
 class RuleExample(val bad: Score, val good: Score, val show: Set<Voice>, val roman: Boolean)
 
 /**
- * One example per rule, in C major. Each voice is a line of notes ("C5", "C5:8" for an eighth, "r" for a rest);
+ * One example per rule, in C major. Each voice is a line of notes ("C5", "C5:8" for an eighth, "r" for a rest,
+ * "C3@6" for a bass note with figures);
  * the default length is a quarter (drawn as a half, see [line]), and the time signature fits the whole example in one bar unless given.
  */
 object RuleExamples {
 
-    private fun line(s: String) = s.split(" ").map { tok ->
+    private fun line(s: String) = s.split(" ").map { token ->
+        val tok = token.substringBefore('@')
         val (p, d) = tok.split(":").let { it[0] to (it.getOrNull(1) ?: "4") }
         // Written values are doubled (a quarter shows as a half) so the chords spread out on a small card
-        Event(Duration(d.toInt() / 2).value, if (p == "r") null else Pitch.parse(p))
+        Event(Duration(d.toInt() / 2).value, if (p == "r") null else Pitch.parse(p),
+            figures = token.substringAfter('@', "").split(",").filter { it.isNotEmpty() })
     }
 
     private fun score(v: List<String>, time: TimeSig?): Score {
@@ -64,6 +67,7 @@ object RuleExamples {
             "S", roman = true,
         ),
         Rule.CADENCE to chords(listOf("D4 B3 G3 G2", "E4 C4 G3 E3"), listOf("D4 B3 G3 G2", "E4 C4 G3 C3"), "B", roman = true),
+        Rule.FIGURES to chords(listOf("G4 C4 G3 C3@6"), listOf("A4 C4 E3 C3@6"), "SATB"),
         Rule.PROGRESSION to chords(listOf("B4 D4 G3 G2", "A4 C4 F3 F2"), listOf("A4 C4 F3 F2", "B4 D4 G3 G2"), "B", roman = true),
         Rule.SIX_FOUR to chords(listOf("E4 C4 A3 A2", "F4 C4 A3 C3"), listOf("E4 C4 A3 A2", "F4 C4 A3 F2"), "B", roman = true),
         Rule.RANGE to chords(listOf("A5 F4 C4 F3"), listOf("A4 F4 C4 F3"), "S"),

@@ -5,6 +5,7 @@ import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.TimeSig
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Analysis
+import com.nefelion.fourpartwriting.theory.FiguredBass
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
@@ -34,7 +35,7 @@ data class TieMark(val x1: Float, val x2: Float, val y: Float, val above: Boolea
 data class TextMark(val text: String, override val x: Float, val y: Float, val size: Float, val style: TextStyle) : Mark {
     override val ref: NoteRef? get() = null
 }
-enum class TextStyle { ROMAN, SYMBOL, TEMPO, MEASURE_NO, NCT }
+enum class TextStyle { ROMAN, SYMBOL, TEMPO, MEASURE_NO, NCT, FIGURE }
 
 data class ChordLabel(val symbol: String, val roman: String)
 
@@ -217,6 +218,9 @@ object Engraver {
             minP[it.staff] = min(minP[it.staff], p - if (it.dir < 0) stem else 0)
         }
         val hasLabels = labels.isNotEmpty()
+        // Bass figures stack under the bottom staff, above the roman numerals
+        val figRows = if (Voice.BASS in shown) score.voice(Voice.BASS).maxOfOrNull { if (it.pitch != null) it.figures.size else 0 } ?: 0 else 0
+        val figH = if (figRows > 0) figRows * 1.25f + 0.6f else 0f
         val st = FloatArray(n)
         var y = 3.2f + (if (hasLabels) 2.8f else 0f) + max(0f, (maxP[0] - 8) * 0.5f)
         for (s in 0 until n) {
@@ -224,7 +228,7 @@ object Engraver {
             st[s] = y
             y += 4f
         }
-        val height = y + max(2.5f, (0 - minP[n - 1]) * 0.5f + 1f) + (if (hasLabels) 3.6f else 0f)
+        val height = y + max(2.5f, (0 - minP[n - 1]) * 0.5f + 1f) + (if (hasLabels) 3.6f else 0f) + figH
         fun sy(staff: Int, p: Int) = st[staff] + (8 - p) * 0.5f
         fun syf(staff: Int, p: Float) = st[staff] + (8 - p) * 0.5f
 
@@ -325,7 +329,7 @@ object Engraver {
                     marks += TextMark(lab.symbol, cx, labelTop - r * 1.4f, 1.3f, TextStyle.SYMBOL)
                 }
                 val r = row(lab.roman, 1.6f, romRight)
-                marks += TextMark(lab.roman, cx, labelBot + r * 2.0f, 1.6f, TextStyle.ROMAN)
+                marks += TextMark(lab.roman, cx, labelBot + figH + r * 2.0f, 1.6f, TextStyle.ROMAN)
             }
         }
         drawTies(score, shown, headAt, marks)
@@ -335,6 +339,13 @@ object Engraver {
             val lab = nctLabels[h.ref] ?: continue
             if (!labelled.add(h.ref)) continue
             marks += TextMark(lab, h.x + 1.1f, h.y - 0.9f, 1.0f, TextStyle.NCT)
+        }
+        val figured = HashSet<NoteRef>()
+        for (h in heads) {
+            if (h.ref.voice != Voice.BASS || !figured.add(h.ref)) continue
+            val e = score.voice(Voice.BASS).getOrNull(h.ref.index)?.takeIf { it.pitch != null } ?: continue
+            for ((k, line) in e.figures.withIndex())
+                marks += TextMark(FiguredBass.display(line), h.x + Smufl.HEAD_W / 2, labelBot - 0.4f + k * 1.25f, 1.2f, TextStyle.FIGURE)
         }
         val tempoBox = floatArrayOf(tx - 0.5f, tempoY - 3.2f, tempoX + 5.3f, tempoY + 0.8f)
         // From the page edge (brace or bracket included) to the first bar

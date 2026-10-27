@@ -30,6 +30,8 @@ import com.nefelion.fourpartwriting.model.TimeSig
 import com.nefelion.fourpartwriting.model.Tuplet
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Analysis
+import com.nefelion.fourpartwriting.theory.Exercises
+import com.nefelion.fourpartwriting.theory.Severity
 import com.nefelion.fourpartwriting.theory.Rule
 import com.nefelion.fourpartwriting.theory.VoiceLeading
 import kotlinx.coroutines.Dispatchers
@@ -268,6 +270,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edited: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice,
         selectedAt: Fraction? = if (selected == s.selected) s.selectedAt else null,
     ) {
+        // An exercise's given voices stay as they are
+        s.score.given.firstOrNull { it in edited.given && edited.voice(it) != s.score.voice(it) }?.let { v ->
+            return msg("The ${v.name.lowercase()} is given in this exercise.")
+        }
         val new = if (dragBase != null) edited else VoiceLeading.pruneMutes(edited)
         val placed = s.placed && selected == s.selected
         if (new == s.score) { _state.update { it.copy(selected = selected, selectedAt = selectedAt, voice = voice, placed = placed) }; return }
@@ -411,7 +417,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Voice for the next new note: the locked one, else the one ending earliest in [sc] (ties go S→A→T→B). */
     private fun nextVoice(sc: Score) = s.locked ?: earliestVoice(sc)
 
-    private fun earliestVoice(sc: Score) = Voice.entries.minBy { sc.length(it) }
+    private fun earliestVoice(sc: Score) = Voice.entries.filter { it !in sc.given }.ifEmpty { Voice.entries }.minBy { sc.length(it) }
 
     /** Keeps [p] within [NOTE_POSITIONS] on [v]'s own staff (a far tap must not make a tower of ledger lines). */
     private fun onStaff(sc: Score, v: Voice, p: Pitch): Pitch {
@@ -464,6 +470,34 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val ref = refAt(s.score, v, t)
         if (ref != null) { select(ref, t); _state.update { it.copy(followTick = it.followTick + 1) } }
         else _state.update { it.copy(voice = v, selected = null) }
+    }
+
+    /** Selects the bass note to put figures on: the one sounding at the selected time, else the first. False if the bass is empty. */
+    fun startFigures(): Boolean {
+        val bass = s.score.voice(Voice.BASS)
+        if (bass.none { it.pitch != null }) { msg("Enter a bass line first."); return false }
+        if (s.selected?.voice == Voice.BASS) return true
+        val at = s.selectedTime?.let { s.score.eventAt(Voice.BASS, it) }?.takeIf { it >= 0 }
+        select(NoteRef(Voice.BASS, at ?: bass.indexOfFirst { it.pitch != null }))
+        _state.update { it.copy(followTick = it.followTick + 1) }
+        return true
+    }
+
+    /** Figures of the selected bass note, top to bottom (see FiguredBass). */
+    fun setFigures(figures: List<String>) {
+        val r = s.selected?.takeIf { it.voice == Voice.BASS } ?: return
+        val evs = s.score.voice(Voice.BASS)
+        val e = evs.getOrNull(r.index)?.takeIf { it.pitch != null } ?: return
+        edit(s.score.withVoice(Voice.BASS, evs.toMutableList().also { it[r.index] = e.copy(figures = figures) }))
+    }
+
+    /** Next (+1) or previous (-1) bass note, skipping rests. */
+    fun stepBass(dir: Int) {
+        val evs = s.score.voice(Voice.BASS)
+        val cur = s.selected?.takeIf { it.voice == Voice.BASS }?.index ?: return
+        val i = generateSequence(cur + dir) { it + dir }.takeWhile { it in evs.indices }.firstOrNull { evs[it].pitch != null } ?: return
+        select(NoteRef(Voice.BASS, i))
+        _state.update { it.copy(followTick = it.followTick + 1) }
     }
 
     fun deselect() {
@@ -706,10 +740,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setClef(staff: Int, c: Clef) = edit(s.score.copy(clefs = s.score.clefs.toMutableList().also { it[staff] = c }))
     fun setArrangement(a: Arrangement) = edit(s.score.withArrangement(a))
     fun setTime(t: TimeSig) = edit(s.score.copy(time = t))
-    fun clearScore() = edit(blank(), null, Voice.SOPRANO)
+    fun clearScore() = edit(blank(), null, earliestVoice(blank()))
 
-    /** The open score's key, time, tempo and staves with no notes. */
-    private fun blank() = s.score.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet())
+    /** The open score's key, time, tempo and staves with no notes (an exercise keeps its given voices). */
+    private fun blank() = s.score.copy(voices = Voice.entries.map { if (it in s.score.given) s.score.voice(it) else emptyList() },
+        rulesOff = emptySet(), ignored = emptySet())
 
     // ---------- score library ----------
 
@@ -744,6 +779,21 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun newScore(name: String, settings: Score) {
         flushScore()
         newBlank(name, settings.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet(), tempo = settings.tempo.coerceIn(20, 300)))
+    }
+
+    /** A new generated figured-bass exercise, opened as a new score. */
+    fun newExercise(level: Exercises.Level) = viewModelScope.launch {
+        val ex = withContext(Dispatchers.Default) { Exercises.generate(level) } ?: return@launch msg("Could not make an exercise. Try again.")
+        flushScore()
+        newBlank("${level.label} exercise", ex)
+        _state.update { it.copy(voice = Voice.SOPRANO) }
+    }
+
+    /** Writes the upper voices of an exercise over its figured bass (one undo step). */
+    fun showSolution() = viewModelScope.launch {
+        val sc = s.score
+        val solved = withContext(Dispatchers.Default) { Exercises.solve(sc) } ?: return@launch msg("No solution found for this bass.")
+        if (s.score == sc) edit(solved, null)
     }
 
     private fun newBlank(wanted: String = "Untitled", sc: Score = blank()) {
@@ -854,6 +904,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             if (it.analysis != null) it.copy(analysis = null, focusedIssue = null)
             else it.copy(analysis = VoiceLeading.check(it.score, it.rules), focusedIssue = null)
         }
+        // An exercise with every voice written and no errors is solved
+        val a = s.analysis ?: return
+        val sc = s.score
+        if (sc.given.isNotEmpty() && Voice.entries.all { sc.length(it) == sc.length && sc.voice(it).isNotEmpty() } && a.issues.none { it.severity == Severity.ERROR })
+            msg(if (a.issues.isEmpty()) "Solved, with no errors or warnings!" else "Solved: no errors. Look at the warnings to make it better.")
     }
 
     /** Opening the check or tapping a found issue drops the selection into movement mode. */

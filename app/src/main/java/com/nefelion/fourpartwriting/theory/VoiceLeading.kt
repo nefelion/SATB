@@ -46,6 +46,8 @@ enum class Rule(val label: String, val desc: String, val why: String) {
         "A dissonance makes sense only when the ear hears where it comes from and where it goes; otherwise it sounds like a mistake."),
     CADENCE("Final cadence", "End on the tonic in root position after V or IV.",
         "The ending must confirm the key; V–I or IV–I in root position gives the strongest sense of arrival."),
+    FIGURES("Figured bass", "The upper voices play the notes the bass figures ask for.",
+        "The figures are a shorthand for the harmony over each bass note; any other note changes the chord they ask for."),
     PROGRESSION("Chord progression", "Move tonic → predominant → dominant → tonic; avoid going backwards.",
         "Functional order builds tension and releases it; going backwards undoes the tension before it can resolve."),
     SIX_FOUR("Six-four chords", "Use a ⁶₄ chord only as cadential, passing, pedal or arpeggiated.",
@@ -332,6 +334,27 @@ object VoiceLeading {
                 dir = d
             }
         }
+        // Figured bass: at each figured bass note, the upper voices against the notes the figures ask for
+        // shortcut: one stack per bass note, so a 4–3 over one held note cannot be written; upgrade with figures at offsets
+        for ((idx, e) in score.voice(Voice.BASS).withIndex()) {
+            val b = e.pitch ?: continue
+            if (e.figures.isEmpty()) continue
+            val i = slices.indexOfFirst { it.eventIndex[Voice.BASS.ordinal] == idx && it.attacked[Voice.BASS.ordinal] }
+            if (i < 0) continue
+            val want = FiguredBass.realize(b, e.figures, score.key)
+            val fig = FiguredBass.display(e.figures)
+            val upper = V.filter { it != Voice.BASS && slices[i].notes[it.ordinal] != null }
+            for (v in upper) {
+                val p = slices[i].notes[v.ordinal]!!
+                if (p.pc != b.pc && p.pc !in want.values)
+                    add(Severity.ERROR, i, Rule.FIGURES, "${v.label}: $fig over ${b.pc.name} asks for ${want.values.joinToString(", ") { it.name }}, not ${p.pc.name}.", i to v, i to Voice.BASS)
+            }
+            val heard = upper.map { slices[i].notes[it.ordinal]!!.pc }.toSet()
+            val missing = want.filter { (n, pc) -> pc !in heard && !FiguredBass.optional(n, e.figures) }.values
+            if (upper.isNotEmpty() && missing.isNotEmpty())
+                add(Severity.WARNING, i, Rule.FIGURES, "$fig over ${b.pc.name} also asks for ${missing.joinToString(", ") { it.name }}.", i to Voice.BASS)
+        }
+
         // Errors first, then warnings; each by position in the score (slices are in time order)
         out.removeAll { ignoreKey(it, slices) in score.ignored }
         return Analysis(slices, chords, out.sortedWith(compareBy({ it.severity }, { it.slice })), points, ncts)

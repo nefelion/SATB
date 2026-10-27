@@ -115,6 +115,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -133,6 +134,7 @@ import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Mode
 import com.nefelion.fourpartwriting.model.TimeSig
 import com.nefelion.fourpartwriting.model.Voice
+import com.nefelion.fourpartwriting.theory.FiguredBass
 import com.nefelion.fourpartwriting.theory.Rule
 import com.nefelion.fourpartwriting.theory.VoiceLeading
 import com.nefelion.fourpartwriting.theory.Severity
@@ -151,6 +153,8 @@ fun EditorScreen(vm: EditorViewModel) {
     var confirmClear by rememberSaveable { mutableStateOf(false) }
     var about by rememberSaveable { mutableStateOf(false) }
     var scores by rememberSaveable { mutableStateOf(false) }
+    var figures by rememberSaveable { mutableStateOf(false) }
+    var exercise by rememberSaveable { mutableStateOf(false) }
     // Generic type: providers keep an unknown .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
     val xmlSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         uri?.let(vm::exportMusicXml)
@@ -160,6 +164,12 @@ fun EditorScreen(vm: EditorViewModel) {
         MoreButton(moreOpen, { moreOpen = it }) { item ->
             item("Scores", false) { scores = true }
             HorizontalDivider()
+            if (st.score.given.isNotEmpty()) {
+                item("Show a solution", false) { vm.showSolution() }
+                item("New exercise", false) { exercise = true }
+                HorizontalDivider()
+            }
+            item("Bass figures", false) { if (vm.startFigures()) figures = true }
             item("Export MusicXML", false) { xmlSaver.launch("${st.scoreName}.musicxml") }
             item("Clear score", true) { confirmClear = true }
             HorizontalDivider()
@@ -206,6 +216,7 @@ fun EditorScreen(vm: EditorViewModel) {
                     if (st.reorder.isNotEmpty()) ReorderPrompt(st, vm, Modifier.align(Alignment.TopCenter).padding(8.dp))
                 }
                 st.analysis?.let { IssuesStrip(st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide, onUndoable = { undoable = it }) }
+                if (figures) { HorizontalDivider(); FiguresPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { figures = false } }
                 HorizontalDivider()
                 Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
                     .height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -221,6 +232,7 @@ fun EditorScreen(vm: EditorViewModel) {
     }
     if (settings) SettingsDialog(st, vm, onUndoable = { undoable = it }) { settings = false }
     if (about) AboutDialog { about = false }
+    if (exercise) ExerciseDialog(onDismiss = { exercise = false }) { level -> exercise = false; vm.newExercise(level) }
     if (scores) ScoresPage(st, vm) { scores = false }
     if (confirmClear) AlertDialog(
         onDismissRequest = { confirmClear = false },
@@ -292,6 +304,45 @@ private fun ReorderPrompt(st: UiState, vm: EditorViewModel, modifier: Modifier) 
                 style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
             TextButton(onClick = vm::keepOrder) { Text("Dismiss") }
             FilledTonalButton(onClick = vm::reorderVoices) { Text("Reorder S A T B") }
+        }
+    }
+}
+
+/** Figures for the selected bass note: common stacks, or built line by line (an accidental, then a number). Each key is one undo step; holding ⌫ clears. */
+@Composable
+private fun FiguresPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, onClose: () -> Unit) {
+    val e = st.selected?.takeIf { it.voice == Voice.BASS }?.let { st.score.voice(Voice.BASS).getOrNull(it.index) }?.takeIf { it.pitch != null }
+    val lines = e?.figures.orEmpty()
+    val ink = MaterialTheme.colorScheme.onSurface
+    fun key(k: Char) {
+        val l = lines.toMutableList()
+        // A digit after a lone accidental completes that line ("#" then "6" = "#6")
+        if (k.isDigit() && l.lastOrNull()?.let { it.length == 1 && it[0] in "#bn" } == true) l[l.lastIndex] += k
+        else if (l.size < 4) l += "$k"
+        vm.setFigures(l)
+    }
+    @Composable fun Stack(f: List<String>, size: Int = 15) = Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        for (l in f) Text(FiguredBass.display(l), fontSize = size.sp, lineHeight = (size + 1).sp, color = ink, fontFamily = FontFamily.Serif)
+    }
+    Column(Modifier.fillMaxWidth().windowInsetsPadding(insets).padding(horizontal = 4.dp)) {
+        Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+            Tool(onClick = { vm.stepBass(-1) }, label = "Previous bass note") { Text("‹", fontSize = 30.sp, color = ink) }
+            if (e == null) Text("Select a bass note", Modifier.weight(6f), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else for (f in listOf(listOf("6"), listOf("6", "4"), listOf("7"), listOf("6", "5"), listOf("4", "3"), listOf("4", "2")))
+                Tool(lines == f, { vm.setFigures(f) }, "Figures " + f.joinToString(" ")) { Stack(f) }
+            Tool(onClick = { vm.stepBass(1) }, label = "Next bass note") { Text("›", fontSize = 30.sp, color = ink) }
+            TextButton(onClick = onClose) { Text("Done") }
+        }
+        Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+            for (k in "#bn2345679") Tool(onClick = { key(k) }, label = if (k.isDigit()) "$k" else FiguredBass.display("$k")) {
+                if (k.isDigit()) Text("$k", fontSize = 19.sp, color = ink, fontFamily = FontFamily.Serif)
+                else GlyphIcon(Smufl.accidental(when (k) { '#' -> 1; 'b' -> -1; else -> 0 }), 40, ink)
+            }
+            Tool(onClick = {
+                val l = lines.toMutableList()
+                if (l.isNotEmpty()) { l[l.lastIndex] = l.last().dropLast(1); if (l.last().isEmpty()) l.removeAt(l.lastIndex) }
+                vm.setFigures(l)
+            }, label = "Delete figure", long = { vm.setFigures(emptyList()) }) { Text("⌫", fontSize = 18.sp, color = ink) }
         }
     }
 }

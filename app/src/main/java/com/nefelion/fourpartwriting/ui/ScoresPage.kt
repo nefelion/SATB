@@ -60,6 +60,7 @@ import com.nefelion.fourpartwriting.EditorViewModel
 import com.nefelion.fourpartwriting.ScoreLibrary
 import com.nefelion.fourpartwriting.UiState
 import com.nefelion.fourpartwriting.model.Score
+import com.nefelion.fourpartwriting.theory.Exercises
 import com.nefelion.fourpartwriting.model.ScoreCodec
 import androidx.compose.runtime.saveable.Saver
 
@@ -69,6 +70,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     LaunchedEffect(Unit) { vm.refreshScores() }
     // Dialogs and menus stay open on rotation
     var menuFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var exercise by rememberSaveable { mutableStateOf(false) }
     var naming by rememberSaveable { mutableStateOf(false) }
     var editingScore by rememberSaveable { mutableStateOf<String?>(null) }
     var renaming by rememberSaveable { mutableStateOf<String?>(null) }
@@ -118,6 +120,9 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
                 OutlinedButton(onClick = { opener.launch(arrayOf("*/*")) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Open file…") }
             }
         }
+        item {
+            FilledTonalButton(onClick = { exercise = true }, shape = SHAPE, modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()) { Text("New figured bass exercise") }
+        }
         val other = st.scores.filter { it.first != st.scoreName }
         item {
             // The open score's file may lag its last edit by the autosave delay, so its details come from the editor
@@ -133,6 +138,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
             }
         }
     }
+    if (exercise) ExerciseDialog(onDismiss = { exercise = false }) { level -> exercise = false; vm.newExercise(level); onDismiss() }
     if (naming) ScoreDialog("New score", "", Score(), askName = true, action = "Create", onDismiss = { naming = false }) { name, settings ->
         naming = false; vm.newScore(name, settings); onDismiss()
     }
@@ -281,3 +287,29 @@ private fun NameDialog(title: String, start: String, action: String, onDismiss: 
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+/** Picks the level of a new generated exercise: a figured bass to write the upper voices over. */
+@Composable
+internal fun ExerciseDialog(onDismiss: () -> Unit, onPick: (Exercises.Level) -> Unit) = AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text("New exercise") },
+    text = {
+        KeepRefreshRate()
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Write soprano, alto and tenor over the given figured bass, then press ✓ to check.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            for ((level, about) in listOf(
+                Exercises.Level.EASY to "Triads in root position and first inversion, major keys",
+                Exercises.Level.MEDIUM to "Adds seventh chords, the cadential ⁶₄ and minor keys",
+                Exercises.Level.HARD to "Adds secondary dominants, longer phrases",
+            )) OutlinedButton(onClick = { onPick(level) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Text(level.label, style = MaterialTheme.typography.titleSmall)
+                    Text(about, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    },
+    confirmButton = {},
+    dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+)
