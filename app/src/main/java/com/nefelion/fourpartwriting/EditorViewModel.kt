@@ -45,6 +45,10 @@ import kotlin.math.abs
 
 data class UiState(
     val score: Score = EXAMPLE,
+    /** Name of the open score in the library. */
+    val scoreName: String = "",
+    /** All saved scores (null: file unreadable), most recently changed first. */
+    val scores: List<Pair<String, Score?>> = emptyList(),
     val voice: Voice = Voice.SOPRANO,
     /** Dark theme on; chosen in Settings. */
     val dark: Boolean = false,
@@ -157,13 +161,25 @@ val EXAMPLE = Score(
 
 class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("satb", Context.MODE_PRIVATE)
-    private val scoreFile = File(app.filesDir, "score.txt")
-    /** Undo/redo stacks, written when the app goes to the background. */
+    private val library = ScoreLibrary(File(app.filesDir, "scores"))
+    /** Undo/redo stacks of the open score, written when the app goes to the background. */
     private val historyFile = File(app.filesDir, "history.txt")
     private val history = runCatching { ScoreCodec.decodeHistory(historyFile.readText()) }.getOrNull()
+    /** Open score's name; the library is filled on first start (the one score older versions kept, or the example). */
+    private val startName: String = run {
+        prefs.getString("current", null)?.takeIf(library::exists)?.let { return@run it }
+        library.names().firstOrNull()?.let { return@run it }
+        val old = File(app.filesDir, "score.txt")
+        val oldScore = runCatching { old.readText() }.getOrNull()?.let(ScoreCodec::decode)
+        val name = if (oldScore != null) "My score" else "Example"
+        if (library.write(name, oldScore ?: EXAMPLE)) old.delete()
+        name
+    }.also { prefs.edit().putString("current", it).apply() }
     private val _state = MutableStateFlow(
         UiState(
-            score = runCatching { scoreFile.readText() }.getOrNull()?.let(ScoreCodec::decode)?.let(Edit::dropEmptyLastBars) ?: EXAMPLE,
+            scoreName = startName,
+            scores = library.list(),
+            score = library.read(startName)?.let(Edit::dropEmptyLastBars) ?: EXAMPLE,
             undo = history?.first.orEmpty(),
             redo = history?.second.orEmpty(),
             // Stored as the rules switched OFF, so rules added in later versions start on
@@ -213,25 +229,23 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         // Save the score shortly after it changes
         viewModelScope.launch {
             var last = s.score
+            var lastName = s.scoreName
             state.collect { st ->
+                // Opening another score is not an edit: nothing to save
+                if (st.scoreName != lastName) { lastName = st.scoreName; last = st.score }
                 if (st.score != last) {
                     last = st.score
                     saveJob?.cancel()
-                    saveJob = launch { delay(500); withContext(Dispatchers.IO) { writeScore(st.score) } }
+                    // On the main thread (a few KB): a rename or switch can then cancel it without a write racing behind
+                    saveJob = launch { delay(500); library.write(st.scoreName, st.score) }
                 }
             }
         }
     }
 
-    private fun writeScore(score: Score) = runCatching {
-        val tmp = File(scoreFile.path + ".tmp")
-        tmp.writeText(ScoreCodec.encode(score))
-        tmp.renameTo(scoreFile)
-    }
-
     /** Called when the app goes to the background. */
     fun saveNow() {
-        writeScore(s.score)
+        flushScore()
         runCatching {
             val tmp = File(historyFile.path + ".tmp")
             tmp.writeText(ScoreCodec.encodeHistory(s.undo, s.redo))
@@ -692,7 +706,122 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setClef(staff: Int, c: Clef) = edit(s.score.copy(clefs = s.score.clefs.toMutableList().also { it[staff] = c }))
     fun setArrangement(a: Arrangement) = edit(s.score.withArrangement(a))
     fun setTime(t: TimeSig) = edit(s.score.copy(time = t))
-    fun clearScore() = edit(s.score.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet()), null, Voice.SOPRANO)
+    fun clearScore() = edit(blank(), null, Voice.SOPRANO)
+
+    /** The open score's key, time, tempo and staves with no notes. */
+    private fun blank() = s.score.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet())
+
+    // ---------- score library ----------
+
+    /** Writes the open score now and drops a pending autosave. */
+    private fun flushScore() { saveJob?.cancel(); library.write(s.scoreName, s.score) }
+
+    fun refreshScores() = _state.update { it.copy(scores = library.list()) }
+
+    /** Shows [score] as [name], starting fresh: no undo history or selection from the score left behind. */
+    private fun show(name: String, score: Score) {
+        stop()
+        historyFile.delete()
+        keptOrder.clear()
+        prefs.edit().putString("current", name).apply()
+        _state.update {
+            it.copy(scoreName = name, score = score, scores = library.list(), undo = emptyList(), redo = emptyList(),
+                selected = null, selectedAt = null, placed = false, analysis = null, focusedIssue = null, reorder = emptyList())
+        }
+        Synth.setTempo(score.tempo)
+        checkOrder()
+    }
+
+    private fun readScore(name: String) = library.read(name)?.let(Edit::dropEmptyLastBars)
+
+    fun openScore(name: String) {
+        if (name == s.scoreName) return
+        flushScore()
+        show(name, readScore(name) ?: return msg("Could not open $name."))
+    }
+
+    /** Empty score with the key, time, tempo, staves and clefs of [settings]. */
+    fun newScore(name: String, settings: Score) {
+        flushScore()
+        newBlank(name, settings.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet(), tempo = settings.tempo.coerceIn(20, 300)))
+    }
+
+    private fun newBlank(wanted: String = "Untitled", sc: Score = blank()) {
+        val name = library.freeName(wanted)
+        if (!library.write(name, sc)) return msg("Could not create a score.")
+        show(name, sc)
+    }
+
+    fun renameScore(from: String, to: String) {
+        val name = ScoreLibrary.clean(to)
+        if (name == from) return
+        if (library.exists(name)) return msg("A score named $name already exists.")
+        flushScore()
+        if (!library.rename(from, name)) return msg("Could not rename $from.")
+        if (from == s.scoreName) {
+            prefs.edit().putString("current", name).apply()
+            _state.update { it.copy(scoreName = name) }
+        }
+        refreshScores()
+    }
+
+    fun duplicateScore(name: String) {
+        flushScore()
+        val sc = library.read(name) ?: return msg("Could not read $name.")
+        if (!library.write(library.freeName("$name copy"), sc)) return msg("Could not copy $name.")
+        refreshScores()
+    }
+
+    /** Deleting the open score opens the most recent other one (or a new empty one). */
+    fun deleteScore(name: String) {
+        val open = name == s.scoreName
+        if (open) saveJob?.cancel() else flushScore()
+        if (!library.delete(name)) return msg("Could not delete $name.")
+        if (open) {
+            val next = library.names().firstNotNullOfOrNull { n -> readScore(n)?.let { n to it } }
+            if (next != null) show(next.first, next.second) else newBlank()
+        } else refreshScores()
+        msg("$name deleted.")
+    }
+
+    /** Saves a copy of a score to a file the user picked (to back up or share). */
+    fun exportScoreFile(name: String, uri: Uri) = viewModelScope.launch {
+        flushScore()
+        val text = library.read(name)?.let { ScoreCodec.encode(it, name) }
+        val ok = text != null && withContext(Dispatchers.IO) {
+            runCatching {
+                getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
+            }.isSuccess
+        }
+        msg(if (ok) "$name saved to file." else "Could not write the file.")
+    }
+
+    /** Adds a .satb file to the library and opens it. */
+    fun importScoreFile(uri: Uri) = viewModelScope.launch {
+        val resolver = getApplication<Application>().contentResolver
+        val (fileName, size) = withContext(Dispatchers.IO) { fileInfo(uri) }
+        // A score file is a few KB; refuse anything big before reading it into memory
+        val text = if ((size ?: 0) > 1_000_000) null else withContext(Dispatchers.IO) {
+            runCatching { resolver.openInputStream(uri)!!.use { it.reader().readText() } }.getOrNull()
+        }
+        val sc = text?.let(ScoreCodec::decode) ?: return@launch msg("${fileName ?: "That file"} is not a SATB score.")
+        flushScore()
+        // The name saved inside the file, else the file's name
+        val name = library.freeName(ScoreCodec.title(text) ?: fileName?.substringBeforeLast('.')?.ifBlank { null } ?: "Imported")
+        if (!library.write(name, sc)) return@launch msg("Could not save the score.")
+        show(name, Edit.dropEmptyLastBars(sc))
+        msg("Opened $name.")
+    }
+
+    /** Display name and size in bytes of a picked file, when the provider tells them. */
+    private fun fileInfo(uri: Uri): Pair<String?, Long?> {
+        val row = runCatching {
+            getApplication<Application>().contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
+                if (!c.moveToFirst()) null else c.getString(0) to (if (c.isNull(1)) null else c.getLong(1))
+            }
+        }.getOrNull()
+        return (row?.first ?: uri.lastPathSegment?.substringAfterLast('/')) to row?.second
+    }
 
     // ---------- analysis ----------
 
@@ -858,11 +987,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun importSf2(uri: Uri) = viewModelScope.launch {
         val resolver = getApplication<Application>().contentResolver
-        val name = withContext(Dispatchers.IO) {
-            runCatching {
-                resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
-            }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/')
-        }
+        val name = withContext(Dispatchers.IO) { fileInfo(uri).first }
         val old = prefs.getString("sf2Uri", null)
         _state.update { it.copy(soundLoading = true) }
         val ok = withContext(Dispatchers.IO) {

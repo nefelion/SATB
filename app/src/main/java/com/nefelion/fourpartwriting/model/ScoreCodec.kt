@@ -3,8 +3,10 @@ package com.nefelion.fourpartwriting.model
 /** Plain-text score file. One setting per line; one line per voice: "S E4:1/4 r:1/2 ...". A tuplet adds ":n:m:unit" ("E4:1/20:5:4:1/16"). */
 object ScoreCodec {
 
-    fun encode(s: Score): String = buildString {
+    /** [title]: the score's name, kept in files saved for sharing so an import gets it back. */
+    fun encode(s: Score, title: String? = null): String = buildString {
         appendLine("v1")
+        title?.let { appendLine("title " + it.replace('\n', ' ')) }
         appendLine("key ${s.key.fifths} ${s.key.mode.name}")
         appendLine("time ${s.time.beats} ${s.time.beatUnit} ${s.time.symbol.name}")
         appendLine("tempo ${s.tempo}")
@@ -44,6 +46,10 @@ object ScoreCodec {
         flush()
         return undo to redo
     }
+
+    /** The name stored by [encode], if any. */
+    fun title(text: String): String? =
+        text.lineSequence().firstOrNull { it.startsWith("title ") }?.removePrefix("title ")?.trim()?.ifEmpty { null }
 
     private fun alterCode(a: Int) = when (a) { -2 -> "bb"; -1 -> "b"; 1 -> "#"; 2 -> "x"; else -> "" }
 

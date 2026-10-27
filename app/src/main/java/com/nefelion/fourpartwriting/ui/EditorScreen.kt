@@ -150,6 +150,7 @@ fun EditorScreen(vm: EditorViewModel) {
     var undoable by remember { mutableStateOf<String?>(null) }
     var confirmClear by rememberSaveable { mutableStateOf(false) }
     var about by rememberSaveable { mutableStateOf(false) }
+    var scores by rememberSaveable { mutableStateOf(false) }
     // Generic type: providers keep an unknown .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
     val xmlSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         uri?.let(vm::exportMusicXml)
@@ -157,7 +158,9 @@ fun EditorScreen(vm: EditorViewModel) {
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     val more: @Composable RowScope.() -> Unit = {
         MoreButton(moreOpen, { moreOpen = it }) { item ->
-            item("Export MusicXML", false) { xmlSaver.launch("satb.musicxml") }
+            item("Scores", false) { scores = true }
+            HorizontalDivider()
+            item("Export MusicXML", false) { xmlSaver.launch("${st.scoreName}.musicxml") }
             item("Clear score", true) { confirmClear = true }
             HorizontalDivider()
             item("Settings", false) { settings = true }
@@ -218,6 +221,7 @@ fun EditorScreen(vm: EditorViewModel) {
     }
     if (settings) SettingsDialog(st, vm, onUndoable = { undoable = it }) { settings = false }
     if (about) AboutDialog { about = false }
+    if (scores) ScoresPage(st, vm) { scores = false }
     if (confirmClear) AlertDialog(
         onDismissRequest = { confirmClear = false },
         title = { Text("Clear score?") },
@@ -233,18 +237,18 @@ fun EditorScreen(vm: EditorViewModel) {
         Surface(Modifier.clearFocusOnTap(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Tempo", style = MaterialTheme.typography.titleLarge)
-                TempoEditor(st.score.tempo, vm)
+                TempoEditor(st.score.tempo, vm::setTempo, vm::commitTempo)
                 FilledTonalButton(onClick = { tempoDialog = false }, shape = SHAPE, modifier = Modifier.align(Alignment.End)) { Text("Done") }
             }
         }
     }
 }
 
-/** Quarter-note tempo: type it, step it, or slide it. One undo step per change. */
+/** Quarter-note tempo: type it, step it, or slide it. [onChange] runs live; [onCommit] ends one change (one undo step in the editor). */
 @Composable
-private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
+internal fun TempoEditor(tempo: Int, onChange: (Int) -> Unit, onCommit: () -> Unit) {
     var text by remember(tempo) { mutableStateOf(tempo.toString()) }
-    fun commit(v: Int) { vm.setTempo(v); vm.commitTempo() }
+    fun commit(v: Int) { onChange(v); onCommit() }
     val focus = LocalFocusManager.current
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -269,7 +273,7 @@ private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
             )
             Small("+") { commit((tempo / 5 + 1) * 5) }
         }
-        Slider(value = tempo.toFloat(), onValueChange = { vm.setTempo((it / 5).roundToInt() * 5) }, onValueChangeFinished = vm::commitTempo,
+        Slider(value = tempo.toFloat(), onValueChange = { onChange((it / 5).roundToInt() * 5) }, onValueChangeFinished = onCommit,
             valueRange = 30f..240f, steps = (240 - 30) / 5 - 1, modifier = Modifier.fillMaxWidth(),
             colors = SliderDefaults.colors(activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent))
     }
@@ -279,7 +283,7 @@ private fun TempoEditor(tempo: Int, vm: EditorViewModel) {
 
 /** Tapping empty space ends text editing: the caret and keyboard go away. */
 @Composable
-private fun Modifier.clearFocusOnTap(): Modifier {
+internal fun Modifier.clearFocusOnTap(): Modifier {
     val focus = LocalFocusManager.current
     return pointerInput(Unit) { detectTapGestures { focus.clearFocus() } }
 }
@@ -300,7 +304,7 @@ private fun ReorderPrompt(st: UiState, vm: EditorViewModel, modifier: Modifier) 
 }
 
 /** Shared corner shape for buttons, toggles and fields. */
-private val SHAPE = RoundedCornerShape(12.dp)
+internal val SHAPE = RoundedCornerShape(12.dp)
 
 /**
  * A square-ish toolbar button that grows to share the row. With [hold], holding it shows a drop
@@ -708,7 +712,7 @@ private fun where(t: Fraction, time: TimeSig): String {
 
 // ---------- settings ----------
 
-private fun keyLabel(k: Key) = k.name + when {
+internal fun keyLabel(k: Key) = k.name + when {
     k.fifths > 0 -> "  ·  ${k.fifths}♯"; k.fifths < 0 -> "  ·  ${-k.fifths}♭"; else -> ""
 }
 
@@ -732,43 +736,17 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onUndoable: (String
         item {
             Group("Notation") {
                 Label("Key")
-                val k = score.key
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Small("♭", glyph = Smufl.FLAT, enabled = k.fifths > -7) { vm.setKey(k.copy(fifths = k.fifths - 1)) }
-                    Text(keyLabel(k), Modifier.weight(1f), fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
-                    Small("♯", glyph = Smufl.SHARP, enabled = k.fifths < 7) { vm.setKey(k.copy(fifths = k.fifths + 1)) }
-                    Segmented(listOf("maj", "min"), if (k.mode == Mode.MAJOR) 0 else 1) { vm.setKey(k.copy(mode = Mode.entries[it])) }
-                }
+                KeyPicker(score.key, vm::setKey)
                 Label("Time signature")
-                val t = score.time
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Small("−", enabled = t.beats > 1) { vm.setTime(TimeSig(t.beats - 1, t.beatUnit)) }
-                    Text("${t.beats}", Modifier.width(28.dp), fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.titleMedium)
-                    Small("+", enabled = t.beats < 16) { vm.setTime(TimeSig(t.beats + 1, t.beatUnit)) }
-                    Text("/", style = MaterialTheme.typography.titleMedium)
-                    Segmented(listOf("2", "4", "8", "16"), listOf(2, 4, 8, 16).indexOf(t.beatUnit)) { vm.setTime(TimeSig(t.beats, listOf(2, 4, 8, 16)[it])) }
-                }
+                TimeSigPicker(score.time, vm::setTime)
                 Label("Staves")
-                // Staff count, then which SATB split for that count ("/" = staff break; SAT/B is keyboard style)
-                val arr = score.arrangement
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Segmented(listOf("1", "2", "3", "4"), arr.staves - 1) { i ->
-                        if (i + 1 != arr.staves) vm.setArrangement(listOf(StaffArrangement.ONE, StaffArrangement.CLOSED, StaffArrangement.THREE, StaffArrangement.OPEN)[i])
-                    }
-                    Picker(arr.label, StaffArrangement.entries.filter { it.staves == arr.staves }, { it.label }) { vm.setArrangement(it) }
-                }
-                val names = score.arrangement.label.split("/")
-                for (i in score.clefs.indices) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Staff ${i + 1} (${names[i]})", Modifier.weight(1f))
-                    Picker(score.clefs[i].label, Clef.entries, { it.label }) { vm.setClef(i, it) }
-                }
+                StavesPicker(score, vm::setArrangement, vm::setClef)
             }
         }
         item {
             Group("Playback") {
                 Label("Tempo")
-                TempoEditor(score.tempo, vm)
+                TempoEditor(score.tempo, vm::setTempo, vm::commitTempo)
                 Label("Sound")
                 Text(if (st.soundLoading) "Loading…" else if (st.soundLoaded) "Loaded: ${st.soundName ?: "SoundFont"}" else "No SoundFont loaded. Pick any .sf2 file (piano, choir, strings…).",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -903,7 +881,7 @@ internal fun KeepRefreshRate() {
 
 /** Full-screen page with a back arrow, drawn under the status bar like the editor. */
 @Composable
-private fun FullScreenPage(title: String, onDismiss: () -> Unit, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+internal fun FullScreenPage(title: String, onDismiss: () -> Unit, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         KeepRefreshRate()
         // The dialog has its own window: status bar icons that suit the page, and full screen in landscape like the editor
@@ -942,46 +920,49 @@ private fun FullScreenPage(title: String, onDismiss: () -> Unit, content: androi
 
 /** A titled card holding one group of settings. */
 @Composable
-private fun Group(title: String?, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+internal fun Group(title: String?, border: androidx.compose.foundation.BorderStroke? = null,
+                   color: Color = MaterialTheme.colorScheme.surfaceVariant, contentColor: Color = MaterialTheme.colorScheme.onSurface, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     // Readable width on tablets and in landscape
     Column(Modifier.widthIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (title != null) Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 4.dp))
-        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface) {
+        Surface(shape = RoundedCornerShape(16.dp), color = color,
+            contentColor = contentColor, border = border) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
         }
     }
 }
 
 @Composable
-private fun Label(text: String) =
+internal fun Label(text: String) =
     Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
 /** Square stepper button; [glyph] draws a music symbol (e.g. ♭) in the Bravura font instead of [label]. */
 @Composable
-private fun Small(label: String, glyph: Char? = null, enabled: Boolean = true, onClick: () -> Unit) =
+internal fun Small(label: String, glyph: Char? = null, enabled: Boolean = true, onClick: () -> Unit) =
     OutlinedButton(onClick = onClick, enabled = enabled, shape = SHAPE, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
         modifier = Modifier.size(48.dp).semantics { contentDescription = label }) {
         if (glyph != null) GlyphIcon(glyph, 46, MaterialTheme.colorScheme.onSurface) else Text(label, fontSize = 20.sp)
     }
 
-/** Compact connected toggle buttons. */
+/** Compact connected toggle buttons; with [glyphs], each option is one SMuFL music symbol drawn in the music font. */
 @Composable
-private fun Segmented(options: List<String>, selected: Int, itemWidth: Dp = 48.dp, onSelect: (Int) -> Unit) {
+internal fun Segmented(options: List<String>, selected: Int, itemWidth: Dp = 48.dp, glyphs: Boolean = false, onSelect: (Int) -> Unit) {
     Row(Modifier.clip(SHAPE).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
         options.forEachIndexed { i, o ->
             Box(Modifier.height(48.dp).width(itemWidth).padding(3.dp).clip(RoundedCornerShape(9.dp))
                 .background(if (i == selected) MaterialTheme.colorScheme.surfaceContainerLowest else Color.Transparent)
                 .clickable { onSelect(i) }, contentAlignment = Alignment.Center) {
-                Text(o, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (i == selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                val ink = if (i == selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                if (glyphs) GlyphIcon(o[0], 40, ink)
+                else Text(o, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Normal, color = ink)
             }
         }
     }
 }
 
 @Composable
-private fun <T> Picker(current: String, options: List<T>, label: (T) -> String, onPick: (T) -> Unit) {
+internal fun <T> Picker(current: String, options: List<T>, label: (T) -> String, onPick: (T) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     Box {
         OutlinedButton(onClick = { open = true }, shape = SHAPE) { Text("$current  ▾") }

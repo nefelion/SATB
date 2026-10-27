@@ -186,6 +186,23 @@ data class Key(val fifths: Int, val mode: Mode) {
     }
 
     val name get() = tonic.name + if (mode == Mode.MAJOR) " major" else " minor"
+
+    /** Same signature, other mode (C major ↔ A minor). */
+    val relative get() = copy(mode = if (mode == Mode.MAJOR) Mode.MINOR else Mode.MAJOR)
+
+    companion object {
+        /** Fifths of the major key on each natural step C..B. */
+        private val MAJOR_FIFTHS = intArrayOf(0, 2, 4, -1, 1, 3, 5)
+
+        /**
+         * Key with this tonic and mode. A tonic needing more than 7 sharps or flats is respelled
+         * (D♯ major becomes E♭ major); null if even that does not fit (never for a single ♭, ♮ or ♯).
+         */
+        fun of(tonic: PitchClass, mode: Mode): Key? {
+            val f = MAJOR_FIFTHS[tonic.step] + 7 * tonic.alter - if (mode == Mode.MINOR) 3 else 0
+            return listOf(f, f - 12, f + 12).firstOrNull { it in -7..7 }?.let { Key(it, mode) }
+        }
+    }
 }
 
 data class TimeSig(val beats: Int, val beatUnit: Int, val symbol: Symbol = Symbol.NUMERIC) {
