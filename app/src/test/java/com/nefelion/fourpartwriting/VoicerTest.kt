@@ -123,4 +123,20 @@ class VoicerTest {
         val issues = VoiceLeading.check(sc, setOf(com.nefelion.fourpartwriting.theory.Rule.NAMED_CHORD)).issues
         assertTrue(issues.map { it.message }.toString(), issues.isEmpty())
     }
+
+    @Test fun fixRevoicesOnlyTheChosenChord() {
+        // I – IV – I with the IV moving in parallel fifths and octaves both ways
+        fun line(n: String) = n.split(" ").map { q(it) }
+        val sc = Score(voices = listOf(line("C5 F5 C5"), line("E4 A4 E4"), line("G3 C4 G3"), line("C3 F3 C3")))
+        assertTrue(VoiceLeading.check(sc).issues.any { it.severity == Severity.ERROR })
+        val out = Voicer.fix(sc, Fraction.of(1, 4))!!
+        assertClean(out)
+        for (v in Voice.entries) for (i in listOf(0, 2)) assertEquals(sc.voice(v)[i], out.voice(v)[i])
+        assertEquals("F", out.voice(Voice.BASS)[1].pitch!!.pc.name)
+        // Rests after the chord don't block it
+        val rests = sc.copy(voices = sc.voices.mapIndexed { i, evs -> if (i == 0) evs else evs.take(2) + q(null) })
+        assertNotNull(Voicer.fix(rests, Fraction.of(1, 4)))
+        // Nothing to move when every voice is given
+        assertNull(Voicer.fix(sc.copy(given = Voice.entries.toSet()), Fraction.of(1, 4)))
+    }
 }

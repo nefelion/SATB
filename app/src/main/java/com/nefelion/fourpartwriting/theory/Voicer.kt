@@ -24,6 +24,8 @@ object Voicer {
 
     private const val NO = 1e6
     private const val BEAM = 300
+    /** Cheapest voicings a fix runs the checker on. */
+    private const val CHECKED = 25
 
     /** A chord possible at a point: [required] must sound; [bass] is the bass the name asks for, if any. */
     private class Option(val pcs: Set<PitchClass>, val required: Set<PitchClass>, val bass: PitchClass?, val chord: Chord,
@@ -68,22 +70,7 @@ object Voicer {
             val t = on[i]
             // shortcut: a rest in a written voice counts as a free note here (not written); fine for chorale-style parts
             val fixed = Voice.entries.map { v -> if (t < score.length(v)) score.eventAt(v, t).takeIf { it >= 0 }?.let { score.voice(v)[it].pitch } else null }
-            val named = Voice.entries.firstNotNullOfOrNull { v ->
-                val j = score.eventAt(v, t)
-                score.voice(v).getOrNull(j)?.takeIf { score.onsets(v)[j] == t }?.chord
-            }?.let { ChordText.parse(it, key) }
-            val bassEvent = score.eventAt(Voice.BASS, t).takeIf { it >= 0 && t < score.length(Voice.BASS) }?.let { score.voice(Voice.BASS)[it] }
-            val options = when {
-                named != null -> listOf(option(named.pcs, named.bass.takeIf { b -> fixed[3] == null || fixed[3]!!.pc == b }, key, 0.0, false))
-                figured && bassEvent?.pitch != null -> {
-                    val b = bassEvent.pitch
-                    val above = FiguredBass.realize(b, bassEvent.figures, key).values
-                    val spec = ChordAnalyzer.analyze(listOf(b) + above.map { Pitch(it.step, it.alter, 4) }, key)
-                    listOf(option(listOf(b.pc) + above.filter { it != b.pc }, b.pc, key, 0.0, false, spec))
-                }
-                else -> inferred(key, fixed, last = k == idx.lastIndex, penultimate = k == idx.lastIndex - 1)
-            }
-            Point(fixed, options)
+            Point(fixed, optionsAt(score, t, fixed, figured, last = k == idx.lastIndex, penultimate = k == idx.lastIndex - 1))
         }
         val path = search(points, key).let { (p, stuck) -> p ?: return Outcome.Stuck(on[idx[stuck]]) }
         val upper = Voice.entries.map { v ->
@@ -100,6 +87,89 @@ object Voicer {
             out
         }
         return Outcome.Done(score.copy(voices = upper))
+    }
+
+    /** Chords possible at [t]: the chord named on a note there, else the bass figures, else diatonic chords holding the [fixed] notes. */
+    private fun optionsAt(score: Score, t: Fraction, fixed: List<Pitch?>, figured: Boolean, last: Boolean, penultimate: Boolean): List<Option> {
+        val key = score.key
+        val named = Voice.entries.firstNotNullOfOrNull { v ->
+            val j = score.eventAt(v, t)
+            score.voice(v).getOrNull(j)?.takeIf { score.onsets(v)[j] == t }?.chord
+        }?.let { ChordText.parse(it, key) }
+        val bassEvent = score.eventAt(Voice.BASS, t).takeIf { it >= 0 && t < score.length(Voice.BASS) }?.let { score.voice(Voice.BASS)[it] }
+        return when {
+            named != null -> listOf(option(named.pcs, named.bass.takeIf { b -> fixed[3] == null || fixed[3]!!.pc == b }, key, 0.0, false))
+            figured && bassEvent?.pitch != null -> {
+                val b = bassEvent.pitch
+                val above = FiguredBass.realize(b, bassEvent.figures, key).values
+                val spec = ChordAnalyzer.analyze(listOf(b) + above.map { Pitch(it.step, it.alter, 4) }, key)
+                listOf(option(listOf(b.pc) + above.filter { it != b.pc }, b.pc, key, 0.0, false, spec))
+            }
+            else -> inferred(key, fixed, last, penultimate)
+        }
+    }
+
+    /**
+     * The score with the chord at [t] revoiced: of the cheapest clean voicings between its neighbours, the one
+     * the checker ([rules]) flags least, then the one that changes the fewest notes, by the smallest steps.
+     * Only notes of [movable] voices struck at [t] move (by default all but given voices; never notes held into it).
+     * The chord keeps its name or figures; with neither, it may keep its written harmony or take another diatonic chord.
+     * The same score if nothing beats the written chord; null if nothing at [t] can move or no clean voicing fits.
+     */
+    fun fix(score: Score, t: Fraction, rules: Set<Rule> = Rule.entries.toSet(),
+            movable: Set<Voice> = Voice.entries.toSet() - score.given): Score? {
+        val key = score.key
+        fun sounding(at: Fraction) = Voice.entries.map { v -> score.eventAt(v, at).takeIf { it >= 0 }?.let { score.voice(v)[it].pitch } }
+        val struck = Voice.entries.filter { v ->
+            val j = score.eventAt(v, t)
+            v in movable && j >= 0 && score.onsets(v)[j] == t && score.voice(v)[j].pitch != null
+        }
+        if (struck.isEmpty()) return null
+        val times = Voice.entries.flatMap { v -> score.onsets(v).filterIndexed { i, _ -> score.voice(v)[i].pitch != null } }.distinct().sorted()
+        val k = times.indexOf(t)
+        val figured = score.voice(Voice.BASS).any { it.figures.isNotEmpty() } || Voice.BASS in score.given
+        val written = sounding(t)
+        val free = written.mapIndexed { i, p -> p.takeIf { Voice.entries[i] !in struck } }
+        val opts = optionsAt(score, t, free, figured, last = k == times.lastIndex, penultimate = k == times.lastIndex - 1)
+        // The written harmony (a chromatic one too) stays possible when it is a full chord
+        val own = actual(written, key).takeIf { it.chord.recognized && it.chord.third != null && opts.all { o -> o.inferred } }
+        val prev = times.getOrNull(k - 1)?.let(::sounding)
+        val next = times.getOrNull(k + 1)?.let(::sounding)
+        val prevOpt = prev?.let { actual(it, key) }
+        val nextOpt = next?.let { actual(it, key) }
+        val found = mutableListOf<Pair<Double, List<Pitch>>>()
+        for (opt in opts + listOfNotNull(own)) {
+            val cadential = opt.chord.degree == 0 && opt.chord.inversion == 2
+            for (c in voicings(opt, free)) {
+                // A voice resting next to the chord counts as holding its note: no motion to judge
+                fun around(n: List<Pitch?>) = n.mapIndexed { i, p -> p ?: c[i] }
+                var cost = opt.cost + node(c, opt, free, cadential) + away(c, written)
+                if (prev != null) cost += move(around(prev), c, around(prev), free, prevOpt!!, opt) + progression(prevOpt, opt, key)
+                if (next != null) cost += move(c, around(next), free, around(next), opt, nextOpt!!)
+                if (cost < NO) found += cost to c
+            }
+        }
+        if (found.isEmpty()) return null
+        fun with(c: List<Pitch>) = score.copy(voices = Voice.entries.map { voice ->
+            if (voice !in struck) return@map score.voice(voice)
+            val j = score.eventAt(voice, t)
+            score.voice(voice).toMutableList().also { it[j] = it[j].copy(pitch = c[voice.ordinal]) }
+        })
+        // The checker covers what the costs above don't (tendency tones, leaps, cross relations ...); the whole
+        // score is checked, so only the difference this chord makes ranks the candidates.
+        // shortcut: checks the whole score per candidate; crop to the bars around [t] if long scores get slow
+        fun flags(sc: Score) = VoiceLeading.check(sc, rules).issues.sumOf { if (it.severity == Severity.ERROR) 1000.0 else 50.0 }
+        val best = found.distinctBy { it.second }.sortedBy { it.first }.take(CHECKED)
+            .map { (cost, c) -> with(c).let { Triple(it, flags(it), cost) } }.minBy { it.second + it.third }
+        // Your chord stays unless a candidate is flagged less
+        return if (best.second < flags(score)) best.first else score
+    }
+
+    /** The chord the written [notes] spell, keeping its bass. */
+    private fun actual(notes: List<Pitch?>, key: Key): Option {
+        val ps = notes.filterNotNull()
+        val chord = ChordAnalyzer.analyze(ps, key)
+        return option(ps.map { it.pc }.distinct(), chord.bass, key, 0.0, false, chord)
     }
 
     private fun option(pcs: List<PitchClass>, bass: PitchClass?, key: Key, cost: Double, inferred: Boolean, known: Chord? = null): Option {
@@ -202,6 +272,12 @@ object Voicer {
         return c
     }
 
+    /** Each changed note costs more than a smoother line saves, so a fix moves as few voices as it can. */
+    private fun away(v: List<Pitch>, near: List<Pitch?>) = v.indices.sumOf { i ->
+        val n = near[i]
+        if (n == null || n == v[i]) 0.0 else 25.0 + abs(v[i].midi - n.midi)
+    }
+
     /** Root motion in the key: strong progressions cheap, retrogressions dear. Only guides chords the app picks. */
     private fun progression(a: Option, b: Option, key: Key): Double {
         if (!b.inferred) return 0.0
@@ -248,11 +324,11 @@ object Voicer {
         if (dirs.all { it == 1 } || dirs.all { it == -1 }) cost += 15
         // The leading tone of a resolving dominant rises to its target; the seventh falls by step
         val lt = tp.chord.leadingTone
-        if (lt != null && tc.chord.root == tp.chord.target) for (v in 0 until 3) if (p[v].pc == lt && fc[v] == null) {
+        if (lt != null && tc.chord.root == tp.chord.target) for (v in 0 until 3) if (p[v].pc == lt && !held(v)) {
             if (c[v].pc != tp.chord.target || c[v].midi < p[v].midi) cost += if (v == 0) NO else 40.0
         }
         val sev = tp.chord.seventh
-        if (sev != null) for (v in 0 until 4) if (p[v].pc == sev && fc[v] == null && p[v].diatonic - c[v].diatonic != 1) return NO
+        if (sev != null) for (v in 0 until 4) if (p[v].pc == sev && !held(v) && p[v].diatonic - c[v].diatonic != 1) return NO
         return cost
     }
 }

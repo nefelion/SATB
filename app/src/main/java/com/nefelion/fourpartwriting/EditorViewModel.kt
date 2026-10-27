@@ -546,7 +546,15 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             val start = sc.length(v)
             filled.onsets(v).withIndex().firstOrNull { (i, on) -> on >= start && filled.voice(v)[i].pitch != null }?.value
         }.minOrNull() ?: return@launch msg("Every voice is written. Press ✓ to check.")
-        val notes = Voice.entries.map { v -> filled.eventAt(v, t).takeIf { it >= 0 }?.let { filled.voice(v)[it].pitch } }
+        // The checker may flag the solver's chord (it doesn't model every rule): revoice it against your notes alone
+        val open = Voice.entries.filter { sc.length(it) <= t }.toSet()
+        val upTo = sc.copy(voices = Voice.entries.map { v ->
+            if (v !in open) sc.voice(v) else filled.voice(v).filterIndexed { i, _ -> filled.onsets(v)[i] <= t }
+        })
+        val rules = s.rules
+        val best = withContext(Dispatchers.Default) { Voicer.fix(upTo, t, rules, open) } ?: upTo
+        if (s.score != sc) return@launch
+        val notes = Voice.entries.map { v -> best.eventAt(v, t).takeIf { it >= 0 }?.let { best.voice(v)[it].pitch } }
         val chord = ChordAnalyzer.analyze(notes.filterNotNull(), sc.key)
         val ghosts = Voice.entries.filter { sc.length(it) <= t }.mapNotNull { v ->
             val p = notes[v.ordinal] ?: return@mapNotNull null
@@ -557,6 +565,18 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         // Plain digits: the snackbar cannot stack figures
         val roman = chord.roman.map { c -> "⁰¹²³⁴⁵⁶⁷⁸⁹".indexOf(c).takeIf { it >= 0 }?.let { '0' + it } ?: "₀₁₂₃₄₅₆₇₈₉".indexOf(c).takeIf { it >= 0 }?.let { '0' + it } ?: c }.joinToString("")
         msg("Hint for bar ${barOf(t)}: ${roman.ifEmpty { chord.symbol }} (${chord.symbol}). The faded notes show one way to voice it.")
+    }
+
+    /** Revoices the selected note's chord: the clean voicing nearest the written one (one undo step). */
+    fun fixChord() = viewModelScope.launch {
+        val sc = s.score
+        val r = s.selected ?: return@launch msg("Select a note of the chord to fix.")
+        val t = sc.onsets(r.voice)[r.index]
+        val rules = s.rules
+        val fixed = withContext(Dispatchers.Default) { Voicer.fix(sc, t, rules) }
+            ?: return@launch msg("No clean voicing of this chord fits the chords around it. Try fixing a neighbour first.")
+        if (fixed == sc) return@launch msg("No cleaner voicing nearby. Press ✓ to see what's flagged.")
+        if (s.score == sc) { edit(fixed); msg("Chord revoiced. Undo brings yours back.") }
     }
 
     private fun barOf(t: Fraction) = (t / s.score.time.measure).let { it.num / it.den + 1 }
