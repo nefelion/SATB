@@ -180,7 +180,7 @@ fun EditorScreen(vm: EditorViewModel) {
             item("Hint", false) { vm.hint() }
             if (st.selected != null) item("Fix this chord", false) { vm.fixChord() }
             // Again while open: closes it, like Done
-            item("Chord names", false) { if (chords) chords = false else if (vm.startChords()) { chords = true; figures = false } }
+            item("Specify chord", false) { if (chords) chords = false else if (vm.startChords()) { chords = true; figures = false } }
             item("Export MusicXML", false) { xmlSaver.launch("${st.scoreName}.musicxml") }
             item("Clear score", true) { confirmClear = true }
             HorizontalDivider()

@@ -308,6 +308,7 @@ object Engraver {
         // Measures
         val symRight = floatArrayOf(-99f, -99f)
         val romRight = floatArrayOf(-99f, -99f)
+        var prevLab: ChordLabel? = null
         val headAt = HashMap<Triple<Voice, Int, Int>, Pair<Item, Pair<Float, Float>>>()
         val labelTop = top - max(2.4f, (maxP[0] - 8) * 0.5f + 1.6f)
         val labelBot = bot + max(3.0f, (0 - minP[n - 1]) * 0.5f + 2.6f)
@@ -323,7 +324,11 @@ object Engraver {
             } else marks += LineMark(box.x1, top, box.x1, bot, Smufl.THIN_BAR)
             if (mi > 0 && !bare) marks += TextMark("${mi + 1}", box.x0 + 0.2f, top - 0.6f, 1.0f, TextStyle.MEASURE_NO)
             drawMeasure(score, shown, m, box, ::sy, ::syf, marks, heads, headAt, hidden, restBoxes)
-            for (c in m.cols) labels[c.time]?.let { lab ->
+            for (c in m.cols) {
+                val lab = labels[c.time]
+                val prev = prevLab
+                prevLab = lab
+                if (lab == null) continue
                 val cx = c.x + Smufl.HEAD_W / 2
                 // Labels that would collide with the previous one move to a second row.
                 fun row(text: String, size: Float, last: FloatArray): Int {
@@ -332,12 +337,16 @@ object Engraver {
                     last[r] = cx + w / 2
                     return r
                 }
-                if (lab.symbol.isNotEmpty()) {
+                // A chord held or repeated is labelled once, where it starts ("?" always shows)
+                fun same(a: String, b: String?) = a == b && a != "?"
+                if (lab.symbol.isNotEmpty() && !same(lab.symbol, prev?.symbol)) {
                     val r = row(lab.symbol, 1.3f, symRight)
                     marks += TextMark(lab.symbol, cx, labelTop - r * 1.4f, 1.3f, TextStyle.SYMBOL)
                 }
-                val r = row(lab.roman, 1.6f, romRight)
-                marks += TextMark(lab.roman, cx, labelBot + figH + r * 2.0f, 1.6f, TextStyle.ROMAN)
+                if (!same(lab.roman, prev?.roman)) {
+                    val r = row(lab.roman, 1.6f, romRight)
+                    marks += TextMark(lab.roman, cx, labelBot + figH + r * 2.0f, 1.6f, TextStyle.ROMAN)
+                }
             }
         }
         drawTies(score, shown, headAt, marks)
@@ -348,10 +357,16 @@ object Engraver {
             if (!labelled.add(h.ref)) continue
             marks += TextMark(lab, h.x + 1.1f, h.y - 0.9f, 1.0f, TextStyle.NCT)
         }
+        // A written name repeats only after it changes or after an unnamed note of that voice
         val named = HashSet<NoteRef>()
-        for (h in heads) {
+        val lastName = HashMap<Voice, String?>()
+        for (h in heads.sortedBy { it.x }) {
             if (!named.add(h.ref)) continue
-            val name = score.voice(h.ref.voice).getOrNull(h.ref.index)?.chord ?: continue
+            val e = score.voice(h.ref.voice).getOrNull(h.ref.index) ?: continue
+            if (e.pitch == null) continue
+            val name = e.chord
+            val prev = lastName.put(h.ref.voice, name)
+            if (name == null || name == prev) continue
             marks += TextMark(name, h.x + Smufl.HEAD_W / 2, labelTop - (if (hasLabels) 2.9f else 0.3f), 1.4f, TextStyle.NAME)
         }
         val figured = HashSet<NoteRef>()
