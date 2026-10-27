@@ -3,6 +3,7 @@
 <ul>
 <li>Write four voices by tapping notes onto the staff, or play them on a USB or Bluetooth MIDI keyboard.</li>
 <li>Harmony check against 25 voice-leading rules (parallel fifths and octaves, leading tone, doubling, spacing …), each explained with an example.</li>
+<li>Figured bass and given soprano exercises: write the other voices around a given bass or melody, check them, or ask for a hint or a full solution.</li>
 <li>Chord symbols, Roman numerals and named non-chord tones.</li>
 <li>Playback with any SoundFont (.sf2) you pick, and export to MusicXML.</li>
 </ul>
