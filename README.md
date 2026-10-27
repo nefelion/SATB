@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/images/logo.svg" width="128" alt="SATB logo: a treble staff with four colored notes rising"></p>
 
-# SATB
+# SATB - Voice Leading
 
 An Android app for writing four-part (SATB) harmony and checking it against common-practice voice-leading rules.
 
