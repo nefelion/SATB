@@ -584,7 +584,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                 Text("SATB", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
                 Text("Version $version", style = MaterialTheme.typography.bodyMedium, color = muted)
                 Text("Free and open-source software (GPLv3)", style = MaterialTheme.typography.bodyMedium, color = muted, textAlign = TextAlign.Center)
-                FilledTonalButton(onClick = { runCatching { uri.openUri("https://github.com/nefelion/FourPartWriting") } }, shape = SHAPE) {
+                FilledTonalButton(onClick = { runCatching { uri.openUri("https://github.com/nefelion/SATB") } }, shape = SHAPE) {
                     Text("Source code on GitHub")
                 }
                 Text("Music font: Bravura © Steinberg Media Technologies, SIL Open Font License.",
