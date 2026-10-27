@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/images/logo.svg" width="128" alt="SATB logo: a treble staff with four coloured notes rising"></p>
+<p align="center"><img src="docs/images/logo.svg" width="128" alt="SATB logo: a treble staff with four colored notes rising"></p>
 
 # SATB
 

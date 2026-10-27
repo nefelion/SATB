@@ -28,7 +28,7 @@ class HarmonyTest {
     private fun nct(a: Analysis, v: Voice, i: Int) = a.ncts[NoteRef(v, i)]
     private fun errors(a: Analysis) = a.issues.filter { it.severity == Severity.ERROR }.map { it.rule }
 
-    @Test fun passingAndNeighbour() {
+    @Test fun passingAndNeighbor() {
         val pt = check("E4:8 F4:8 G4:4", "C4:4 E4:4", "G3:2", "C3:2")
         assertEquals(listOf("I", "I"), romans(pt))
         assertEquals(NctType.PT, nct(pt, Voice.SOPRANO, 1)?.type)

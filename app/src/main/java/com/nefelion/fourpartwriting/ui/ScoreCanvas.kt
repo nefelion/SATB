@@ -134,7 +134,7 @@ fun ScoreCanvas(
         SideEffect { clampOffsets() }
         LaunchedEffect(viewKey) { snapshotFlow { sp to offX }.collect { (a, b) -> onViewport(a, b) } }
 
-        // Highlight colours per note
+        // Highlight colors per note
         // Focused issue: its flagged heads (one per issue note; a tied note picks the head sounding at that slice), by voice
         val flagged = remember(layout, analysis, state.focusedIssue) {
             val issue = state.focusedIssue?.let { analysis?.issues?.getOrNull(it) } ?: return@remember emptyMap()
@@ -151,9 +151,9 @@ fun ScoreCanvas(
             // Rests that only fill out a bar after a voice ends (not written): light, but opaque so nothing shows through
             val filler = lerp(paper, sc.ink, 0.45f).toArgb()
             for (v in Voice.entries) m[NoteRef(v, state.score.voice(v).size)] = filler
-            // An exercise's given voices are grey
-            val grey = lerp(paper, sc.ink, 0.5f).toArgb()
-            for (v in state.score.given) for (i in state.score.voice(v).indices) m[NoteRef(v, i)] = grey
+            // An exercise's given voices are gray
+            val gray = lerp(paper, sc.ink, 0.5f).toArgb()
+            for (v in state.score.given) for (i in state.score.voice(v).indices) m[NoteRef(v, i)] = gray
             if (analysis != null && flagged.isNotEmpty()) {
                 // Check with an issue picked: its notes stay plain ink (rings mark them), the rest fades toward paper, opaque so staff lines don't show through
                 val keep = flagged.values.flatten().map { it.ref }.toSet()
@@ -167,7 +167,7 @@ fun ScoreCanvas(
             m
         }
 
-        // A selected tied note: full colour only around the tapped head, its other heads lighter
+        // A selected tied note: full color only around the tapped head, its other heads lighter
         val headRange = remember(layout, state.selected, state.selectedTime) {
             val sel = state.selected ?: return@remember null
             val hs = layout.heads.filter { it.ref == sel }.sortedBy { it.x }
@@ -395,8 +395,8 @@ fun ScoreCanvas(
 }
 
 /**
- * Draws engraved [marks] at [sp] px per staff space. [colorOf] gives a mark's colour, or null for plain ink.
- * Two passes: plain marks, then coloured ones on top (a selected unison stays visible).
+ * Draws engraved [marks] at [sp] px per staff space. [colorOf] gives a mark's color, or null for plain ink.
+ * Two passes: plain marks, then colored ones on top (a selected unison stays visible).
  * Marks outside [visL]..[visR] (staff spaces) are skipped.
  */
 internal fun drawMarks(
@@ -462,7 +462,7 @@ internal class Paints(bravura: Typeface) {
     val tick = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL_AND_STROKE; strokeJoin = Paint.Join.ROUND }
     val path = Path()
     val text = Paint(Paint.ANTI_ALIAS_FLAG)
-    /** Plain text and non-chord-tone label colours for the current theme, set before each draw. */
+    /** Plain text and non-chord-tone label colors for the current theme, set before each draw. */
     var ink = 0
     var nct = 0
     val roman: Typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL)
@@ -531,7 +531,7 @@ private fun drawRoman(nc: android.graphics.Canvas, t: TextMark, sp: Float, p: Pa
     }
 }
 
-/** A single SMuFL glyph centred in a box, for toolbar buttons. */
+/** A single SMuFL glyph centered in a box, for toolbar buttons. */
 @Composable
 fun GlyphIcon(c: Char, sizeDp: Int, color: Color, modifier: Modifier = Modifier) = GlyphIcon(c.toString(), sizeDp, color, modifier)
 

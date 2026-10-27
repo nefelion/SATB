@@ -17,7 +17,7 @@ import kotlin.random.Random
 
 /**
  * Random triad progressions, one chord per bar half (or per bar in 3/4), where one or two voices break their
- * note into chord tones (arpeggio, struck again, octave leaps) between their neighbours. Only chord tones
+ * note into chord tones (arpeggio, struck again, octave leaps) between their neighbors. Only chord tones
  * sound, so every beat keeps the chord, nothing is a non-chord tone, and no chord loses its third.
  */
 class ArpeggioOracleTest {
@@ -65,7 +65,7 @@ class ArpeggioOracleTest {
             val lines = List(4) { v ->
                 chords.flatMapIndexed { ci, c ->
                     if (v !in movers) return@flatMapIndexed listOf(Event(span, c[v]))
-                    // Chord tones strictly between the (held) neighbours, within a tenth of the written note
+                    // Chord tones strictly between the (held) neighbors, within a tenth of the written note
                     val hi = if (v == 0) c[0].midi + 7 else (if (v - 1 in movers) chords[ci][v - 1].midi - 5 else c[v - 1].midi)
                     val lo = if (v == 3) c[3].midi - 12 else (if (v + 1 in movers) chords[ci][v + 1].midi + 5 else c[v + 1].midi)
                     val pool = (-12..12).map { c[v].diatonic + it }.flatMap { d ->

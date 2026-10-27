@@ -45,8 +45,8 @@ class FloridEdgeTest {
         assertNull(a.nct(S, 2))
     }
 
-    /** A bass neighbour (G–F♯–G) while the 4–3 waits does not undo the suspension. */
-    @Test fun bassNeighbourUnderSuspension() {
+    /** A bass neighbor (G–F♯–G) while the 4–3 waits does not undo the suspension. */
+    @Test fun bassNeighborUnderSuspension() {
         val a = linesScore("C5:2 C5:4 B4:4", "G4:2 G4:2", "E4:2 D4:2", "C3:2 G2:8 F#2:8 G2:4").analysis()
         assertEquals(listOf("I", "V", "V"), a.romans())
         assertEquals("4–3", a.nct(S, 1)?.label)
@@ -54,7 +54,7 @@ class FloridEdgeTest {
         a.lacks(Rule.UNRESOLVED_NCT)
     }
 
-    /** A bass that is itself a neighbour on the beat does not turn a held chord tone into a suspension. */
+    /** A bass that is itself a neighbor on the beat does not turn a held chord tone into a suspension. */
     @Test fun bassOrnamentOnTheBeatMakesNoSuspension() {
         val a = linesScore("C5:1 C5:1", "G4:1 G4:1", "E4:1 D4:1", "C3:4 E3:4 F3:4 E3:4 F3:1").analysis()
         assertTrue(a.ncts.toString(), a.ncts.values.none { it.type == NctType.SUS })

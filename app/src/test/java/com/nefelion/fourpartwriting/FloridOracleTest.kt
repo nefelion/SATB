@@ -21,8 +21,8 @@ import kotlin.random.Random
 
 /**
  * Bars of one diatonic triad held as whole notes while one or two voices move in quarters on the beats,
- * through stepwise passing and neighbour tones and leaps of a third between chord tones. Every beat must
- * keep the bar's chord, every moving dissonance must be a passing or neighbour tone, and nothing else one.
+ * through stepwise passing and neighbor tones and leaps of a third between chord tones. Every beat must
+ * keep the bar's chord, every moving dissonance must be a passing or neighbor tone, and nothing else one.
  */
 class FloridOracleTest {
     private fun lowestAbove(pc: PitchClass, floor: Pitch): Pitch {

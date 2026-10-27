@@ -100,7 +100,7 @@ class RenderPreview {
             line("E4:8 F4:8 G4:2 A4:4 G4:1 r:2 C4:2 r:4"),
             line("A3:1 E3:1 C3:2. G2:4 A2:2"),
         )), "ties")
-        // Polyphonic: passing tones, 4-3 suspension, neighbour, anticipation
+        // Polyphonic: passing tones, 4-3 suspension, neighbor, anticipation
         render(Score(voices = listOf(
             line("E5:8 D5:8 C5:4 C5:4. B4:8 C5:8 D5:8 C5:2."),
             line("G4:4 A4:4 G4:4 G4:4 G4:8 F4:8 E4:2"),

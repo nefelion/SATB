@@ -32,17 +32,17 @@ enum class Rule(val label: String, val desc: String, val why: String) {
         "The third decides major or minor; without it the chord sounds empty and its quality is unclear."),
     DOUBLING("Doubling", "Never double the leading tone or the seventh; in major triads double the root.",
         "A doubled tendency tone must resolve the same way in both voices, which makes parallel octaves; the root is the most stable note to reinforce."),
-    SPACING("Spacing", "Keep upper neighbouring voices within an octave; tenor and bass within a twelfth.",
+    SPACING("Spacing", "Keep upper neighboring voices within an octave; tenor and bass within a twelfth.",
         "Wide gaps in the upper voices make the chord sound hollow and split apart; the bass may sit further away, as the low overtones are spread wide too."),
     MELODIC("Melodic interval", "No augmented intervals, sevenths or leaps beyond an octave within a voice.",
         "Every part must be singable; awkward intervals are hard to pitch and break the line."),
-    OVERLAP("Voice overlap", "A voice must not move past the previous note of its neighbour.",
-        "When a voice passes its neighbour's previous note, the ear hears the line jump into the other voice, almost like crossing."),
+    OVERLAP("Voice overlap", "A voice must not move past the previous note of its neighbor.",
+        "When a voice passes its neighbor's previous note, the ear hears the line jump into the other voice, almost like crossing."),
     DIRECT("Direct fifths/octaves", "Outer voices may not leap in similar motion into a fifth or octave.",
         "The outer voices are heard most clearly; reaching a perfect interval by similar motion with a leap exposes it like a hidden parallel."),
     TENDENCY("Tendency tones", "Chromatic notes keep their pull: raised notes rise, lowered notes fall.",
         "A chromatic note acts as a temporary leading tone; moving against its pull sounds like a wrong note."),
-    UNRESOLVED_NCT("Non-chord tones", "A dissonance must be a passing, neighbour, suspension or other standard figure.",
+    UNRESOLVED_NCT("Non-chord tones", "A dissonance must be a passing, neighbor, suspension or other standard figure.",
         "A dissonance makes sense only when the ear hears where it comes from and where it goes; otherwise it sounds like a mistake."),
     CADENCE("Final cadence", "End on the tonic in root position after V or IV.",
         "The ending must confirm the key; V–I or IV–I in root position gives the strongest sense of arrival."),
@@ -63,7 +63,7 @@ enum class Rule(val label: String, val desc: String, val why: String) {
     UNEQUAL_FIFTHS("Unequal fifths", "A diminished fifth over the bass should not move to a perfect fifth.",
         "The diminished fifth wants to close to a third; turning it into a perfect fifth skips that resolution and sounds like parallel fifths."),
     HARMONIC_RHYTHM("Harmonic rhythm", "Do not repeat a chord from a weak beat to the downbeat.",
-        "A chord held from a weak beat into the downbeat makes the downbeat bring nothing new, so the metre seems to shift."),
+        "A chord held from a weak beat into the downbeat makes the downbeat bring nothing new, so the meter seems to shift."),
     SIMILAR_MOTION("All voices in one direction", "Keep at least one voice moving against or holding against the others.",
         "When all voices move together the texture lurches as one block and parallels creep in; contrary motion keeps the parts independent."),
     MISSING_VOICE("Missing voice", "Every voice should sound in every chord.",
@@ -175,7 +175,7 @@ object VoiceLeading {
             val s = slices[i]
             if (nct.type == NctType.UNRESOLVED)
                 add(Severity.ERROR, i, Rule.UNRESOLVED_NCT,
-                    "${v.label}: ${p.name} is a dissonance that is not a passing, neighbour, suspension or other standard non-chord tone.", i to v)
+                    "${v.label}: ${p.name} is a dissonance that is not a passing, neighbor, suspension or other standard non-chord tone.", i to v)
             if (nct.type == NctType.SUS && v != Voice.BASS && i in pointChord) {
                 // The note of resolution should not sound in another voice against the suspension (the bass of a 9–8 or 9–6 excepted)
                 // The step down: the next note, or the one after an ornament
@@ -264,7 +264,7 @@ object VoiceLeading {
                 if (p.midi !in RANGES.getValue(v))
                     add(Severity.WARNING, i, Rule.RANGE, "${v.name.lowercase().cap()} ${p.name} is out of its usual range.", i to v)
             }
-            // Spacing and crossing, between neighbouring sounding voices (a resting voice is skipped)
+            // Spacing and crossing, between neighboring sounding voices (a resting voice is skipped)
             for ((vu, vl) in V.filter { n[it.ordinal] != null }.zipWithNext()) {
                 val up = n[vu.ordinal]!!
                 val lo = n[vl.ordinal]!!

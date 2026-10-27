@@ -163,7 +163,7 @@ private class Demo(val rule: Rule, ex: RuleExample) {
             val r = m.ref?.let(headX::get)
             when {
                 r != null -> shift(m, dx(r), -y0)
-                m is LineMark && m.ledger() -> shift(m, dx((m.x1 + m.x2) / 2), -y0) // its middle is the head centre
+                m is LineMark && m.ledger() -> shift(m, dx((m.x1 + m.x2) / 2), -y0) // its middle is the head center
                 m is LineMark -> m.copy(x1 = m.x1 + dx(m.x1), x2 = m.x2 + dx(m.x2), y1 = m.y1 - y0, y2 = m.y2 - y0)
                 else -> shift(m, dx(m.x), -y0)
             }
@@ -173,7 +173,7 @@ private class Demo(val rule: Rule, ex: RuleExample) {
         return ScoreLayout(l.width + dx(l.width), l.height, marks, st, l.measures, heads, l.contentEnd)
     }
 
-    /** Head centre of a note. */
+    /** Head center of a note. */
     fun head(l: ScoreLayout, r: NoteRef) = l.heads.firstOrNull { it.ref == r }?.let { it.x to it.y }
 
     private fun ref(a: Analysis, slice: Int, v: Voice) =
@@ -364,11 +364,11 @@ private fun glideFrame(nc: android.graphics.Canvas, d: Demo, k: Float, sp: Float
     fun rest(l: ScoreLayout) = l.marks.filter { !it.frame() && !it.ledger() && !it.attached() }
     fun byNote(l: ScoreLayout) = rest(l).filter { it.ref != null }.groupBy { it.ref to it::class }
     val badBy = byNote(d.badL); val goodBy = byNote(d.goodL)
-    val travelling = ArrayList<Mark>(); val pairedGood = HashSet<Mark>(); val fadeOut = ArrayList<Mark>()
+    val traveling = ArrayList<Mark>(); val pairedGood = HashSet<Mark>(); val fadeOut = ArrayList<Mark>()
     for ((key, ms) in badBy) for ((i, m) in ms.withIndex()) {
         val g = goodBy[key]?.getOrNull(i)
         val t = g?.let { lerp(m, it, k) }
-        if (t != null) { travelling += t; pairedGood += g } else fadeOut += m
+        if (t != null) { traveling += t; pairedGood += g } else fadeOut += m
     }
     fun color(m: Mark): Int? {
         val from = if (m.ref in d.flagged) err else ink
@@ -384,7 +384,7 @@ private fun glideFrame(nc: android.graphics.Canvas, d: Demo, k: Float, sp: Float
             if (m.ref in d.changed) ok else null
         }
     }
-    drawMarks(nc, travelling, sp, p, colorOf = ::color)
+    drawMarks(nc, traveling, sp, p, colorOf = ::color)
     val now = HashMap<NoteRef, Pair<Float, Float>>()
     val moved = d.badL.marks.filter { it.attached() }.map { m ->
         val r = m.ref!!
@@ -420,7 +420,7 @@ private fun overlay(nc: android.graphics.Canvas, d: Demo, draw: Float, col: Int,
     for (ar in d.arrows) {
         val (x1, y1) = d.head(d.badL, ar.from) ?: continue
         val (x2, y2) = d.head(d.badL, ar.to) ?: continue
-        // Head centre to head centre, starting and stopping a little outside each (elliptic) head
+        // Head center to head center, starting and stopping a little outside each (elliptic) head
         val ang = atan2(y2 - y1, x2 - x1)
         val c = cos(ang); val s = sin(ang)
         val gap = 0.35f + 1f / sqrt((c / 0.65f) * (c / 0.65f) + (s / 0.5f) * (s / 0.5f))

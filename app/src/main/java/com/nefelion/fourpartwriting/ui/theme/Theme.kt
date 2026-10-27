@@ -70,7 +70,7 @@ private val NightScheme = darkColorScheme(
     onErrorContainer = NightInk,
 )
 
-/** Colours with no Material slot: voices, check results on notes and in the list, playback, non-chord tones. */
+/** Colors with no Material slot: voices, check results on notes and in the list, playback, non-chord tones. */
 @Immutable
 data class ScoreColors(
     /** Notes, staves and text in the score. */

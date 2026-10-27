@@ -93,7 +93,7 @@ object MusicXml {
                 }
                 first = false
                 var t = start
-                // Neighbouring values of one tuplet group
+                // Neighboring values of one tuplet group
                 fun joined(a: W?, b: W?) = a != null && b != null && a.seg.tuplet && a.seg.group == b.seg.group &&
                     a.seg.onset + a.seg.length == b.seg.onset
                 for ((j, w) in notes.withIndex()) {

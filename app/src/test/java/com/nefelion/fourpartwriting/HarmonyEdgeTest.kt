@@ -27,8 +27,8 @@ class HarmonyEdgeTest {
         assertEquals(NctType.PT, down.nct(S, 1)?.type)
     }
 
-    @Test fun accentedNeighbourOnTheBeat() {
-        // F5 on beat 2 steps in from E5 and back: an accented neighbour, the chord stays I
+    @Test fun accentedNeighborOnTheBeat() {
+        // F5 on beat 2 steps in from E5 and back: an accented neighbor, the chord stays I
         val a = linesScore("E5:4 F5:8 E5:8", "G4:2", "C4:2", "C3:2").analysis()
         assertEquals(listOf("I", "I"), a.romans())
         assertEquals(NctType.NT, a.nct(S, 1)?.type)
@@ -85,7 +85,7 @@ class HarmonyEdgeTest {
         assertEquals(NctType.PT, a.nct(S, 2)?.type)
     }
 
-    @Test fun chromaticNeighbours() {
+    @Test fun chromaticNeighbors() {
         val lower = linesScore("G4:8 F#4:8 G4:4", "E4:2", "C4:2", "C3:2").analysis()
         assertEquals(NctType.NT, lower.nct(S, 1)?.type)
         val upper = linesScore("G4:8 G#4:8 G4:4", "E4:2", "C4:2", "C3:2").analysis()
@@ -107,7 +107,7 @@ class HarmonyEdgeTest {
 
     @Test fun fourThreeInTheAlto() {
         val a = linesScore("G4:2", "E4:4 F4:8 E4:8", "C4:4 C4:4", "C3:4 C3:4").analysis()
-        // F4 struck on beat 2 from E4 and back: accented neighbour, not a suspension
+        // F4 struck on beat 2 from E4 and back: accented neighbor, not a suspension
         assertEquals(NctType.NT, a.nct(A, 1)?.type)
         val sus = linesScore("A4:4 G4:4", "F4:4. E4:8", "C4:2", "F3:4 C3:4").analysis()
         assertEquals("4–3", sus.nct(A, 0)?.label)

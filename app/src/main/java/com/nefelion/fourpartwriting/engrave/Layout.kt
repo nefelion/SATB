@@ -337,7 +337,7 @@ object Engraver {
                     last[r] = cx + w / 2
                     return r
                 }
-                // A chord held or repeated is labelled once, where it starts ("?" always shows)
+                // A chord held or repeated is labeled once, where it starts ("?" always shows)
                 fun same(a: String, b: String?) = a == b && a != "?"
                 if (lab.symbol.isNotEmpty() && !same(lab.symbol, prev?.symbol)) {
                     val r = row(lab.symbol, 1.3f, symRight)
@@ -351,10 +351,10 @@ object Engraver {
         }
         drawTies(score, shown, headAt, marks)
         // Non-chord-tone labels, next to the first written head of the note
-        val labelled = HashSet<NoteRef>()
+        val labeled = HashSet<NoteRef>()
         for (h in heads) {
             val lab = nctLabels[h.ref] ?: continue
-            if (!labelled.add(h.ref)) continue
+            if (!labeled.add(h.ref)) continue
             marks += TextMark(lab, h.x + 1.1f, h.y - 0.9f, 1.0f, TextStyle.NCT)
         }
         // A written name repeats only after it changes or after an unnamed note of that voice
@@ -607,7 +607,7 @@ object Engraver {
                 val beamed = notes.size == run.size && run.size > 1 && run.all { it.d.flags > 0 }
                 val cx = (x0 + x1) / 2
                 val lineY = if (up) edge - 0.9f else edge + 0.9f
-                // Number ("3", "5:2") centred on the bracket line (or where it would be); the glyph's baseline is ~0.65 below its middle
+                // Number ("3", "5:2") centered on the bracket line (or where it would be); the glyph's baseline is ~0.65 below its middle
                 val label = g.label
                 fun adv(c: Char) = if (c == ':') Smufl.TUPLET_COLON_W else Smufl.TUPLET_DIGIT_W
                 val half = label.sumOf { adv(it).toDouble() }.toFloat() / 2
@@ -632,7 +632,7 @@ object Engraver {
     ) {
         if (rests.isEmpty()) return
         val on = score.voicesOn(s).filter { it in shown }
-        // Every voice of the staff rests here with the same value: draw one rest, centred
+        // Every voice of the staff rests here with the same value: draw one rest, centered
         val groups = rests.groupBy { it.dir to it.d }
         val allSame = rests.size == on.size && rests.map { it.d to it.seg.fullBar }.distinct().size == 1
         for ((key, g) in groups) {

@@ -110,7 +110,7 @@ object Voicer {
     }
 
     /**
-     * The score with the chord at [t] revoiced: of the cheapest clean voicings between its neighbours, the one
+     * The score with the chord at [t] revoiced: of the cheapest clean voicings between its neighbors, the one
      * the checker ([rules]) flags least, then the one that changes the fewest notes, by the smallest steps.
      * Only notes of [movable] voices struck at [t] move (by default all but given voices; never notes held into it).
      * The chord keeps its name or figures; with neither, it may keep its written harmony or take another diatonic chord.
@@ -332,7 +332,7 @@ object Voicer {
             if (v == 3) { cost += abs(d) * 0.3; continue } // the bass may leap
             cost += abs(d)
             if (abs(d) > 4) cost += 6
-            // Overlap: past the previous note of a neighbour
+            // Overlap: past the previous note of a neighbor
             if (c[v].midi < p[v + 1].midi) return NO
             if (v > 0 && c[v].midi > p[v - 1].midi) return NO
         }

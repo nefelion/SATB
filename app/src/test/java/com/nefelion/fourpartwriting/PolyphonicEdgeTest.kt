@@ -62,8 +62,8 @@ class PolyphonicEdgeTest {
         a.noErrors()
     }
 
-    /** A neighbour struck twice (E–F–F–E) is one neighbour, not a sus4 chord. */
-    @Test fun repeatedNeighbour() {
+    /** A neighbor struck twice (E–F–F–E) is one neighbor, not a sus4 chord. */
+    @Test fun repeatedNeighbor() {
         val a = linesScore("E5:4 F5:8 F5:8 E5:2", "G4:1", "C4:1", "C3:1").analysis()
         assertEquals(listOf("I", "I", "I"), a.romans())
         assertEquals(NctType.NT, a.nct(S, 1)?.type)
@@ -87,8 +87,8 @@ class PolyphonicEdgeTest {
         a.noErrors()
     }
 
-    /** Double neighbour (C–D–B–C) on the beats over a held chord. */
-    @Test fun doubleNeighbourOnBeats() {
+    /** Double neighbor (C–D–B–C) on the beats over a held chord. */
+    @Test fun doubleNeighborOnBeats() {
         val a = linesScore("C5:4 D5:4 B4:4 C5:4", "G4:1", "E4:1", "C3:1").analysis()
         assertEquals(List(4) { "I" }, a.romans())
         a.noErrors()
@@ -177,8 +177,8 @@ class PolyphonicEdgeTest {
         a.lacks(Rule.SEVENTH)
     }
 
-    /** F–G–F–E: an upper neighbour before the seventh resolves. */
-    @Test fun seventhWithUpperNeighbour() {
+    /** F–G–F–E: an upper neighbor before the seventh resolves. */
+    @Test fun seventhWithUpperNeighbor() {
         val a = linesScore("F5:16 G5:16 F5:8 E5:4", "B4:4 C5:4", "D4:4 G4:4", "G2:4 C3:4", time = T24).analysis()
         a.lacks(Rule.SEVENTH)
     }
@@ -296,8 +296,8 @@ class PolyphonicEdgeTest {
         a.lacks(Rule.LEADING_TONE)
     }
 
-    /** The seventh on beat 3, an upper neighbour of it on beat 4, then the step down. */
-    @Test fun seventhNeighbourOnLaterBeat() {
+    /** The seventh on beat 3, an upper neighbor of it on beat 4, then the step down. */
+    @Test fun seventhNeighborOnLaterBeat() {
         val a = linesScore("F5:4 G5:4 F5:4 E5:4", "B4:2. C5:4", "D4:2. C4:4", "G2:2. C3:4", time = T34).analysis()
         a.lacks(Rule.SEVENTH)
     }

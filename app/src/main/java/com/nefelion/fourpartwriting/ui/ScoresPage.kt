@@ -242,7 +242,7 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
                     placeholder = { Text("Name") }, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { next() }))
             } else Column(Modifier.verticalScroll(rememberScrollState())) {
-                // An exercise's figures are read in its key and its cadence is placed in its metre
+                // An exercise's figures are read in its key and its cadence is placed in its meter
                 val fixed = draft.given.isNotEmpty()
                 SettingRow("Key", draft.key.name, enabled = !fixed) { editing = "Key" }
                 HorizontalDivider()

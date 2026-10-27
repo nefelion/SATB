@@ -133,7 +133,7 @@ class OracleEdgeTest {
     private enum class Emb { PT, NT, ANT, SUS }
 
     /**
-     * The same progressions decorated in up to two voices per beat: passing and upper neighbour tones and
+     * The same progressions decorated in up to two voices per beat: passing and upper neighbor tones and
      * anticipations on the second eighth of a beat, and suspensions tied into the next beat that resolve
      * down on its second eighth. Chords keep their names; each added note is the expected non-chord tone
      * (or none when it happens to be a chord tone), and nothing else is one.

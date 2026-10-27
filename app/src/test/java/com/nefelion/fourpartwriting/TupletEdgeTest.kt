@@ -28,7 +28,7 @@ class TupletEdgeTest {
 
     // ---- Ornaments in tuplets over a held chord ----
 
-    @Test fun tripletPassingAndNeighbourOverHeldTonic() {
+    @Test fun tripletPassingAndNeighborOverHeldTonic() {
         val a = linesScore("C5:12 D5:12 E5:12 F5:12 E5:12 D5:12 C5:2", "G4:1", "E4:1", "C3:1").analysis()
         assertEquals(listOf("I", "I", "I"), a.romans())
         assertEquals(NctType.PT, a.type(S, 1))
@@ -81,8 +81,8 @@ class TupletEdgeTest {
         a.clean()
     }
 
-    /** I – IV⁶₄ – I neighbour chords in triplets over a held bass: a pedal ⁶₄, nothing wrong. */
-    @Test fun neighbourSixFourInTripletsOverPedal() {
+    /** I – IV⁶₄ – I neighbor chords in triplets over a held bass: a pedal ⁶₄, nothing wrong. */
+    @Test fun neighborSixFourInTripletsOverPedal() {
         val a = linesScore("C5:12 C5:12 C5:12 C5:2.", "G4:12 A4:12 G4:12 G4:2.", "E4:12 F4:12 E4:12 E4:2.", "C3:1").analysis()
         a.lacks(Rule.SIX_FOUR)
         a.lacks(Rule.HARMONIC_RHYTHM)
@@ -149,7 +149,7 @@ class TupletEdgeTest {
         a.noErrors()
     }
 
-    /** 4–3 suspension whose resolution is ornamented by a triplet lower neighbour. */
+    /** 4–3 suspension whose resolution is ornamented by a triplet lower neighbor. */
     @Test fun suspensionWithTripletTurn() {
         val a = linesScore("C5:2 C5:4 B4:12 A4:12 B4:12 C5:1", "G4:2 G4:2 G4:1", "E4:2 D4:2 E4:1", "C3:2 G3:2 C3:1").analysis()
         assertEquals("4–3", a.nct(S, 1)?.label)
@@ -164,8 +164,8 @@ class TupletEdgeTest {
         a.noErrors()
     }
 
-    /** The seventh of V⁷ resolves through a triplet upper neighbour (F–G–F–E). */
-    @Test fun seventhWithTripletNeighbour() {
+    /** The seventh of V⁷ resolves through a triplet upper neighbor (F–G–F–E). */
+    @Test fun seventhWithTripletNeighbor() {
         val a = linesScore("B4:1 C5:1", "G4:1 G4:1", "F4:2. F4:12 G4:12 F4:12 E4:1", "G3:1 C3:1").analysis()
         a.lacks(Rule.SEVENTH)
         a.noErrors()
@@ -196,7 +196,7 @@ class TupletEdgeTest {
         assertTrue(a.issues.toString(), a.has(Rule.CROSSING))
     }
 
-    // ---- Metre ----
+    // ---- Meter ----
 
     @Test fun tripletPositionsAreWeakerThanTheBeat() {
         val c44 = TimeSig(4, 4)
@@ -236,7 +236,7 @@ class TupletEdgeTest {
         a.noErrors()
     }
 
-    @Test fun syncopatedNeighbourInQuarterTriplets() {
+    @Test fun syncopatedNeighborInQuarterTriplets() {
         val a = linesScore("E5:6 F5:6 E5:6 E5:2", "G4:1", "C4:1", "C3:4 C3:4 C3:2").analysis()
         assertEquals(NctType.NT, a.type(S, 1))
         a.noErrors()
@@ -276,8 +276,8 @@ class TupletEdgeTest {
         assertEquals(null, a.nct(T, 1))
     }
 
-    /** A triplet-eighth neighbour on beat 2 making A–C–E is no vi⁶: the alto's G right after it is a chord tone. */
-    @Test fun tripletNeighbourOnTheBeatMakesNoChord() {
+    /** A triplet-eighth neighbor on beat 2 making A–C–E is no vi⁶: the alto's G right after it is a chord tone. */
+    @Test fun tripletNeighborOnTheBeatMakesNoChord() {
         val a = linesScore("E5:1", "G4:4 A4:12 G4:12 E4:7/12", "C4:1", "C3:1").analysis()
         assertEquals(listOf("I", "I"), a.romans())
         assertEquals(NctType.NT, a.type(A, 1))
@@ -292,15 +292,15 @@ class TupletEdgeTest {
         assertEquals(NctType.PT, a.type(B, 1))
     }
 
-    /** A syncopated neighbour (B–C–B, C sounding on beat 2) over iii⁶: the bare third C–E on the beat is not I⁶. */
-    @Test fun syncopatedNeighbourOverABareThird() {
+    /** A syncopated neighbor (B–C–B, C sounding on beat 2) over iii⁶: the bare third C–E on the beat is not I⁶. */
+    @Test fun syncopatedNeighborOverABareThird() {
         val a = linesScore("E4:1", "B3:8 C4:4 B3:8 G3:2", "E3:1", "G2:4 E2:12 G2:12 E2:7/12").analysis()
         assertEquals(listOf("iii⁶", "iii⁶", "iii⁶"), a.romans())
         assertEquals(NctType.NT, a.type(A, 1))
     }
 
-    /** A syncopated tenor neighbour and a triplet bass neighbour together on beat 2 (G–B–D) still ornament I. */
-    @Test fun syncopatedAndTripletNeighboursTogether() {
+    /** A syncopated tenor neighbor and a triplet bass neighbor together on beat 2 (G–B–D) still ornament I. */
+    @Test fun syncopatedAndTripletNeighborsTogether() {
         val a = linesScore("C5:1", "G4:1", "E4:6 D4:3 E4:6 G4:3", "C3:4 B2:12 C3:12 E3:7/12").analysis()
         assertEquals("I", a.romans()[1])
         assertEquals(NctType.NT, a.type(T, 1))

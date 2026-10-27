@@ -20,7 +20,7 @@ import kotlin.random.Random
 
 /**
  * Random progressions of diatonic triads in one rhythm, then one voice ornamented at one chord change:
- * a passing tone through a third, a neighbour on a common tone, an anticipation of a step, or a
+ * a passing tone through a third, a neighbor on a common tone, an anticipation of a step, or a
  * suspension of a step down. The chords keep their names and the ornament gets its label.
  */
 class OrnamentOracleTest {
@@ -143,7 +143,7 @@ class OrnamentOracleTest {
             val refs = orns.map { o -> NoteRef(Voice.entries[o.v], o.k + 1) to o.kind }
             for ((ref, kind) in refs) {
                 val found = an.ncts[ref]?.type
-                if (found != kind) fails.putIfAbsent("$kind labelled $found", desc())
+                if (found != kind) fails.putIfAbsent("$kind labeled $found", desc())
             }
             // No other note is a non-chord tone
             val others = an.ncts.keys - refs.map { it.first }.toSet()

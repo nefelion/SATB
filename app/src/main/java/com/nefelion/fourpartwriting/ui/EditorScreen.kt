@@ -326,7 +326,7 @@ private fun ReorderPrompt(st: UiState, vm: EditorViewModel, modifier: Modifier) 
     }
 }
 
-/** Tab sticking up from the bottom bar, centred on [centerX] (root px), that opens the figures panel. */
+/** Tab sticking up from the bottom bar, centered on [centerX] (root px), that opens the figures panel. */
 @Composable
 private fun FiguresTab(modifier: Modifier, centerX: Float, onOpen: () -> Unit) {
     val col = LocalScoreColors.current.voices[Voice.BASS.ordinal]
@@ -514,7 +514,7 @@ private fun RowScope.Tool(
 private fun RowScope.Pill(content: @Composable RowScope.() -> Unit) =
     Row(Modifier.weight(2f).height(46.dp).padding(2.dp).clip(SHAPE).background(MaterialTheme.colorScheme.surfaceVariant), content = content)
 
-/** Places a popup just above its anchor ([gap] px), centred on it and kept inside the window. */
+/** Places a popup just above its anchor ([gap] px), centered on it and kept inside the window. */
 private class AboveAnchor(val gap: Int) : PopupPositionProvider {
     override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) =
         IntOffset(
@@ -564,7 +564,7 @@ private fun RowScope.MoreButton(open: Boolean, onOpen: (Boolean) -> Unit, items:
     }
 }
 
-/** App logo (the launcher icon's two layers, cut to a circle), name, version, licence and a link to the source. */
+/** App logo (the launcher icon's two layers, cut to a circle), name, version, license and a link to the source. */
 @Composable
 private fun AboutDialog(onDismiss: () -> Unit) {
     val ctx = LocalContext.current

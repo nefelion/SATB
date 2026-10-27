@@ -36,8 +36,8 @@ class HardEdgeTest {
         assertEquals("7–6", a.nct(S, 2)?.label)
     }
 
-    /** Lower-upper double neighbour around a held tonic. */
-    @Test fun doubleNeighbour() {
+    /** Lower-upper double neighbor around a held tonic. */
+    @Test fun doubleNeighbor() {
         val a = linesScore("C5:8 D5:8 B4:8 C5:8 C5:2", "G4:1", "E4:1", "C3:1").analysis()
         assertFalse(a.issues.toString(), Rule.UNRESOLVED_NCT in a.errorRules())
     }

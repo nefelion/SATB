@@ -13,7 +13,7 @@ import kotlin.math.sign
 
 enum class NctType(val label: String, val full: String) {
     PT("PT", "passing tone"),
-    NT("NT", "neighbour tone"),
+    NT("NT", "neighbor tone"),
     SUS("sus", "suspension"),
     RET("ret", "retardation"),
     APP("app", "appoggiatura"),
@@ -62,7 +62,7 @@ object HarmonyAnalyzer {
             while (j in score.voice(v).indices && pitchOf(v, j) == pitchOf(v, idx)) j += dir
             return j
         }
-        /** The neighbouring different note; a rest shorter than a beat does not break the line (C–D–rest–E). */
+        /** The neighboring different note; a rest shorter than a beat does not break the line (C–D–rest–E). */
         fun around(v: Voice, idx: Int, dir: Int): Pitch? {
             var j = distinct(v, idx, dir)
             var rest = Fraction.ZERO
@@ -122,7 +122,7 @@ object HarmonyAnalyzer {
             }
             // A complete triad needs no explanation; sevenths, incomplete and sus chords may hide a suspension.
             // Only ornaments of the chord before make no chord of their own: each struck here is gone again before
-            // the next chord point (a triplet neighbour on the beat); one struck earlier is already an ornament.
+            // the next chord point (a triplet neighbor on the beat); one struck earlier is already an ornament.
             // A bass leaping to its note makes a new chord.
             if (directQ != null && !directQ.seventh && !directQ.incomplete && !directQ.name.contains("SUS")) {
                 val orn = continued()?.takeIf { c ->
@@ -154,7 +154,7 @@ object HarmonyAnalyzer {
                 }
                 val held = points.lastOrNull { it < p }?.let { pointChord[it] }
                     ?.takeIf { c -> fits(c) && !voices.all { s.attacked[it.ordinal] } && s.pitches.all { isChordTone(c, it) } }
-                // (an ornament of the chord before, such as a syncopated neighbour, comes first)
+                // (an ornament of the chord before, such as a syncopated neighbor, comes first)
                 continued()?.takeIf { it.second.isNotEmpty() }?.let { c ->
                     pointChord[p] = c.first
                     c.second.forEach { ncts[ref(s, it.v)] = it.nct }
@@ -168,7 +168,7 @@ object HarmonyAnalyzer {
             // A bass reached by step may itself be an ornament; one reached by leap (or held) is a real bass note
             val bassFirm = bass != null && around(Voice.BASS, s.eventIndex[Voice.BASS.ordinal], -1).let { it == null || abs(motion(it, bass)) != 1 }
             /**
-             * The bass keeps [bass] from [from] until before [to]; with [ornaments], a firm bass may have neighbour
+             * The bass keeps [bass] from [from] until before [to]; with [ornaments], a firm bass may have neighbor
              * or passing notes a step away.
              */
             fun bassKept(from: Fraction, to: Fraction, ornaments: Boolean) = slices.filter { it.time >= from && it.time < to }.all { sl ->
@@ -246,7 +246,7 @@ object HarmonyAnalyzer {
                         cands += Cand(v, Nct(NctType.APP, "app"), nOut, 2)
                     !held && aIn != null && abs(aIn) == 1 && aOut != null && abs(aOut) == 1 && aIn.sign == aOut.sign ->
                         cands += Cand(v, Nct(NctType.PT, "PT"), nOut, 3)
-                    // Accented neighbour: steps off a note on the beat and back to it
+                    // Accented neighbor: steps off a note on the beat and back to it
                     !held && aIn != null && abs(aIn) == 1 && nOut == pIn ->
                         cands += Cand(v, Nct(NctType.NT, "NT"), nOut, 3)
                     v == Voice.BASS && !s.attacked[v.ordinal] -> cands += Cand(v, Nct(NctType.PED, "ped"), null, 4)

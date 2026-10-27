@@ -87,7 +87,7 @@ data class Score(
     val rulesOff: Set<String> = emptySet(),
     /** Issues ignored one by one (see VoiceLeading.ignoreKey). */
     val ignored: Set<String> = emptySet(),
-    /** Voices given by an exercise: shown grey and not editable. */
+    /** Voices given by an exercise: shown gray and not editable. */
     val given: Set<Voice> = emptySet(),
 ) {
     init { require(clefs.size == arrangement.staves) }

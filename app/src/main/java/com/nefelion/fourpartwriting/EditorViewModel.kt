@@ -138,7 +138,7 @@ data class UiState(
 fun tupletLength(d: Duration, t: Pair<Int, Int>?) = if (t == null) d.value else d.value * Fraction.of(t.second.toLong(), t.first.toLong())
 
 /** Preview notehead: staff, staff position, onset. */
-/** A faded note: the tap preview, or a hint ([voice] colours it; [alter]: an accidental to show). */
+/** A faded note: the tap preview, or a hint ([voice] colors it; [alter]: an accidental to show). */
 data class Ghost(val staff: Int, val pos: Int, val at: Fraction, val voice: Voice? = null, val alter: Int? = null)
 
 /** Notes suggested by Hint, shown while the score is still [score] (any edit hides them). */
@@ -569,7 +569,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val t = sc.onsets(r.voice)[r.index]
         val rules = s.rules
         val fixed = withContext(Dispatchers.Default) { Voicer.fix(sc, t, rules) }
-            ?: return@launch msg("No clean voicing of this chord fits the chords around it. Try fixing a neighbour first.")
+            ?: return@launch msg("No clean voicing of this chord fits the chords around it. Try fixing a neighbor first.")
         if (fixed == sc) return@launch msg("No cleaner voicing nearby. Press ✓ to see what's flagged.")
         if (s.score == sc) { edit(fixed); msg("Chord revoiced. Undo brings yours back.") }
     }
@@ -671,7 +671,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     private var dragBase: Score? = null
 
-    /** Pitch drag: null = started, true = finished (one undo step), false = cancelled (restore). */
+    /** Pitch drag: null = started, true = finished (one undo step), false = canceled (restore). */
     fun dragPitch(done: Boolean?) {
         when (done) {
             null -> { dragBase = s.score; _state.update { it.copy(dragging = true) } }
