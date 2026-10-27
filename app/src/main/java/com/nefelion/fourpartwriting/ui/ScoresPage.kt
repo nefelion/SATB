@@ -50,6 +50,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,6 +71,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     var naming by rememberSaveable { mutableStateOf(false) }
     var editingScore by rememberSaveable { mutableStateOf<String?>(null) }
     var renaming by rememberSaveable { mutableStateOf<String?>(null) }
+    var duplicating by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     var exporting by rememberSaveable { mutableStateOf<String?>(null) }
     // Generic type, as for MusicXML: providers then keep the .satb extension
@@ -99,7 +102,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
                         onClick = { menuFor = null; action() })
                     item("Edit") { editingScore = name }
                     item("Rename") { renaming = name }
-                    item("Duplicate") { vm.duplicateScore(name) }
+                    item("Duplicate") { duplicating = name }
                     item("Save to file…") { exporting = name; saver.launch("$name${ScoreLibrary.EXT}") }
                     HorizontalDivider()
                     item("Delete", danger = true) { deleting = name }
@@ -141,6 +144,9 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
         }
     }
     renaming?.let { old -> NameDialog("Rename score", old, "Rename", onDismiss = { renaming = null }) { vm.renameScore(old, it); renaming = null } }
+    duplicating?.let { from ->
+        NameDialog("Duplicate score", vm.copyName(from), "Duplicate", onDismiss = { duplicating = null }) { vm.duplicateScore(from, it); duplicating = null }
+    }
     deleting?.let { name ->
         AlertDialog(
             onDismissRequest = { deleting = null },
@@ -172,7 +178,9 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
                          onDismiss: () -> Unit, onDone: (String, Score) -> Unit) {
     val steps = if (askName) 2 else 1
     var step by rememberSaveable { mutableIntStateOf(if (askName) 0 else 1) }
-    var name by rememberSaveable { mutableStateOf(startName) }
+    // Caret starts at the end of the name
+    var field by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(startName, TextRange(startName.length))) }
+    val name = field.text
     // The choices as a note-less score; kept as score-file text so they survive rotation
     var draft by rememberSaveable(stateSaver = Saver({ ScoreCodec.encode(it) }, { ScoreCodec.decode(it) })) {
         mutableStateOf(start.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet()))
@@ -197,7 +205,7 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
             KeepRefreshRate()
             if (step == 0) {
                 LaunchedEffect(Unit) { focus.requestFocus() }
-                OutlinedTextField(name, { name = it.take(60) }, Modifier.focusRequester(focus), singleLine = true, shape = SHAPE,
+                OutlinedTextField(field, { field = if (it.text.length > 60) it.copy(it.text.take(60)) else it }, Modifier.focusRequester(focus), singleLine = true, shape = SHAPE,
                     placeholder = { Text("Name") }, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { next() }))
             } else Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -253,7 +261,9 @@ private fun SettingRow(label: String, value: String, onClick: () -> Unit) {
 
 @Composable
 private fun NameDialog(title: String, start: String, action: String, onDismiss: () -> Unit, onDone: (String) -> Unit) {
-    var text by rememberSaveable { mutableStateOf(start) }
+    // Caret starts at the end of the name
+    var field by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(start, TextRange(start.length))) }
+    val text = field.text
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     AlertDialog(
@@ -261,7 +271,7 @@ private fun NameDialog(title: String, start: String, action: String, onDismiss: 
         title = { Text(title) },
         text = {
             KeepRefreshRate()
-            OutlinedTextField(text, { text = it.take(60) }, Modifier.focusRequester(focus), singleLine = true, shape = SHAPE,
+            OutlinedTextField(field, { field = if (it.text.length > 60) it.copy(it.text.take(60)) else it }, Modifier.focusRequester(focus), singleLine = true, shape = SHAPE,
                 placeholder = { Text("Name") }, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { if (text.isNotBlank()) onDone(text) }))
         },

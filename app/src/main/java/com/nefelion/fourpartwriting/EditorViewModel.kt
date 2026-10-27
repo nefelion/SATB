@@ -781,11 +781,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         refreshScores()
     }
 
-    fun duplicateScore(name: String) {
+    /** Suggested name for a copy of [name]: "Name copy", or "Name copy (2)" if taken. */
+    fun copyName(name: String) = library.freeName("$name copy")
+
+    /** Copies score [name] as [newName] and opens the copy. */
+    fun duplicateScore(name: String, newName: String) {
+        val to = ScoreLibrary.clean(newName)
+        if (library.exists(to)) return msg("A score named $to already exists.")
         flushScore()
         val sc = library.read(name) ?: return msg("Could not read $name.")
-        if (!library.write(library.freeName("$name copy"), sc)) return msg("Could not copy $name.")
-        refreshScores()
+        if (!library.write(to, sc)) return msg("Could not copy $name.")
+        show(to, sc)
     }
 
     /** Deleting the open score opens the most recent other one (or a new empty one). */
