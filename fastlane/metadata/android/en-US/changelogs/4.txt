@@ -1,0 +1,4 @@
+- New ⋮ menu: Export MusicXML, Clear score, Settings and About.
+- Settings are more compact.
+- The "Example score" button is gone; new users still start with the example.
+- First release on F-Droid.
