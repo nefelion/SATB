@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.clickable
@@ -177,7 +178,8 @@ fun EditorScreen(vm: EditorViewModel) {
                 HorizontalDivider()
             }
             item("Hint", false) { vm.hint() }
-            item("Chord names", false) { if (vm.startChords()) { chords = true; figures = false } }
+            // Again while open: closes it, like Done
+            item("Chord names", false) { if (chords) chords = false else if (vm.startChords()) { chords = true; figures = false } }
             item("Export MusicXML", false) { xmlSaver.launch("${st.scoreName}.musicxml") }
             item("Clear score", true) { confirmClear = true }
             HorizontalDivider()
@@ -384,6 +386,9 @@ private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, o
     var text by rememberSaveable(st.selected, e?.chord) { mutableStateOf(e?.chord.orEmpty()) }
     val bad = text.isNotBlank() && ChordText.parse(text, st.score.key) == null
     fun apply() { if (e != null && text.trim() != e.chord.orEmpty()) vm.setChord(text) }
+    // However the panel closes (Done, the menu), a typed name is kept
+    val last by rememberUpdatedState(::apply)
+    DisposableEffect(Unit) { onDispose { last() } }
     val common = if (st.score.key.mode == Mode.MAJOR) listOf("I", "ii", "IV", "V", "V7", "vi") else listOf("i", "iv", "V", "V7", "VI", "ii°6")
     Column(Modifier.fillMaxWidth().windowInsetsPadding(insets).padding(horizontal = 4.dp)) {
         Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {

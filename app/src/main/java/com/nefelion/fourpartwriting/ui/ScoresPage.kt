@@ -216,9 +216,13 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
                     placeholder = { Text("Name") }, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { next() }))
             } else Column(Modifier.verticalScroll(rememberScrollState())) {
-                SettingRow("Key", draft.key.name) { editing = "Key" }
+                // An exercise's figures are read in its key and its cadence is placed in its metre
+                val fixed = draft.given.isNotEmpty()
+                SettingRow("Key", draft.key.name, enabled = !fixed) { editing = "Key" }
                 HorizontalDivider()
-                SettingRow("Time signature", "${draft.time.beats}/${draft.time.beatUnit}") { editing = "Time signature" }
+                SettingRow("Time signature", "${draft.time.beats}/${draft.time.beatUnit}", enabled = !fixed) { editing = "Time signature" }
+                if (fixed) Text("Key and time signature are fixed by the exercise.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp))
                 HorizontalDivider()
                 SettingRow("Tempo", "= ${draft.tempo}", Smufl.beatMark(draft.time)) { editing = "Tempo" }
                 HorizontalDivider()
@@ -258,12 +262,13 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
 
 /** One setting in the new-score summary: name on the left, value and › on the right; tap to change it. */
 @Composable
-private fun SettingRow(label: String, value: String, glyph: String? = null, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 14.dp),
+private fun SettingRow(label: String, value: String, glyph: String? = null, enabled: Boolean = true, onClick: () -> Unit) {
+    val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 4.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, Modifier.weight(1f), color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else dim)
         glyph?.let { GlyphIcon(it, 28, MaterialTheme.colorScheme.primary) }
-        Text("$value  ›", fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
+        Text(if (enabled) "$value  ›" else value, fontWeight = FontWeight.Medium, color = if (enabled) MaterialTheme.colorScheme.primary else dim)
     }
 }
 

@@ -885,7 +885,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Gives score [name] the key, time, tempo, staves and clefs of [settings], then the name [newName]. The open score changes as one undo step. */
     fun editScore(name: String, newName: String, settings: Score) {
-        fun apply(sc: Score) = sc.copy(key = settings.key, time = settings.time, tempo = settings.tempo.coerceIn(20, 300),
+        // An exercise keeps its key and time signature (its figures and cadence depend on them)
+        fun apply(sc: Score) = sc.copy(key = if (sc.given.isEmpty()) settings.key else sc.key, time = if (sc.given.isEmpty()) settings.time else sc.time,
+            tempo = settings.tempo.coerceIn(20, 300),
             arrangement = settings.arrangement, clefs = settings.clefs)
         if (name == s.scoreName) {
             edit(apply(s.score))
