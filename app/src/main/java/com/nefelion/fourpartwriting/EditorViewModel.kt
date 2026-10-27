@@ -734,6 +734,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val t = onsetOf(r)
         // A tied note: delete only the tapped head
         val e = list[r.index]
+        // Removing a rest inside a voice would pull every later note left, out of line with the other voices
+        if (e.pitch == null && r.index < list.lastIndex) return msg("Tap a note into the rest to replace it.")
         val segs = if (e.pitch == null) emptyList() else Notation.splitVoice(score.voice(r.voice), score.time)[r.index]
         val at = s.selectedTime ?: t
         val seg = segs.takeIf { it.size > 1 }?.firstOrNull { at >= it.onset && at < it.onset + it.length }
