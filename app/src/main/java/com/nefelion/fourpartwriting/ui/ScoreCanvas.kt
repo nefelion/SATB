@@ -6,6 +6,7 @@ import android.graphics.Rect
 import android.graphics.Typeface
 import androidx.compose.animation.core.animate
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.magnifier
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
@@ -21,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -36,6 +38,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.content.res.ResourcesCompat
 import com.nefelion.fourpartwriting.R
@@ -57,6 +60,7 @@ import com.nefelion.fourpartwriting.theory.Severity
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 
 
@@ -69,8 +73,8 @@ fun rememberBravura(): Typeface {
 
 /**
  * The whole score on one line, zoomed so the staves fill the height.
- * One finger: tap = select/add/deselect; vertical drag with a note selected = change its pitch;
- * any other drag = move the view. Two fingers: pinch to zoom and move.
+ * One finger: tap = select/add/deselect; hold or slide up/down where a note can go = aim it with a magnifier,
+ * let go to place it; vertical drag with a note selected = change its pitch; any other drag = move the view. Two fingers: pinch to zoom and move.
  */
 @Composable
 fun ScoreCanvas(
@@ -145,7 +149,7 @@ fun ScoreCanvas(
             }.distinct().groupBy { it.ref.voice }.mapValues { (_, hs) -> hs.sortedBy { it.x } }
         }
 
-        val colors = remember(analysis, flagged, state.selected, state.playTime, state.score, sc, paper) {
+        val colors = remember(analysis, flagged, state.selected, state.placed, state.playTime, state.score, sc, paper) {
             val play = sc.play.toArgb()
             val m = HashMap<NoteRef, Int>()
             // Rests that only fill out a bar after a voice ends (not written): light, but opaque so nothing shows through
@@ -163,13 +167,14 @@ fun ScoreCanvas(
             state.playTime?.let { t ->
                 for (v in Voice.entries) state.score.eventAt(v, t).takeIf { it >= 0 }?.let { m[NoteRef(v, it)] = play }
             }
-            state.selected?.let { m[it] = sc.voices[it.voice.ordinal].toArgb() }
+            // The note just entered stays plain: only the caret shows a voice color
+            state.selected?.takeIf { !state.placed }?.let { m[it] = sc.voices[it.voice.ordinal].toArgb() }
             m
         }
 
         // A selected tied note: full color only around the tapped head, its other heads lighter
-        val headRange = remember(layout, state.selected, state.selectedTime) {
-            val sel = state.selected ?: return@remember null
+        val headRange = remember(layout, state.selected, state.selectedTime, state.placed) {
+            val sel = state.selected?.takeIf { !state.placed } ?: return@remember null
             val hs = layout.heads.filter { it.ref == sel }.sortedBy { it.x }
             val t = state.selectedTime ?: return@remember null
             if (hs.size < 2) return@remember null
@@ -225,16 +230,29 @@ fun ScoreCanvas(
         val nudge by rememberUpdatedState(onNudge)
         val drag by rememberUpdatedState(onDrag)
         val tempoTap by rememberUpdatedState(onTempoTap)
-        val hasSelection by rememberUpdatedState(state.selected != null)
+        val hasSelection by rememberUpdatedState(state.selected != null && !state.placed)
+        val hasGhost by rememberUpdatedState(state.ghost != null)
+        // Finger position while aiming a new note (magnifier shown)
+        var loupe by remember { mutableStateOf<Offset?>(null) }
+        // Center of the ghost head on screen
+        val ghostPx = state.ghost?.let { g ->
+            Offset((layout.xFor(g.at) + Smufl.HEAD_W / 2) * sp + offX, (layout.staffTop[g.staff] + 4 - g.pos / 2f) * sp + offY)
+        }
 
         Canvas(
             Modifier
                 .size(maxWidth, maxHeight)
+                .magnifier(
+                    // Only while the ghost is inside the magnified area (170 dp at zoom 2 = 42.5 dp radius around the finger)
+                    sourceCenter = { loupe?.takeIf { f -> ghostPx?.let { (it - f).getDistance() < 42.5.dp.toPx() } == true } ?: Offset.Unspecified },
+                    magnifierCenter = { loupe?.let { it - Offset(0f, 110.dp.toPx()) } ?: Offset.Unspecified },
+                    zoom = 2f, size = DpSize(170.dp, 170.dp), cornerRadius = 85.dp,
+                )
                 .pointerInput(viewKey) {
                     val slop = viewConfiguration.touchSlop
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        var mode = 0 // 0 = undecided (maybe tap), 1 = pitch drag, 2 = pan, 3 = pinch
+                        var mode = 0 // 0 = undecided (maybe tap), 1 = pitch drag, 2 = pan, 3 = pinch, 4 = aim a new note
                         val dx = (down.position.x - offX) / sp; val dy = (down.position.y - offY) / sp
                         val tb = currentLayout.tempoBox
                         val hb = currentLayout.headerBox
@@ -242,22 +260,38 @@ fun ScoreCanvas(
                         val onTempo = (dx in tb[0]..tb[2] && dy in tb[1]..tb[3]) || (dx in hb[0]..hb[2] && dy in hb[1]..hb[3])
                         val downHit = if (onTempo) null else currentLayout.hitTest(dx, dy)
                         press(downHit)
+                        // Magnifier from the first touch (it only shows once a ghost note is under the finger)
+                        loupe = down.position.takeIf { downHit != null }
                         var moved = Offset.Zero
                         var acc = 0f
+                        var aim = downHit
+                        fun aimAt(p: Offset) {
+                            loupe = p
+                            // Keep the down point's staff, time and refs: only the pitch follows the finger
+                            // (the nearest staff would flip between the staves, making the note jump)
+                            val a = downHit?.let { it.copy(position = ((currentLayout.staffTop[it.staff] + 4 - (p.y - offY) / sp) * 2).roundToInt()) }
+                            if (a != aim) { aim = a; press(a) }
+                        }
                         while (true) {
-                            val ev = awaitPointerEvent()
+                            // Held still where a note can go: start aiming
+                            val ev = if (mode == 0 && hasGhost) withTimeoutOrNull(maxOf(1L, down.uptimeMillis + 200 - currentEvent.changes.first().uptimeMillis)) { awaitPointerEvent() }
+                                ?: run { mode = 4; aimAt(down.position); continue }
+                            else awaitPointerEvent()
                             val pressed = ev.changes.filter { it.pressed }
                             if (pressed.isEmpty()) {
                                 if (mode == 0) {
                                     if (downHit == null) tempoTap() else tap(downHit)
                                 }
                                 if (mode == 1) drag(true)
+                                loupe = null
+                                if (mode == 4) aim?.let(tap)
                                 break
                             }
                             if (pressed.size >= 2) {
                                 // A second finger always means pinch/pan; undo a pitch drag it interrupted
                                 if (mode == 1) drag(false)
-                                if (mode == 0) press(null)
+                                if (mode == 0 || mode == 4) press(null)
+                                loupe = null
                                 mode = 3
                                 val zoom = ev.calculateZoom()
                                 val pan = ev.calculatePan()
@@ -275,11 +309,14 @@ fun ScoreCanvas(
                             if (mode == 3) { ch.consume(); continue } // one finger left after a pinch
                             val d = ch.positionChange()
                             moved += d
+                            if (mode == 4) { aimAt(ch.position); ch.consume(); continue }
                             if (mode == 0) {
                                 // Decide once the finger has clearly moved, and not in the first moments
                                 // (a second finger may still be on its way).
                                 if (moved.getDistance() < slop || ch.uptimeMillis - down.uptimeMillis < 120) continue
+                                if (hasGhost && abs(moved.y) > abs(moved.x)) { mode = 4; aimAt(ch.position); ch.consume(); continue }
                                 mode = if (hasSelection && abs(moved.y) > abs(moved.x) * 1.3f) 1 else 2
+                                loupe = null
                                 press(null)
                                 if (mode == 1) { drag(null); acc = moved.y } else { offX += moved.x; offY += moved.y }
                             } else if (mode == 1) acc += d.y
@@ -319,27 +356,6 @@ fun ScoreCanvas(
                     paints.text.textAlign = Paint.Align.CENTER
                     nc.drawText(state.shownVoice.label, (caretX + 0.6f) * sp, (cTop - 0.4f) * sp, paints.text)
                 }
-                // The note a tap here would add, while the finger is down
-                // The note a tap here would add, while the finger is down; hint notes until the next edit
-                val ghosts = listOfNotNull(state.ghost) + (state.hint?.takeIf { it.score == state.score }?.notes ?: emptyList())
-                for (g in ghosts) {
-                    paints.glyph.color = sc.voices[(g.voice ?: state.shownVoice).ordinal].copy(alpha = 0.55f).toArgb()
-                    paints.glyph.textSize = 4f * sp
-                    val gy = layout.staffTop[g.staff] + 4 - g.pos / 2f
-                    val gx = layout.xFor(g.at)
-                    nc.drawText(Smufl.HEAD_BLACK.toString(), gx * sp, gy * sp, paints.glyph)
-                    g.alter?.let { a -> nc.drawText(Smufl.accidental(a).toString(), (gx - Smufl.accidentalWidth(a) - 0.25f) * sp, gy * sp, paints.glyph) }
-                    paints.line.color = paints.glyph.color
-                    paints.line.strokeWidth = Smufl.LEDGER * sp
-                    // Ledger lines above or below the staff
-                    val top = layout.staffTop[g.staff]
-                    var p = if (g.pos > 8) 10 else -2
-                    while ((g.pos > 8 && p <= g.pos) || (g.pos < 0 && p >= g.pos)) {
-                        val ly = (top + 4 - p / 2f) * sp
-                        nc.drawLine((gx - Smufl.LEDGER_EXT) * sp, ly, (gx + Smufl.HEAD_W + Smufl.LEDGER_EXT) * sp, ly, paints.line)
-                        p += if (g.pos > 8) 2 else -2
-                    }
-                }
                 val visL = -offX / sp - 6f
                 val visR = (-offX + vw) / sp + 6f
                 paints.ink = ink; paints.nct = sc.nct.toArgb()
@@ -365,6 +381,26 @@ fun ScoreCanvas(
                         color == null -> null
                         headRange != null && mk.ref == state.selected && mk.x !in headRange -> (color and 0xFFFFFF) or (0x59 shl 24)
                         else -> color
+                    }
+                }
+                // The note a tap here would add, while the finger is down; hint notes until the next edit. On top, so rests never hide it
+                val ghosts = listOfNotNull(state.ghost) + (state.hint?.takeIf { it.score == state.score }?.notes ?: emptyList())
+                for (g in ghosts) {
+                    paints.glyph.color = sc.voices[(g.voice ?: state.shownVoice).ordinal].copy(alpha = 0.55f).toArgb()
+                    paints.glyph.textSize = 4f * sp
+                    val gy = layout.staffTop[g.staff] + 4 - g.pos / 2f
+                    val gx = layout.xFor(g.at)
+                    nc.drawText(Smufl.HEAD_BLACK.toString(), gx * sp, gy * sp, paints.glyph)
+                    g.alter?.let { a -> nc.drawText(Smufl.accidental(a).toString(), (gx - Smufl.accidentalWidth(a) - 0.25f) * sp, gy * sp, paints.glyph) }
+                    paints.line.color = paints.glyph.color
+                    paints.line.strokeWidth = Smufl.LEDGER * sp
+                    // Ledger lines above or below the staff
+                    val top = layout.staffTop[g.staff]
+                    var p = if (g.pos > 8) 10 else -2
+                    while ((g.pos > 8 && p <= g.pos) || (g.pos < 0 && p >= g.pos)) {
+                        val ly = (top + 4 - p / 2f) * sp
+                        nc.drawLine((gx - Smufl.LEDGER_EXT) * sp, ly, (gx + Smufl.HEAD_W + Smufl.LEDGER_EXT) * sp, ly, paints.line)
+                        p += if (g.pos > 8) 2 else -2
                     }
                 }
                 analysis?.let { a ->

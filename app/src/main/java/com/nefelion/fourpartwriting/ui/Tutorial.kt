@@ -53,7 +53,7 @@ fun Tutorial(onDone: () -> Unit) {
     val voices = LocalScoreColors.current.voices
     val pages = listOf(
         Page("Welcome to SATB", "Write four-part harmony and get instant feedback.") { Logo() },
-        Page("Write notes", "Pick a voice and tap the staff. Drag a note to change its pitch.") {
+        Page("Write notes", "Pick a voice and tap the staff, or hold and slide to aim the note, then let go. To change a note later, tap it and drag.") {
             Keys { listOf("S", "A", "T", "B").forEachIndexed { i, v -> Key { Text(v, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = voices[i]) } } }
         },
         Page("Length and accidentals", "Press, slide and let go to pick one.") {
