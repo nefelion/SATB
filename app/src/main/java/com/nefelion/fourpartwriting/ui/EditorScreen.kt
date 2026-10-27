@@ -26,6 +26,8 @@ import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
@@ -157,6 +159,9 @@ fun EditorScreen(vm: EditorViewModel) {
     var figures by rememberSaveable { mutableStateOf(false) }
     var exercise by rememberSaveable { mutableStateOf(false) }
     var chords by rememberSaveable { mutableStateOf(false) }
+    var bassX by remember { mutableFloatStateOf(-1f) }
+    // The figures pocket belongs to the bass: leaving the bass voice closes it
+    LaunchedEffect(st.shownVoice) { if (st.shownVoice != Voice.BASS) figures = false }
     // Generic type: providers keep an unknown .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
     val xmlSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         uri?.let(vm::exportMusicXml)
@@ -173,7 +178,6 @@ fun EditorScreen(vm: EditorViewModel) {
             }
             item("Hint", false) { vm.hint() }
             item("Chord names", false) { if (vm.startChords()) { chords = true; figures = false } }
-            item("Bass figures", false) { if (vm.startFigures()) { figures = true; chords = false } }
             item("Export MusicXML", false) { xmlSaver.launch("${st.scoreName}.musicxml") }
             item("Clear score", true) { confirmClear = true }
             HorizontalDivider()
@@ -213,6 +217,7 @@ fun EditorScreen(vm: EditorViewModel) {
                     val haptic = LocalHapticFeedback.current
                     ScoreCanvas(
                         st, { if (vm.tap(it)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, vm::press, vm::nudge, vm::dragPitch,
+                        caretAtSelection = chords || figures,
                         onTempoTap = { tempoDialog = true },
                         savedViewport = vm.viewport, onViewport = vm::rememberViewport,
                         edges = edges,
@@ -223,13 +228,18 @@ fun EditorScreen(vm: EditorViewModel) {
                 if (figures) { HorizontalDivider(); FiguresPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { figures = false } }
                 if (chords) { HorizontalDivider(); ChordPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { chords = false } }
                 HorizontalDivider()
-                Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
-                    .height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (wide) { ActionButtons(st, vm, more = more, leading = true); Gap() }
-                    VoiceButtons(st, vm)
-                    Gap()
-                    NoteTools(st, vm)
-                    if (wide) { Gap(); ActionButtons(st, vm, more = more, leading = false) }
+                Box(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                        .height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (wide) { ActionButtons(st, vm, more = more, leading = true); Gap() }
+                        VoiceButtons(st, vm) { bassX = it }
+                        Gap()
+                        NoteTools(st, vm)
+                        if (wide) { Gap(); ActionButtons(st, vm, more = more, leading = false) }
+                    }
+                    // A pocket above the B button: bass figures (not in exercises, whose bass is fixed)
+                    if (st.shownVoice == Voice.BASS && !st.moving && Voice.BASS !in st.score.given && !figures && bassX >= 0)
+                        FiguresTab(Modifier.align(Alignment.TopStart), bassX) { if (vm.startFigures()) { figures = true; chords = false } }
                 }
             }
             SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(safe).padding(bottom = 64.dp))
@@ -310,6 +320,20 @@ private fun ReorderPrompt(st: UiState, vm: EditorViewModel, modifier: Modifier) 
             TextButton(onClick = vm::keepOrder) { Text("Dismiss") }
             FilledTonalButton(onClick = vm::reorderVoices) { Text("Reorder S A T B") }
         }
+    }
+}
+
+/** Tab sticking up from the bottom bar, centred on [centerX] (root px), that opens the figures panel. */
+@Composable
+private fun FiguresTab(modifier: Modifier, centerX: Float, onOpen: () -> Unit) {
+    val col = LocalScoreColors.current.voices[Voice.BASS.ordinal]
+    val w = 104.dp; val h = 30.dp
+    Box(modifier
+        .offset { IntOffset((centerX - w.toPx() / 2).roundToInt().coerceAtLeast(0), -h.roundToPx()) }
+        .size(w, h).clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)).background(col)
+        .clickable(role = Role.Button, onClick = onOpen).semantics { contentDescription = "Bass figures" },
+        contentAlignment = Alignment.Center) {
+        Text("Figures ▴", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
     }
 }
 
@@ -404,6 +428,7 @@ private fun RowScope.Tool(
     press: (suspend AwaitPointerEventScope.(PointerInputChange, (Offset) -> Offset) -> Unit)? = null,
     /** Plain long-press action (no drop target), with a haptic tick. */
     long: (() -> Unit)? = null,
+    place: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
@@ -416,7 +441,7 @@ private fun RowScope.Tool(
     val below = hold?.below == true
     val hint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
     Box(
-        Modifier.weight(1f).height(46.dp).padding(2.dp).clip(SHAPE)
+        Modifier.weight(1f).then(place).height(46.dp).padding(2.dp).clip(SHAPE)
             .background(if (selected) color else Color.Transparent)
             .semantics { contentDescription = label }
             // Buttons at the screen edge would otherwise wait for Android's back-swipe check before a press arrives
@@ -563,11 +588,12 @@ private fun AboutDialog(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun RowScope.VoiceButtons(st: UiState, vm: EditorViewModel) {
+private fun RowScope.VoiceButtons(st: UiState, vm: EditorViewModel, onBassX: (Float) -> Unit = {}) {
     for (v in Voice.entries) {
         val col = LocalScoreColors.current.voices[v.ordinal]
         val on = st.shownVoice == v && !st.moving
-        Tool(on, { vm.selectVoice(v) }, "Voice ${v.label}", color = col, long = { vm.lockVoice(v) }) {
+        Tool(on, { vm.selectVoice(v) }, "Voice ${v.label}", color = col, long = { vm.lockVoice(v) },
+            place = if (v == Voice.BASS) Modifier.onGloballyPositioned { onBassX(it.boundsInRoot().center.x) } else Modifier) {
             Text(v.label + if (st.locked == v) "🔒" else "", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (on) MaterialTheme.colorScheme.surface else col)
         }
     }

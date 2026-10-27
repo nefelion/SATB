@@ -31,6 +31,8 @@ class VoicerTest {
         assertEquals("B D F A", names("Bm7b5"))
         assertEquals("B D F A♭", names("Bdim7"))
         assertEquals("C E G B", names("Cmaj7"))
+        // A slash bass outside the chord is part of it
+        assertEquals("D F A G /G", names("Dm/G"))
         assertNull(names("H7"))
         assertNull(names("Cxyz"))
     }
@@ -114,5 +116,11 @@ class VoicerTest {
         }
         println("continue fails: $fails / $total")
         assertEquals(0, fails)
+    }
+
+    @Test fun slashBassOutsideTheChordIsNotFlagged() {
+        val sc = Score(voices = listOf(listOf(q("A4")), listOf(q("F4")), listOf(q("D4")), listOf(q("G3", "Dm/G"))))
+        val issues = VoiceLeading.check(sc, setOf(com.nefelion.fourpartwriting.theory.Rule.NAMED_CHORD)).issues
+        assertTrue(issues.map { it.message }.toString(), issues.isEmpty())
     }
 }

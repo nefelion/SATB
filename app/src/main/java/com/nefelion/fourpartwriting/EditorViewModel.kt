@@ -379,6 +379,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(ghost = null) }
         if (s.moving) {
             if (hit.near != null) select(hit.near, hit.nearAt) else if (hit.exact != null) select(hit.exact, hit.exactAt)
+            else if (hit.rest != null) select(hit.rest, hit.restAt)
             return false
         }
         val t = target(hit)

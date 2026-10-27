@@ -81,6 +81,8 @@ fun ScoreCanvas(
     onNudge: (Int) -> Unit,
     onDrag: (Boolean?) -> Unit,
     onTempoTap: () -> Unit,
+    /** The caret stands on the selected note (while naming its chord or figures) instead of after the voice. */
+    caretAtSelection: Boolean = false,
     savedViewport: Pair<Float, Float>?,
     onViewport: (Float, Float) -> Unit,
     /** Left/right px hidden by a camera cutout or side bars: the score can scroll clear of them. */
@@ -146,6 +148,9 @@ fun ScoreCanvas(
         val colors = remember(analysis, flagged, state.selected, state.playTime, state.score, sc, paper) {
             val play = sc.play.toArgb()
             val m = HashMap<NoteRef, Int>()
+            // Rests that only fill out a bar after a voice ends (not written): light, but opaque so nothing shows through
+            val filler = lerp(paper, sc.ink, 0.45f).toArgb()
+            for (v in Voice.entries) m[NoteRef(v, state.score.voice(v).size)] = filler
             // An exercise's given voices are grey
             val grey = lerp(paper, sc.ink, 0.5f).toArgb()
             for (v in state.score.given) for (i in state.score.voice(v).indices) m[NoteRef(v, i)] = grey
@@ -177,7 +182,8 @@ fun ScoreCanvas(
         // Scroll to the note being worked on, but only when asked (edit, selection jump, issue, playback)
         // Over the dragged note while dragging; otherwise where the next note of the voice goes
         val dragged = state.selected?.takeIf { state.dragging }?.let { r -> state.score.onsets(r.voice).getOrNull(r.index) }
-        val caretX = layout.xFor(dragged ?: state.score.length(state.shownVoice))
+        val caretX = (if (caretAtSelection) state.selectedTime?.let(layout::xFor) else null)
+            ?: layout.xFor(dragged ?: state.score.length(state.shownVoice))
         suspend fun follow(x: Float) {
             val px = x * sp + offX
             val margin = vw * 0.18f
@@ -186,7 +192,7 @@ fun ScoreCanvas(
         val firstTick = remember { intArrayOf(state.followTick) }
         LaunchedEffect(state.followTick) {
             if (state.followTick == firstTick[0]) return@LaunchedEffect
-            follow(state.selected?.let { sel -> currentLayout.heads.firstOrNull { it.ref == sel }?.x } ?: caretX)
+            follow(state.selected?.let { sel -> (currentLayout.heads + currentLayout.rests).firstOrNull { it.ref == sel }?.x } ?: caretX)
         }
         LaunchedEffect(state.focusedIssue) {
             val t = state.focusedIssue?.let { i -> analysis?.issues?.getOrNull(i)?.let { analysis.slices.getOrNull(it.slice)?.time } }

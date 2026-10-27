@@ -4,7 +4,7 @@ import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Mode
 import com.nefelion.fourpartwriting.model.PitchClass
 
-/** A chord the user named: its pitch classes, root first, and the bass when the name fixes it (an inversion or slash). */
+/** A chord the user named: its pitch classes, root first (a slash bass outside the chord last), and the bass when the name fixes it. */
 data class ChordSpec(val pcs: List<PitchClass>, val bass: PitchClass?)
 
 /**
@@ -51,7 +51,8 @@ object ChordText {
         val root = letter(main.take(rootLen)) ?: return null
         val pcs = build(root, main.drop(rootLen)) ?: return null
         val bass = if (slash.isEmpty()) null else letter(slash) ?: return null
-        return ChordSpec(pcs, bass)
+        // A bass outside the chord (Dm/G, F/G) belongs to it too
+        return ChordSpec(if (bass != null && bass !in pcs) pcs + bass else pcs, bass)
     }
 
     private val NUMERALS = listOf("VII", "III", "VI", "IV", "II", "V", "I")

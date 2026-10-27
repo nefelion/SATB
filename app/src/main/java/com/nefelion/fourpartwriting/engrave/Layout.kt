@@ -59,6 +59,8 @@ data class Hit(
     val staff: Int, val position: Int, val time: Fraction, val afterLast: Boolean,
     val exact: NoteRef? = null, val near: NoteRef? = null,
     val exactAt: Fraction? = null, val nearAt: Fraction? = null,
+    /** A written rest under the tap, and the onset of its tapped segment. */
+    val rest: NoteRef? = null, val restAt: Fraction? = null,
 )
 
 /** One continuous system: all bars on one line. */
@@ -77,6 +79,8 @@ class ScoreLayout(
     /** Highest / lowest point of any note or stem (staff-space y), for cursors that must clear them. */
     val noteTop: Float = staffTop.first(),
     val noteBottom: Float = staffTop.last() + 4,
+    /** Written rests (not the display-only ones after a voice ends), tappable like heads. */
+    val rests: List<HeadBox> = emptyList(),
 ) {
     val top get() = staffTop.first()
     val bottom get() = staffTop.last() + 4
@@ -88,7 +92,8 @@ class ScoreLayout(
         val exactH = close.firstOrNull { it.staff == staff && it.pos == pos }
         val nearH = close.filter { abs(it.y - y) < 1.3f && abs(it.x - x) < 1.2f }
             .minByOrNull { (it.x - x) * (it.x - x) + 2 * (it.y - y) * (it.y - y) }
-        fun hit(t: Fraction, after: Boolean) = Hit(staff, pos, t, after, exactH?.ref, nearH?.ref, exactH?.at, nearH?.at)
+        val restH = rests.filter { abs(it.x - x) < 1.3f && abs(it.y - y) < 2.2f }.minByOrNull { abs(it.x - x) + abs(it.y - y) }
+        fun hit(t: Fraction, after: Boolean) = Hit(staff, pos, t, after, exactH?.ref, nearH?.ref, exactH?.at, nearH?.at, restH?.ref, restH?.at)
         val m = measures.firstOrNull { x < it.x1 } ?: return hit(contentEnd, true)
         if (m.columns.isEmpty()) return hit(m.start, true)
         val last = m.columns.last()
@@ -236,6 +241,7 @@ object Engraver {
 
         val marks = ArrayList<Mark>(2048)
         val heads = mutableListOf<HeadBox>()
+        val restBoxes = mutableListOf<HeadBox>()
         val x0 = LEFT_MARGIN
         val header = if (!bare) headerWidth(score) else if (n > 1) 0.8f + Smufl.CLEF_W + 0.8f else 0f
         var x = x0 + header
@@ -316,7 +322,7 @@ object Engraver {
                 marks += LineMark(nx, top, nx, bot, Smufl.THIN_BAR)
             } else marks += LineMark(box.x1, top, box.x1, bot, Smufl.THIN_BAR)
             if (mi > 0 && !bare) marks += TextMark("${mi + 1}", box.x0 + 0.2f, top - 0.6f, 1.0f, TextStyle.MEASURE_NO)
-            drawMeasure(score, shown, m, box, ::sy, ::syf, marks, heads, headAt, hidden)
+            drawMeasure(score, shown, m, box, ::sy, ::syf, marks, heads, headAt, hidden, restBoxes)
             for (c in m.cols) labels[c.time]?.let { lab ->
                 val cx = c.x + Smufl.HEAD_W / 2
                 // Labels that would collide with the previous one move to a second row.
@@ -359,7 +365,7 @@ object Engraver {
         // From the page edge (brace or bracket included) to the first bar
         val headerBox = if (bare) FloatArray(4) else floatArrayOf(0f, top - 1f, x0 + header, bot + 1f)
         return ScoreLayout(xEnd + TAIL, height, marks, st, boxes, heads, total, tempoBox, headerBox,
-            noteTop = min(top, syf(0, maxP[0].toFloat())), noteBottom = max(bot, syf(n - 1, minP[n - 1].toFloat())))
+            noteTop = min(top, syf(0, maxP[0].toFloat())), noteBottom = max(bot, syf(n - 1, minP[n - 1].toFloat())), rests = restBoxes)
     }
 
     // ---------- horizontal ----------
@@ -509,12 +515,13 @@ object Engraver {
         sy: (Int, Int) -> Float, syf: (Int, Float) -> Float, marks: MutableList<Mark>,
         heads: MutableList<HeadBox>, headAt: MutableMap<Triple<Voice, Int, Int>, Pair<Item, Pair<Float, Float>>>,
         hiddenTuplets: Set<Pair<Voice, TupletGroup>>,
+        restBoxes: MutableList<HeadBox>,
     ) {
         for (c in m.cols) {
             for (s in c.items.map { it.staff }.distinct()) {
                 val items = c.items.filter { it.staff == s }
                 val dotX = c.x + c.headRight(s) + 0.3f
-                drawRests(score, shown, m, box, c, s, items.filter { !it.isNote }, sy, marks)
+                drawRests(score, shown, m, box, c, s, items.filter { !it.isNote }, sy, marks, restBoxes)
                 for (it in items.filter { it.isNote }) {
                     val p = it.pos!!
                     val hx = c.x + it.xOff
@@ -606,7 +613,7 @@ object Engraver {
 
     private fun drawRests(
         score: Score, shown: Set<Voice>, m: Meas, box: MeasureBox, c: Col, s: Int, rests: List<Item>,
-        sy: (Int, Int) -> Float, marks: MutableList<Mark>,
+        sy: (Int, Int) -> Float, marks: MutableList<Mark>, restBoxes: MutableList<HeadBox>,
     ) {
         if (rests.isEmpty()) return
         val on = score.voicesOn(s).filter { it in shown }
@@ -631,7 +638,10 @@ object Engraver {
             if (!alone && (hangs || ri == 1) && pos % 2 != 0) pos += key.first // whole/half rests sit on a line
             val glyph = if (it.seg.fullBar) Smufl.REST_WHOLE else Smufl.RESTS[ri]
             val rx = if (it.seg.fullBar) (box.x0 + box.x1) / 2 - 0.56f else c.x
-            for (r in (if (allSame) rests else g)) marks += GlyphMark(glyph, rx, sy(s, pos), r.ref)
+            for (r in (if (allSame) rests else g)) {
+                marks += GlyphMark(glyph, rx, sy(s, pos), r.ref)
+                if (r.index < score.voice(r.voice).size) restBoxes += HeadBox(r.ref, rx + 0.6f, sy(s, pos), s, pos, r.seg.onset)
+            }
             if (!it.seg.fullBar) for (k in 0 until d.dots) marks += GlyphMark(Smufl.DOT, rx + 1.4f + 0.3f + k * 0.55f, sy(s, pos + 1), it.ref)
         }
     }
