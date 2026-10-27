@@ -16,8 +16,8 @@ import kotlin.math.sign
 import kotlin.random.Random
 
 /**
- * Figured-bass exercises: a generator that writes a functional progression as a figured bass,
- * and a solver that voices the upper parts over any figured bass.
+ * Exercises: a generator that writes a functional progression as a figured bass (or as a given soprano,
+ * the melody of one voicing of it), and a solver that writes the missing voices.
  */
 object Exercises {
 
@@ -62,20 +62,29 @@ object Exercises {
     private val PRE_CADENCE = setOf("IV", "ii", "ii6", "ii65", "Cad64", "V/V", "V7/V")
 
     /**
-     * A new exercise: the bass with figures given (locked), the upper voices empty. Its progression is checked
-     * by solving it, so at least one answer without errors exists; of the tries, the one whose answer has the
-     * fewest warnings wins. Null only if every try failed.
+     * A new exercise: the bass with figures given (locked), the upper voices empty; with [soprano], the soprano
+     * given instead, a moving melody ending on the tonic, and the lower voices empty. It is checked by solving it, so at least one
+     * answer without errors exists; of the tries, the one whose answer has the fewest warnings wins.
+     * Null only if every try failed.
      */
-    fun generate(level: Level, rnd: Random = Random.Default): Score? {
+    fun generate(level: Level, rnd: Random = Random.Default, soprano: Boolean = false): Score? {
         val chords = when (level) { Level.EASY -> 9; Level.MEDIUM -> 13; Level.HARD -> 17 }
         var best: Score? = null
         var bestWarnings = Int.MAX_VALUE
-        repeat(40) {
+        // Most voicings of a progression give a static soprano, so a melody takes more tries
+        repeat(if (soprano) 200 else 40) {
             val minor = level != Level.EASY && rnd.nextBoolean()
             val reach = when (level) { Level.EASY -> 2; Level.MEDIUM -> 3; Level.HARD -> 4 }
             val key = Key(rnd.nextInt(-reach, reach + 1), if (minor) Mode.MINOR else Mode.MAJOR)
             val plan = progression(level, minor, chords, rnd) ?: return@repeat
-            val sc = figuredBass(plan, key, rnd) ?: return@repeat
+            val fb = figuredBass(plan, key, rnd) ?: return@repeat
+            val sc = if (!soprano) fb else {
+                val melody = solve(fb)?.voice(Voice.SOPRANO) ?: return@repeat
+                val ps = melody.mapNotNull { it.pitch?.midi }
+                // A melody worth harmonizing: it moves (few repeated notes) over at least a fourth
+                if (melody.last().pitch?.pc != key.tonic || ps.zipWithNext().count { (a, b) -> a == b } > chords / 4 || ps.max() - ps.min() < 5) return@repeat
+                Score(key = key, time = fb.time, voices = listOf(melody, emptyList(), emptyList(), emptyList()), given = setOf(Voice.SOPRANO))
+            }
             val solved = solve(sc) ?: return@repeat
             val issues = VoiceLeading.check(solved).issues
             if (issues.any { it.severity == Severity.ERROR } || issues.size >= bestWarnings) return@repeat
@@ -157,6 +166,6 @@ object Exercises {
         return lines
     }
 
-    /** The score with its upper voices written over the figured bass (see [Voicer]); null if no voicing fits. */
+    /** The score with its missing voices written around the given one (see [Voicer]); null if no voicing fits. */
     fun solve(score: Score): Score? = Voicer.fill(score)
 }

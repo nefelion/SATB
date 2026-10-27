@@ -250,7 +250,7 @@ fun EditorScreen(vm: EditorViewModel) {
     }
     if (settings) SettingsDialog(st, vm) { settings = false }
     if (about) AboutDialog { about = false }
-    if (exercise) ExerciseDialog(onDismiss = { exercise = false }) { level -> exercise = false; vm.newExercise(level) }
+    if (exercise) ExerciseDialog(Voice.SOPRANO in st.score.given, onDismiss = { exercise = false }) { level, soprano -> exercise = false; vm.newExercise(level, soprano) }
     if (scores) ScoresPage(st, vm) { scores = false }
     if (confirmClear) AlertDialog(
         onDismissRequest = { confirmClear = false },

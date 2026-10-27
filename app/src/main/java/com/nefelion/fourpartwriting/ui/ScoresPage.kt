@@ -26,6 +26,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.LocalContentColor
@@ -62,6 +65,7 @@ import com.nefelion.fourpartwriting.UiState
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.theory.Rule
 import androidx.compose.runtime.key
+import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Exercises
 import com.nefelion.fourpartwriting.model.ScoreCodec
 import androidx.compose.runtime.saveable.Saver
@@ -125,7 +129,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
             }
         }
         item {
-            FilledTonalButton(onClick = { exercise = true }, shape = SHAPE, modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()) { Text("New figured bass exercise") }
+            FilledTonalButton(onClick = { exercise = true }, shape = SHAPE, modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()) { Text("New exercise") }
         }
         val other = st.scores.filter { it.first != st.scoreName }
         item {
@@ -142,7 +146,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
             }
         }
     }
-    if (exercise) ExerciseDialog(onDismiss = { exercise = false }) { level -> exercise = false; vm.newExercise(level); onDismiss() }
+    if (exercise) ExerciseDialog(Voice.SOPRANO in st.score.given, onDismiss = { exercise = false }) { level, soprano -> exercise = false; vm.newExercise(level, soprano); onDismiss() }
     if (naming) ScoreDialog("New score", "", Score(), askName = true, action = "Create", onDismiss = { naming = false }) { name, settings ->
         naming = false; vm.newScore(name, settings); onDismiss()
     }
@@ -319,21 +323,29 @@ private fun NameDialog(title: String, start: String, action: String, onDismiss: 
     )
 }
 
-/** Picks the level of a new generated exercise: a figured bass to write the upper voices over. */
+/** Picks the kind (figured bass or given soprano, [onPick]'s soprano; starts as [sopranoFirst]) and level of a new generated exercise. */
 @Composable
-internal fun ExerciseDialog(onDismiss: () -> Unit, onPick: (Exercises.Level) -> Unit) = AlertDialog(
+internal fun ExerciseDialog(sopranoFirst: Boolean, onDismiss: () -> Unit, onPick: (Exercises.Level, Boolean) -> Unit) {
+    var soprano by rememberSaveable { mutableStateOf(sopranoFirst) }
+    AlertDialog(
     onDismissRequest = onDismiss,
     title = { Text("New exercise") },
     text = {
         KeepRefreshRate()
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Write soprano, alto and tenor over the given figured bass, then press ✓ to check.",
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                listOf("Figured bass", "Given soprano").forEachIndexed { i, label ->
+                    SegmentedButton(selected = soprano == (i == 1), onClick = { soprano = i == 1 }, shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
+                }
+            }
+            Text(if (soprano) "Choose the chords and write alto, tenor and bass under the given soprano, then press ✓ to check."
+                else "Write soprano, alto and tenor over the given figured bass, then press ✓ to check.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             for ((level, about) in listOf(
                 Exercises.Level.EASY to "Triads in root position and first inversion, major keys",
                 Exercises.Level.MEDIUM to "Adds seventh chords, the cadential ⁶₄ and minor keys",
                 Exercises.Level.HARD to "Adds secondary dominants, longer phrases",
-            )) OutlinedButton(onClick = { onPick(level) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) {
+            )) OutlinedButton(onClick = { onPick(level, soprano) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Text(level.label, style = MaterialTheme.typography.titleSmall)
                     Text(about, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -343,4 +355,5 @@ internal fun ExerciseDialog(onDismiss: () -> Unit, onPick: (Exercises.Level) -> 
     },
     confirmButton = {},
     dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-)
+    )
+}

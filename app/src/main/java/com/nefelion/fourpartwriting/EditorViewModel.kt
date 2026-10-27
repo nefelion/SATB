@@ -850,15 +850,15 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         newBlank(name, settings.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet(), tempo = settings.tempo.coerceIn(20, 300)))
     }
 
-    /** A new generated figured-bass exercise, opened as a new score. */
-    fun newExercise(level: Exercises.Level) = viewModelScope.launch {
-        val ex = withContext(Dispatchers.Default) { Exercises.generate(level) } ?: return@launch msg("Could not make an exercise. Try again.")
+    /** A new generated exercise (figured bass, or given [soprano]), opened as a new score. */
+    fun newExercise(level: Exercises.Level, soprano: Boolean = false) = viewModelScope.launch {
+        val ex = withContext(Dispatchers.Default) { Exercises.generate(level, soprano = soprano) } ?: return@launch msg("Could not make an exercise. Try again.")
         flushScore()
-        newBlank("${level.label} exercise", ex)
-        _state.update { it.copy(voice = Voice.SOPRANO) }
+        newBlank("${level.label} ${if (soprano) "soprano" else "bass"} exercise", ex)
+        _state.update { it.copy(voice = if (soprano) Voice.BASS else Voice.SOPRANO) }
     }
 
-    /** Writes the upper voices of an exercise over its figured bass (one undo step). */
+    /** Writes the missing voices of an exercise around its given voice (one undo step). */
     fun showSolution() = viewModelScope.launch {
         val sc = s.score
         // Your notes are kept when they can be continued; otherwise the answer starts over from the given voices
@@ -872,7 +872,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 Voicer.Outcome.Empty -> null to null
             }
         }
-        if (solved == null) return@launch msg("No solution found for this bass.")
+        if (solved == null) return@launch msg("No solution found for this exercise.")
         if (s.score == sc) { edit(solved, null); note?.let(::msg) }
     }
 

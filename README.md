@@ -13,7 +13,7 @@ An Android app for writing four-part (SATB) harmony and checking it against comm
 
 - Write four voices by tapping notes onto the staff, or play them on a USB or Bluetooth MIDI keyboard.
 - Harmony check against 25 voice-leading rules (parallel fifths and octaves, leading tone, doubling, spacing …), each explained with an example.
-- Figured bass exercises: write the upper voices over a given bass, check them, or ask for a hint or a full solution.
+- Figured bass and given soprano exercises: write the other voices around a given bass or melody, check them, or ask for a hint or a full solution.
 - Chord symbols, Roman numerals and named non-chord tones.
 - Playback with any SoundFont (`.sf2`) and export to MusicXML.
 
