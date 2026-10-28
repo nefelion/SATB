@@ -398,6 +398,16 @@ fun ScoreCanvas(
                 }
                 // The note a tap here would add, while the finger is down; hint notes until the next edit. On top, so rests never hide it
                 val ghosts = listOfNotNull(state.ghost) + (state.hint?.takeIf { it.score == state.score }?.notes ?: emptyList())
+                // A ghost after the last bar: carry the staff lines on under it
+                val staffEnd = layout.measures.lastOrNull()?.x1 ?: 0f
+                ghosts.maxOfOrNull { layout.xFor(it.at) }?.takeIf { it > staffEnd }?.let { gx ->
+                    paints.line.color = ink
+                    paints.line.strokeWidth = Smufl.STAFF_LINE * sp
+                    for (top in layout.staffTop) for (l in 0..4) {
+                        val ly = (top + l) * sp
+                        nc.drawLine(staffEnd * sp, ly, (gx + Smufl.HEAD_W + 2.5f) * sp, ly, paints.line)
+                    }
+                }
                 for (g in ghosts) {
                     paints.glyph.color = sc.voices[(g.voice ?: state.shownVoice).ordinal].copy(alpha = 0.55f).toArgb()
                     paints.glyph.textSize = 4f * sp
