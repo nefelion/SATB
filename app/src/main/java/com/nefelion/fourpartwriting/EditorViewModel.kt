@@ -270,18 +270,19 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun msg(m: String) = _state.update { it.copy(message = m) }
     fun clearMessage() = _state.update { it.copy(message = null) }
 
-    /** Applies a score edit with undo; re-runs the check if results are shown. */
+    /** Applies a score edit with undo; re-runs the check if results are shown. False when refused. */
     private fun edit(
         edited: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice,
         selectedAt: Fraction? = if (selected == s.selected) s.selectedAt else null,
-    ) {
+    ): Boolean {
         // An exercise's given voices stay as they are (naming their chords and fermatas is fine)
         s.score.given.firstOrNull { v -> v in edited.given && edited.voice(v).map { it.copy(chord = null, fermata = false) } != s.score.voice(v).map { it.copy(chord = null, fermata = false) } }?.let { v ->
-            return msg("The ${v.name.lowercase()} is given in this exercise.")
+            msg("The ${v.name.lowercase()} is given in this exercise.")
+            return false
         }
         val new = if (dragBase != null) edited else VoiceLeading.pruneMutes(edited)
         val placed = s.placed && selected == s.selected
-        if (new == s.score) { _state.update { it.copy(selected = selected, selectedAt = selectedAt, voice = voice, placed = placed) }; return }
+        if (new == s.score) { _state.update { it.copy(selected = selected, selectedAt = selectedAt, voice = voice, placed = placed) }; return true }
         val dragging = dragBase != null
         _state.update {
             it.copy(
@@ -294,6 +295,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
         if (!dragging) checkOrder() // a dragged pitch may pass through a crossing on its way
+        return true
     }
 
     // ---------- voice order ----------
@@ -815,8 +817,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         fun inBar(v: Voice) = new.onsets(v).withIndex().filter { (_, t) -> t >= b.start && t < b.end }
             .let { if (later) it.firstOrNull() else it.lastOrNull() }?.let { NoteRef(v, it.index) }
         val sel = inBar(r.voice) ?: Voice.entries.firstNotNullOfOrNull(::inBar)
-        edit(new, sel, sel?.voice ?: s.voice)
-        msg("Bar ${bar + 1} deleted.")
+        if (edit(new, sel, sel?.voice ?: s.voice)) msg("Bar ${bar + 1} deleted.")
     }
 
     fun undo() {
@@ -1047,7 +1048,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Switches rule [r] on or off for score [name] only; the open score changes as one undo step. */
     fun toggleScoreRule(name: String, r: Rule) {
         fun apply(sc: Score) = sc.copy(rulesOff = if (r.name in sc.rulesOff) sc.rulesOff - r.name else sc.rulesOff + r.name)
-        if (name == s.scoreName) return edit(apply(s.score))
+        if (name == s.scoreName) { edit(apply(s.score)); return }
         flushScore()
         val sc = library.read(name) ?: return msg("Could not read $name.")
         if (!library.write(name, apply(sc))) return msg("Could not save $name.")
