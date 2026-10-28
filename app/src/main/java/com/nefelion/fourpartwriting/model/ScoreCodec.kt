@@ -1,6 +1,6 @@
 package com.nefelion.fourpartwriting.model
 
-/** Plain-text score file. One setting per line; one line per voice: "S E4:1/4 r:1/2 ...". A tuplet adds ":n:m:unit" ("E4:1/20:5:4:1/16"),
+/** Plain-text score file. One setting per line ("pickup 1/4"; "change <bar> key <fifths> <MODE>", "change <bar> time <beats> <unit> <SYMBOL>"); one line per voice: "S E4:1/4 r:1/2 ...". A tuplet adds ":n:m:unit" ("E4:1/20:5:4:1/16"),
  * a fermata "^" ("E4:1/2^"), bass figures "@lines" ("E3:1/4@6,4"), a chord name "!name" last ("E4:1/4!C/E"). */
 object ScoreCodec {
 
@@ -11,6 +11,11 @@ object ScoreCodec {
         appendLine("key ${s.key.fifths} ${s.key.mode.name}")
         appendLine("time ${s.time.beats} ${s.time.beatUnit} ${s.time.symbol.name}")
         appendLine("tempo ${s.tempo}")
+        s.pickup?.let { appendLine("pickup ${it.num}/${it.den}") }
+        for ((bar, c) in s.changes.toSortedMap()) {
+            c.key?.let { appendLine("change $bar key ${it.fifths} ${it.mode.name}") }
+            c.time?.let { appendLine("change $bar time ${it.beats} ${it.beatUnit} ${it.symbol.name}") }
+        }
         appendLine("arr " + s.arrangement.staffOf.joinToString(" "))
         appendLine("clefs " + s.clefs.joinToString(" ") { it.name })
         if (s.rulesOff.isNotEmpty()) appendLine("off " + s.rulesOff.joinToString(" "))
@@ -66,6 +71,17 @@ object ScoreCodec {
         val map = lines.drop(1).associate { l -> l.substringBefore(' ') to l.substringAfter(' ', "") }
         // Optional lines; "ignore" repeats, so it is not read from the map
         val ignored = lines.filter { it.startsWith("ignore ") }.map { it.removePrefix("ignore ") }.toSet()
+        val changes = HashMap<Int, Change>()
+        for (l in lines.filter { it.startsWith("change ") }) {
+            val w = l.trim().split(" ")
+            val bar = w[1].toInt()
+            val c = changes[bar] ?: Change()
+            changes[bar] = when (w[2]) {
+                "key" -> c.copy(key = Key(w[3].toInt(), Mode.valueOf(w[4])))
+                "time" -> c.copy(time = TimeSig(w[3].toInt(), w[4].toInt(), TimeSig.Symbol.valueOf(w[5])))
+                else -> c
+            }
+        }
         val k = map.getValue("key").split(" ")
         val t = map.getValue("time").split(" ")
         val arrText = map.getValue("arr").trim()
@@ -100,6 +116,8 @@ object ScoreCodec {
             rulesOff = map["off"].orEmpty().split(" ").filter { it.isNotBlank() }.toSet(),
             ignored = ignored,
             given = map["given"].orEmpty().split(" ").mapNotNull { l -> Voice.entries.firstOrNull { it.label == l } }.toSet(),
+            pickup = map["pickup"]?.trim()?.split("/")?.map { it.toLong() }?.let { (n, d) -> Fraction.of(n, d) },
+            changes = changes,
         )
     }.getOrNull()
 }

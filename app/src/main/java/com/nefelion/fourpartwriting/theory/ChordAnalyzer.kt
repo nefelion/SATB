@@ -124,10 +124,14 @@ object ChordAnalyzer {
     fun analyzeAll(slices: List<List<Pitch>>, key: Key): List<Chord> = withContext(slices.map { analyze(it, key) }, key)
 
     /** Context labels on a chord sequence: cadential 6/4, Picardy third. */
-    fun withContext(list: List<Chord>, key: Key): List<Chord> {
+    fun withContext(list: List<Chord>, key: Key): List<Chord> = withContext(list, list.map { key })
+
+    /** [keys]: the key of each chord (a piece may modulate). */
+    fun withContext(list: List<Chord>, keys: List<Key>): List<Chord> {
         val chords = list.toMutableList()
         for (i in chords.indices) {
             val c = chords[i]
+            val key = keys[i]
             // The chord the context comes from: the next one that is not this chord struck again
             val next = list.drop(i + 1).firstOrNull { it.root != c.root || it.quality != c.quality || it.bass != c.bass }
             // I6/4 resolving to V (root position) is a cadential 6/4.

@@ -205,8 +205,38 @@ data class Key(val fifths: Int, val mode: Mode) {
     }
 }
 
-data class TimeSig(val beats: Int, val beatUnit: Int, val symbol: Symbol = Symbol.NUMERIC) {
+/** One bar, [start] until [end], in [time]. A pickup is shorter: its beats count from [downbeat], before [start]. */
+data class Bar(val index: Int, val start: Fraction, val end: Fraction, val time: TimeSig) {
+    val downbeat get() = end - time.measure
+}
+
+/** Where bars fall in time. */
+interface Meter {
+    fun barAt(t: Fraction): Bar
+
+    /** Bars from time 0 up to [end] (at least one). */
+    fun bars(end: Fraction): List<Bar> = generateSequence(barAt(Fraction.ZERO)) { b -> if (b.end < end) barAt(b.end) else null }.toList()
+
+    /** Bar number [i] (0-based). */
+    fun bar(i: Int): Bar = generateSequence(barAt(Fraction.ZERO)) { barAt(it.end) }.first { it.index >= i }
+
+    /** Time since the downbeat of the bar holding [t]. */
+    fun inBar(t: Fraction) = barAt(t).let { t - it.downbeat }
+
+    fun onBeat(t: Fraction) = barAt(t).let { ((t - it.downbeat) / it.time.beatLength).den == 1L }
+
+    fun isBarline(t: Fraction) = barAt(t).start == t
+}
+
+/** Every bar the same: [measure] long. */
+data class TimeSig(val beats: Int, val beatUnit: Int, val symbol: Symbol = Symbol.NUMERIC) : Meter {
     enum class Symbol { NUMERIC, COMMON, CUT }
+    override fun barAt(t: Fraction): Bar {
+        val m = measure
+        val n = maxOf(0L, (t / m).let { it.num / it.den })
+        return Bar(n.toInt(), m * Fraction.of(n, 1), m * Fraction.of(n + 1, 1), this)
+    }
+
     val measure get() = Fraction.of(beats.toLong(), beatUnit.toLong())
     /** Compound meters (6/8, 9/8, 12/8, 6/4 ...) group by dotted beats. */
     val isCompound get() = beats % 3 == 0 && beats > 3 && beatUnit >= 4

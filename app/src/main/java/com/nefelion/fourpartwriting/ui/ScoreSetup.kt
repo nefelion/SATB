@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.nefelion.fourpartwriting.engrave.Smufl
 import com.nefelion.fourpartwriting.model.Arrangement as StaffArrangement
 import com.nefelion.fourpartwriting.model.Clef
+import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.Mode
@@ -66,6 +67,29 @@ internal fun TimeSigPicker(t: TimeSig, onTime: (TimeSig) -> Unit) {
             Segmented(listOf("2", "4", "8", "16"), listOf(2, 4, 8, 16).indexOf(t.beatUnit)) { onTime(TimeSig(t.beats, listOf(2, 4, 8, 16)[it])) }
             Text("beat unit", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+/** "2 eighths", "1 quarter": a pickup counted in the time signature's beat unit. */
+internal fun pickupLabel(p: Fraction, t: TimeSig): String {
+    val n = (p * Fraction.of(t.beatUnit.toLong(), 1)).let { it.num / it.den }
+    val unit = when (t.beatUnit) { 1 -> "whole"; 2 -> "half"; 4 -> "quarter"; 8 -> "eighth"; 16 -> "sixteenth"; else -> "1/${t.beatUnit}" }
+    return "$n $unit${if (n == 1L) "" else "s"}"
+}
+
+/** Length of the opening short bar, in beat units of [t]: none, or 1 up to one less than a full bar. */
+@Composable
+internal fun PickupPicker(pickup: Fraction?, t: TimeSig, onPickup: (Fraction?) -> Unit) {
+    val n = pickup?.let { (it * Fraction.of(t.beatUnit.toLong(), 1)).let { f -> f.num / f.den }.toInt() } ?: 0
+    fun set(k: Int) = onPickup(if (k <= 0) null else Fraction.of(k.toLong(), t.beatUnit.toLong()))
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Small("−", enabled = n > 0) { set(n - 1) }
+            Text(if (n == 0) "None" else pickup?.let { pickupLabel(it, t) }.orEmpty(), Modifier.width(120.dp), fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium)
+            Small("+", enabled = n < t.beats - 1) { set(n + 1) }
+        }
+        Text("Notes before the first full bar (bar 0).", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
     }
 }
 

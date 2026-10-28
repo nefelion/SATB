@@ -32,7 +32,7 @@ object Voicer {
                          val cost: Double, val inferred: Boolean)
 
     /** [fixed]: the written note of each voice S A T B sounding here (null: to be filled). */
-    private class Point(val fixed: List<Pitch?>, val options: List<Option>)
+    private class Point(val fixed: List<Pitch?>, val options: List<Option>, val key: Key)
 
     private class State(val opt: Option, val v: List<Pitch>, val cost: Double, val from: Int)
 
@@ -56,7 +56,6 @@ object Voicer {
     }
 
     fun attempt(score: Score): Outcome {
-        val key = score.key
         val rhythm = Voice.entries.filter { v -> score.voice(v).any { it.pitch != null } }
             .maxWithOrNull(compareBy({ score.length(it) }, { when (it) { Voice.SOPRANO -> 2; Voice.BASS -> 1; else -> 0 } })) ?: return Outcome.Empty
         val total = score.length(rhythm)
@@ -70,9 +69,9 @@ object Voicer {
             val t = on[i]
             // shortcut: a rest in a written voice counts as a free note here (not written); fine for chorale-style parts
             val fixed = Voice.entries.map { v -> if (t < score.length(v)) score.eventAt(v, t).takeIf { it >= 0 }?.let { score.voice(v)[it].pitch } else null }
-            Point(fixed, optionsAt(score, t, fixed, figured, last = k == idx.lastIndex, penultimate = k == idx.lastIndex - 1))
+            Point(fixed, optionsAt(score, t, fixed, figured, last = k == idx.lastIndex, penultimate = k == idx.lastIndex - 1), score.keyAt(t))
         }
-        val path = search(points, key).let { (p, stuck) -> p ?: return Outcome.Stuck(on[idx[stuck]]) }
+        val path = search(points).let { (p, stuck) -> p ?: return Outcome.Stuck(on[idx[stuck]]) }
         val upper = Voice.entries.map { v ->
             if (v !in toFill) return@map score.voice(v)
             val start = score.length(v)
@@ -91,7 +90,7 @@ object Voicer {
 
     /** Chords possible at [t]: the chord named on a note there, else the bass figures, else diatonic chords holding the [fixed] notes. */
     private fun optionsAt(score: Score, t: Fraction, fixed: List<Pitch?>, figured: Boolean, last: Boolean, penultimate: Boolean): List<Option> {
-        val key = score.key
+        val key = score.keyAt(t)
         val named = Voice.entries.firstNotNullOfOrNull { v ->
             val j = score.eventAt(v, t)
             score.voice(v).getOrNull(j)?.takeIf { score.onsets(v)[j] == t }?.chord
@@ -118,7 +117,7 @@ object Voicer {
      */
     fun fix(score: Score, t: Fraction, rules: Set<Rule> = Rule.entries.toSet(),
             movable: Set<Voice> = Voice.entries.toSet() - score.given): Score? {
-        val key = score.key
+        val key = score.keyAt(t)
         fun sounding(at: Fraction) = Voice.entries.map { v -> score.eventAt(v, at).takeIf { it >= 0 }?.let { score.voice(v)[it].pitch } }
         val struck = Voice.entries.filter { v ->
             val j = score.eventAt(v, t)
@@ -220,7 +219,7 @@ object Voicer {
     }
 
     /** The cheapest voicing per point, or null and the index of the first point no clean voicing reaches. */
-    private fun search(points: List<Point>, key: Key): Pair<List<List<Pitch>>?, Int> {
+    private fun search(points: List<Point>): Pair<List<List<Pitch>>?, Int> {
         val layers = mutableListOf<List<State>>()
         for ((i, pt) in points.withIndex()) {
             val prev = layers.lastOrNull()
@@ -233,7 +232,7 @@ object Voicer {
                     var best = NO; var from = -1
                     for ((j, p) in prev.withIndex()) {
                         if (p.cost >= best) continue
-                        val t = p.cost + own + move(p.v, v, points[i - 1].fixed, pt.fixed, p.opt, opt) + progression(p.opt, opt, key)
+                        val t = p.cost + own + move(p.v, v, points[i - 1].fixed, pt.fixed, p.opt, opt) + progression(p.opt, opt, pt.key)
                         if (t < best) { best = t; from = j }
                     }
                     if (from >= 0 && best < NO) states += State(opt, v, best, from)

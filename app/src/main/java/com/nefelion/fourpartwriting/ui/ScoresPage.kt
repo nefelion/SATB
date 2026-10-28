@@ -62,6 +62,7 @@ import com.nefelion.fourpartwriting.engrave.Smufl
 import com.nefelion.fourpartwriting.EditorViewModel
 import com.nefelion.fourpartwriting.ScoreLibrary
 import com.nefelion.fourpartwriting.UiState
+import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.theory.Rule
 import androidx.compose.runtime.key
@@ -200,8 +201,7 @@ private fun ScoreRulesPage(name: String, sc: Score, st: UiState, vm: EditorViewM
 
 /** "D major · 3/4 · 12 bars". */
 private fun summary(sc: Score): String {
-    val m = sc.length / sc.time.measure
-    val bars = (m.num + m.den - 1) / m.den
+    val bars = if (sc.length == Fraction.ZERO) 0L else sc.bars(sc.length).size.toLong()
     return "${sc.key.name} · ${sc.time.beats}/${sc.time.beatUnit} · " + when (bars) { 0L -> "empty"; 1L -> "1 bar"; else -> "$bars bars" }
 }
 
@@ -251,6 +251,8 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
                 SettingRow("Key", draft.key.name, enabled = !fixed) { editing = "Key" }
                 HorizontalDivider()
                 SettingRow("Time signature", "${draft.time.beats}/${draft.time.beatUnit}", enabled = !fixed) { editing = "Time signature" }
+                HorizontalDivider()
+                SettingRow("Pickup bar", draft.pickup?.let { pickupLabel(it, draft.time) } ?: "None", enabled = !fixed) { editing = "Pickup bar" }
                 if (fixed) Text("Key and time signature are fixed by the exercise.", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp))
                 HorizontalDivider()
@@ -276,7 +278,9 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                         when (what) {
                             "Key" -> KeyPicker(draft.key) { draft = draft.copy(key = it) }
-                            "Time signature" -> TimeSigPicker(draft.time) { draft = draft.copy(time = it) }
+                            // A pickup must stay shorter than a full bar
+                            "Time signature" -> TimeSigPicker(draft.time) { draft = draft.copy(time = it, pickup = draft.pickup?.takeIf { p -> p < it.measure }) }
+                            "Pickup bar" -> PickupPicker(draft.pickup, draft.time) { draft = draft.copy(pickup = it) }
                             "Tempo" -> TempoEditor(draft.tempo, draft.time, { draft = draft.copy(tempo = it.coerceIn(20, 300)) }, {})
                             else -> StavesPicker(draft, { draft = draft.withArrangement(it) }) { i, c ->
                                 draft = draft.copy(clefs = draft.clefs.toMutableList().also { it[i] = c })

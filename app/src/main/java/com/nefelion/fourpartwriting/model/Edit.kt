@@ -136,13 +136,23 @@ object Edit {
 
     /**
      * Removes bar [bar] (0-based) from every voice; later music moves left. A note sounding across
-     * the bar keeps its parts before and after it.
+     * the bar keeps its parts before and after it. A key or time change there moves to the next bar;
+     * deleting a pickup drops it.
      */
     fun deleteMeasure(s: Score, bar: Int): Score {
-        val ml = s.time.measure
-        val b0 = ml * Fraction.of(bar.toLong(), 1)
-        val b1 = b0 + ml
-        var out = s
+        val b = s.bar(bar)
+        val b0 = b.start
+        val b1 = b.end
+        val moved = HashMap<Int, Change>()
+        for ((i, c) in s.changes.toSortedMap()) {
+            val j = if (i > bar) i - 1 else i
+            moved[j] = moved[j]?.let { o -> Change(c.key ?: o.key, c.time ?: o.time) } ?: c
+        }
+        val first = moved.remove(0)
+        var out = s.copy(
+            key = first?.key ?: s.key, time = first?.time ?: s.time, changes = moved,
+            pickup = s.pickup.takeIf { bar > 0 }?.takeIf { it < (first?.time ?: s.time).measure },
+        )
         for (v in Voice.entries) {
             val list = mutableListOf<Event>()
             var t = Fraction.ZERO
@@ -162,10 +172,8 @@ object Edit {
     /** Drops last bars in which no voice has a note sounding (only rests), cutting the voices there. */
     fun dropEmptyLastBars(s: Score): Score {
         var sc = s
-        val ml = s.time.measure
         while (sc.length > Fraction.ZERO) {
-            val bars = (sc.length / ml).let { (it.num + it.den - 1) / it.den }
-            val barStart = ml * Fraction.of(bars - 1, 1)
+            val barStart = sc.bars(sc.length).last().start
             val sounding = Voice.entries.any { v ->
                 var t = Fraction.ZERO
                 sc.voice(v).any { e -> val end = t + e.length; (e.pitch != null && end > barStart).also { t = end } }

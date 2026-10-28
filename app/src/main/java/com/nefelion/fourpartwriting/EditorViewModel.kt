@@ -20,6 +20,8 @@ import com.nefelion.fourpartwriting.model.Duration
 import com.nefelion.fourpartwriting.model.Edit
 import com.nefelion.fourpartwriting.model.Event
 import com.nefelion.fourpartwriting.model.Fraction
+import com.nefelion.fourpartwriting.model.Change
+import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Pitch
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.ScoreCodec
@@ -324,13 +326,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Where a tap at [hit] puts a note: its pitch, time, and whether it fills a rest (else appends). Null = no note. */
     private data class Target(val pitch: Pitch, val at: Fraction, val inRest: Boolean)
 
-    private fun measureOf(t: Fraction) = (t / s.score.time.measure).let { it.num / it.den }
+    private fun measureOf(t: Fraction) = s.score.barAt(t).index
 
     /** The tap is in the slot for the input voice's next note (at or after its end). */
     private fun appendSlot(hit: Hit): Boolean {
         val end = s.score.length(s.locked ?: s.voice)
         return hit.time >= end || (hit.afterLast && (measureOf(hit.time) == measureOf(end) ||
-            (measureOf(hit.time) == measureOf(end) - 1 && (end / s.score.time.measure).den == 1L)))
+            (measureOf(hit.time) == measureOf(end) - 1 && s.score.isBarline(end))))
     }
 
     private fun target(hit: Hit): Target? {
@@ -338,9 +340,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val score = s.score
         val v = s.locked ?: s.voice
         val end = score.length(v)
-        val ml = score.time.measure
         val base = score.clefs[hit.staff].pitchAt(hit.position)
-        val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: score.key.sigAlter(base.step), base.octave))
+        val key = score.keyAt(if (appendSlot(hit)) maxOf(hit.time, end) else hit.time)
+        val pitch = onStaff(score, v, Pitch(base.step, s.accidental ?: key.sigAlter(base.step), base.octave), key)
         if (appendSlot(hit)) {
             // In the slot for the next note, only a tap right on an existing note selects it;
             // on another voice's staff (where the input voice can't go) a tap near a note does too.
@@ -350,7 +352,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             val at = when {
                 hit.time <= end -> end
                 !hit.afterLast -> hit.time
-                measureOf(hit.time) > measureOf(end) -> (ml * Fraction.of(measureOf(hit.time), 1)).coerceAtLeast(end)
+                measureOf(hit.time) > measureOf(end) -> score.barAt(hit.time).start.coerceAtLeast(end)
                 else -> end
             }
             return Target(pitch, at, false)
@@ -415,7 +417,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
      * first; else the palette value.
      */
     private fun input(sc: Score, v: Voice, at: Fraction): Event {
-        Notation.tupletGroups(sc.voice(v), sc.time).firstOrNull { at > it.start && at < it.end }?.let { g ->
+        Notation.tupletGroups(sc.voice(v), sc).firstOrNull { at > it.start && at < it.end }?.let { g ->
             // Palette untouched: repeat the voice's last note in the group (another voice may have changed the palette)
             val on = sc.onsets(v)
             val prev = sc.voice(v).indices.lastOrNull { on[it] >= g.start && on[it] < at }?.let { sc.voice(v)[it] }
@@ -431,12 +433,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun earliestVoice(sc: Score) = Voice.entries.filter { it !in sc.given }.ifEmpty { Voice.entries }.minBy { sc.length(it) }
 
     /** Keeps [p] within [NOTE_POSITIONS] on [v]'s own staff (a far tap must not make a tower of ledger lines). */
-    private fun onStaff(sc: Score, v: Voice, p: Pitch): Pitch {
+    private fun onStaff(sc: Score, v: Voice, p: Pitch, key: Key): Pitch {
         val clef = sc.clefs[sc.staffOf(v)]
         val pos = clef.position(p)
         if (pos in NOTE_POSITIONS) return p
         val b = clef.pitchAt(pos.coerceIn(NOTE_POSITIONS))
-        return Pitch(b.step, sc.key.sigAlter(b.step), b.octave)
+        return Pitch(b.step, key.sigAlter(b.step), b.octave)
     }
 
     /** Input voice to return to when the selection is cleared (selecting a note switches to its voice). */
@@ -518,7 +520,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val evs = s.score.voice(r.voice)
         val e = evs.getOrNull(r.index)?.takeIf { it.pitch != null } ?: return
         val clean = name.filter { !it.isWhitespace() && it !in ":@!," }.ifEmpty { null }
-        val spec = clean?.let { com.nefelion.fourpartwriting.theory.ChordText.parse(it, s.score.key) }
+        val spec = clean?.let { com.nefelion.fourpartwriting.theory.ChordText.parse(it, s.score.keyAt(s.score.onsets(r.voice)[r.index])) }
         if (clean != null && spec == null) return msg("\"$clean\" is not a chord. Try C, F#m, G7/B, Bm7b5, V65, ii6 or V7/V.")
         // Over a given (locked) bass the figures fix the chord: only a name with exactly its notes and bass fits
         if (spec != null && Voice.BASS in s.score.given) {
@@ -526,7 +528,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             val b = s.score.eventAt(Voice.BASS, t).takeIf { it >= 0 }?.let { s.score.voice(Voice.BASS)[it] }
             val bp = b?.pitch
             if (bp != null) {
-                val want = FiguredBass.realize(bp, b.figures, s.score.key).values.toSet() + bp.pc
+                val want = FiguredBass.realize(bp, b.figures, s.score.keyAt(t)).values.toSet() + bp.pc
                 if (spec.pcs.toSet() != want || (spec.bass ?: spec.pcs[0]) != bp.pc)
                     return msg("$clean doesn't fit the bass ${bp.pc.name}${if (b.figures.isEmpty()) "" else " with figures " + FiguredBass.display(b.figures)}. Read the figures again.")
             }
@@ -557,11 +559,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val best = withContext(Dispatchers.Default) { Voicer.fix(upTo, t, rules, open) } ?: upTo
         if (s.score != sc) return@launch
         val notes = Voice.entries.map { v -> best.eventAt(v, t).takeIf { it >= 0 }?.let { best.voice(v)[it].pitch } }
-        val chord = ChordAnalyzer.analyze(notes.filterNotNull(), sc.key)
+        val chord = ChordAnalyzer.analyze(notes.filterNotNull(), sc.keyAt(t))
         val ghosts = Voice.entries.filter { sc.length(it) <= t }.mapNotNull { v ->
             val p = notes[v.ordinal] ?: return@mapNotNull null
             val staff = sc.staffOf(v)
-            Ghost(staff, sc.clefs[staff].position(p), t, v, p.alter.takeIf { it != sc.key.sigAlter(p.step) })
+            Ghost(staff, sc.clefs[staff].position(p), t, v, p.alter.takeIf { it != sc.keyAt(t).sigAlter(p.step) })
         }
         _state.update { it.copy(hint = Hint(sc, ghosts), followTick = it.followTick + 1) }
         // Plain digits: the snackbar cannot stack figures
@@ -581,7 +583,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (s.score == sc) { edit(fixed); msg("Chord revoiced. Undo brings yours back.") }
     }
 
-    private fun barOf(t: Fraction) = (t / s.score.time.measure).let { it.num / it.den + 1 }
+    private fun barOf(t: Fraction) = s.score.barNumber(t)
 
     /** Next (+1) or previous (-1) bass note, skipping rests. */
     fun stepBass(dir: Int) {
@@ -629,7 +631,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Triplet on/off (tap). Off also ends any other tuplet. */
     fun toggleTriplet() {
-        if (s.shownTuplet == null && s.score.time.isCompound) { msg("Triplets are for simple meters (2/4, 3/4, 4/4 …). Hold for other tuplets."); return }
+        if (s.shownTuplet == null && s.score.barAt(s.selectedTime ?: s.score.length(s.locked ?: s.voice)).time.isCompound) { msg("Triplets are for simple meters (2/4, 3/4, 4/4 …). Hold for other tuplets."); return }
         setTuplet(if (s.shownTuplet == null) 3 to 2 else null)
     }
 
@@ -655,7 +657,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun entered(sc: Score) {
         val open = Voice.entries.any { v ->
             val end = sc.length(v)
-            Notation.tupletGroups(sc.voice(v), sc.time).any { end > it.start && end < it.end }
+            Notation.tupletGroups(sc.voice(v), sc).any { end > it.start && end < it.end }
         }
         _state.update { it.copy(paletteSet = false, tuplet = it.tuplet.takeIf { open }) }
     }
@@ -670,7 +672,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val e = s.selectedEvent
         val p = e?.pitch
         if (p != null) {
-            val newAlter = if (p.alter == alter) s.score.key.sigAlter(p.step) else alter
+            val newAlter = if (p.alter == alter) s.score.keyAt(onsetOf(s.selected!!)).sigAlter(p.step) else alter
             editSelected { sc, v, i -> Edit.setPitch(sc, v, i, p.copy(alter = newAlter)) }
             preview(p.copy(alter = newAlter))
         } else _state.update { it.copy(accidental = if (it.accidental == alter) null else alter) }
@@ -706,7 +708,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Moves the selected note by diatonic steps, spelling it by the key signature. */
     fun nudge(steps: Int) {
         val p = s.selectedEvent?.pitch ?: return
-        val q = p.shiftDiatonic(steps).let { it.copy(alter = s.score.key.sigAlter(it.step)) }
+        val q = p.shiftDiatonic(steps).let { it.copy(alter = s.score.keyAt(onsetOf(s.selected!!)).sigAlter(it.step)) }
         if (q.midi !in 21..108) return
         // Stay within the ledger-line limit, but a note already beyond it may still move back
         val clef = s.score.clefs[s.score.staffOf(s.selected!!.voice)]
@@ -734,13 +736,29 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edit(Edit.fermata(s.score, onsetOf(r)))
     }
 
+    /** Bar of the selected note for a key or time change, or null (with a message) where none can go. */
+    fun changeBarOfSelection(): Int? {
+        val t = s.selectedTime ?: return null
+        if (s.score.given.isNotEmpty()) { msg("An exercise's key and time signature can't be changed."); return null }
+        val bar = s.score.barAt(t).index
+        if (bar == 0) { msg("Bar ${s.score.barNumber(t)} starts the score: tap the clef to change its key or time signature."); return null }
+        return bar
+    }
+
+    /** Key and/or time signature from [bar] on; null removes the change there. */
+    fun setChange(bar: Int, c: Change?) {
+        val changes = s.score.changes.toMutableMap()
+        if (c == null) changes.remove(bar) else changes[bar] = c
+        edit(s.score.copy(changes = changes))
+    }
+
     fun tie() {
         val r = s.selected ?: run { msg("Select a note to tie it to the next one."); return }
         val e = s.selectedEvent ?: return
         // A tapped head with a tie going out of it: remove that tie (the note splits in two)
         if (e.pitch != null) {
             val t = onsetOf(r)
-            val segs = Notation.splitVoice(s.score.voice(r.voice), s.score.time)[r.index]
+            val segs = Notation.splitVoice(s.score.voice(r.voice), s.score)[r.index]
             val k = segs.indexOfLast { it.onset <= (s.selectedTime ?: t) }
             if (k < segs.lastIndex) { edit(Edit.untie(s.score, r.voice, r.index, segs[k + 1].onset)); return }
         }
@@ -765,7 +783,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val e = list[r.index]
         // Removing a rest inside a voice would pull every later note left, out of line with the other voices
         if (e.pitch == null && r.index < list.lastIndex) return msg("Tap a note into the rest to replace it.")
-        val segs = if (e.pitch == null) emptyList() else Notation.splitVoice(score.voice(r.voice), score.time)[r.index]
+        val segs = if (e.pitch == null) emptyList() else Notation.splitVoice(score.voice(r.voice), score)[r.index]
         val at = s.selectedTime ?: t
         val seg = segs.takeIf { it.size > 1 }?.firstOrNull { at >= it.onset && at < it.onset + it.length }
         if (seg != null) {
@@ -787,14 +805,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteMeasure() {
         val r = s.selected
         if (r == null || s.selectedEvent == null) { msg("Select a note in the bar you want to delete."); return }
-        val ml = s.score.time.measure
-        val bar = (s.selectedTime!! / ml).let { (it.num / it.den).toInt() }
+        val bar = s.score.barAt(s.selectedTime!!).index
         val new = Edit.dropEmptyLastBars(Edit.deleteMeasure(s.score, bar))
         // Stay in place so the next bar can go at once: the first event of the bar that moved into this
         // position, or the last event of the previous bar when the last bar was deleted. Same voice if it has one.
-        val later = new.length > ml * Fraction.of(bar.toLong(), 1)
-        val b0 = ml * Fraction.of((if (later) bar else maxOf(bar - 1, 0)).toLong(), 1)
-        fun inBar(v: Voice) = new.onsets(v).withIndex().filter { (_, t) -> t >= b0 && t < b0 + ml }
+        val bars = new.bars(new.length)
+        val later = bar < bars.size && new.length > bars[bar].start
+        val b = bars.getOrNull(if (later) bar else maxOf(bar - 1, 0)) ?: bars.last()
+        fun inBar(v: Voice) = new.onsets(v).withIndex().filter { (_, t) -> t >= b.start && t < b.end }
             .let { if (later) it.firstOrNull() else it.lastOrNull() }?.let { NoteRef(v, it.index) }
         val sel = inBar(r.voice) ?: Voice.entries.firstNotNullOfOrNull(::inBar)
         edit(new, sel, sel?.voice ?: s.voice)
@@ -903,6 +921,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun editScore(name: String, settings: Score) {
         // An exercise keeps its key and time signature (its figures and cadence depend on them)
         fun apply(sc: Score) = sc.copy(key = if (sc.given.isEmpty()) settings.key else sc.key, time = if (sc.given.isEmpty()) settings.time else sc.time,
+            pickup = (if (sc.given.isEmpty()) settings.pickup else sc.pickup)?.takeIf { it < (if (sc.given.isEmpty()) settings.time else sc.time).measure },
             tempo = settings.tempo.coerceIn(20, 300),
             arrangement = settings.arrangement, clefs = settings.clefs)
         if (name == s.scoreName) {
@@ -1061,7 +1080,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
      */
     internal fun midiNotes(notes: List<Int>) {
         if (notes.isEmpty() || s.playing) return
-        val key = s.score.key
+        val key = s.score.keyAt(s.selectedTime ?: s.score.length(s.locked ?: s.voice))
         val desc = notes.distinct().sortedDescending().map { Pitch.fromMidi(it, key) }
         fun pick(v: Voice) = if (v == Voice.BASS) desc.last() else desc.first()
         val sel = s.selected

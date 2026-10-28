@@ -8,6 +8,7 @@ import com.nefelion.fourpartwriting.model.Pitch
 import com.nefelion.fourpartwriting.model.PitchClass
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.Slice
+import com.nefelion.fourpartwriting.model.Meter
 import com.nefelion.fourpartwriting.model.TimeSig
 import com.nefelion.fourpartwriting.model.Voice
 import kotlin.math.abs
@@ -125,7 +126,7 @@ object VoiceLeading {
         val harmony = HarmonyAnalyzer.analyze(score, slices)
         val points = harmony.points
         // Context labels (cadential 6/4, Picardy) on the sequence of named chords
-        val named = ChordAnalyzer.withContext(points.map { harmony.chordOf[it] }, score.key)
+        val named = ChordAnalyzer.withContext(points.map { harmony.chordOf[it] }, points.map { score.keyAt(slices[it].time) })
         val pointChord = points.indices.associate { points[it] to named[it] }
         var gov = 0
         val chords = slices.indices.map { i -> if (i in pointChord) gov = i; pointChord.getValue(gov) }
@@ -139,9 +140,8 @@ object VoiceLeading {
         val lengths = V.map { score.length(it) }
         if (lengths.distinct().size > 1)
             add(Severity.WARNING, 0, Rule.STRUCTURE, "Voices have different lengths.")
-        val measure = score.time.measure
         val total = score.length
-        if (total > Fraction.ZERO && (total / measure).den != 1L)
+        if (total > Fraction.ZERO && !score.isBarline(total))
             add(Severity.WARNING, slices.lastIndex.coerceAtLeast(0), Rule.STRUCTURE, "Last measure is incomplete.")
 
         // The voice sounding the bass of a slice (the bass part may rest)
@@ -199,7 +199,7 @@ object VoiceLeading {
             val prevI = points.getOrNull(k - 1)
             val nextI = points.getOrNull(k + 1)
             val prev = prevI?.let { chords[it] }
-            if (s.pitches.size >= 3) chordRules(i, chordSlice, chord, prev, nextI?.let { chords[it] }, score.key, ::add)
+            if (s.pitches.size >= 3) chordRules(i, chordSlice, chord, prev, nextI?.let { chords[it] }, score.keyAt(s.time), ::add)
             if (prevI != null) resolutionRules(score, prevI, i, slices, chords, chords[prevI], chord, ::isNct, ::add)
             if (prevI != null && i - prevI > 1) ornamentedParallels(prevI, i, slices, ::isNct, ::add)
 
@@ -219,38 +219,38 @@ object VoiceLeading {
             if (chord.roman == "Cad⁶₄" && nextI != null) {
                 var start = k
                 while (start > 0 && chords[points[start - 1]].let { it.root == chord.root && it.quality == q && it.bass == chord.bass }) start--
-                if (weight(slices[points[start]].time, score.time) <= weight(slices[nextI].time, score.time))
+                if (weight(slices[points[start]].time, score) <= weight(slices[nextI].time, score))
                     add(Severity.WARNING, i, Rule.SIX_FOUR, "The cadential ⁶₄ should fall on a stronger beat than the V it resolves to.", i to low(i))
             }
             // Retrogressions: a dominant back to a predominant, ii back to I or IV
             if (prev != null && prev.root != chord.root && !prev.roman.contains("/") && !chord.roman.contains("/")) {
-                val fromDominant = prev.target == score.key.tonic && prev.leadingTone != null
+                val fromDominant = prev.target == score.keyAt(s.time).tonic && prev.leadingTone != null
                 val retro = (fromDominant && chord.degree in setOf(1, 3)) ||
                     (prev.degree == 1 && chord.degree == 3) ||
                     (prev.degree == 1 && chord.degree == 0 && chord.roman != "Cad⁶₄")
                 if (retro) add(Severity.WARNING, i, Rule.PROGRESSION, "${prev.roman} → ${chord.roman} is a retrogression; move from predominant to dominant to tonic.")
             }
             // The same chord from a weak beat to the downbeat blurs the bar line (one held since the last downbeat does not)
-            val ml = score.time.measure
             fun same(c: Chord) = c.root == chord.root && c.quality == q && c.bass == chord.bass
             // (an arpeggiating bass, I–I⁶–I⁶₄–I, keeps the harmony that began on the downbeat)
             var runStart = k - 1
             while (runStart > 0 && chords[points[runStart - 1]].let { it.root == chord.root && it.quality == q }) runStart--
             if (prevI != null && prev != null && same(prev) &&
-                (s.time / ml).den == 1L && (slices[points[runStart]].time / ml).den != 1L
+                score.isBarline(s.time) && !score.isBarline(slices[points[runStart]].time)
             ) add(Severity.WARNING, i, Rule.HARMONIC_RHYTHM, "${chord.roman} is repeated from a weak beat to the downbeat.")
         }
 
         // Final cadence: the tonic in root position, after V/vii° (authentic) or IV (plagal)
         val lastP = points.lastOrNull()
         val last = lastP?.let { chords[it] }
+        val endKey = lastP?.let { score.keyAt(slices[it].time) } ?: score.key
         if (lastP != null && last != null && last.recognized && points.count { slices[it].pitches.isNotEmpty() } >= 2) {
-            if (last.degree != 0 || last.root != score.key.tonic)
+            if (last.degree != 0 || last.root != endKey.tonic)
                 add(Severity.WARNING, lastP, Rule.CADENCE, "The piece does not end on the tonic (${last.roman}).")
             else {
                 if (last.inversion != 0) add(Severity.WARNING, lastP, Rule.CADENCE, "End on the tonic in root position.", lastP to low(lastP))
                 val pen = points.asReversed().map { chords[it] }.firstOrNull { it.root != last.root }
-                if (pen != null && pen.recognized && !(pen.target == score.key.tonic && pen.leadingTone != null) && pen.degree != 3)
+                if (pen != null && pen.recognized && !(pen.target == endKey.tonic && pen.leadingTone != null) && pen.degree != 3)
                     add(Severity.WARNING, lastP, Rule.CADENCE, "End with an authentic (V–I) or plagal (IV–I) cadence, not ${pen.roman}–${last.roman}.")
             }
         }
@@ -343,7 +343,7 @@ object VoiceLeading {
             if (e.figures.isEmpty()) continue
             val i = slices.indexOfFirst { it.eventIndex[Voice.BASS.ordinal] == idx && it.attacked[Voice.BASS.ordinal] }
             if (i < 0) continue
-            val want = FiguredBass.realize(b, e.figures, score.key)
+            val want = FiguredBass.realize(b, e.figures, score.keyAt(slices[i].time))
             val fig = FiguredBass.display(e.figures)
             val upper = V.filter { it != Voice.BASS && slices[i].notes[it.ordinal] != null }
             for (v in upper) {
@@ -362,7 +362,7 @@ object VoiceLeading {
             val name = e.chord ?: continue
             val i = slices.indexOfFirst { it.eventIndex[v0.ordinal] == idx && it.attacked[v0.ordinal] }
             if (i < 0) continue
-            val spec = ChordText.parse(name, score.key)
+            val spec = ChordText.parse(name, score.keyAt(slices[i].time))
             if (spec == null) { add(Severity.WARNING, i, Rule.NAMED_CHORD, "\"$name\" is not a chord name I can read (try C, Am7, G7/B, V65, ii6)."); continue }
             val s = slices[i]
             val sounding = V.filter { s.notes[it.ordinal] != null }
@@ -383,16 +383,31 @@ object VoiceLeading {
 
         // Errors first, then warnings; each by position in the score (slices are in time order)
         out.removeAll { ignoreKey(it, slices) in score.ignored }
-        return Analysis(slices, chords, out.sortedWith(compareBy({ it.severity }, { it.slice })), points, ncts)
+        // Pivot chords: the last chord before a key change, when it belongs to both keys, shows both numerals ("vi = ii")
+        val shown = chords.toMutableList()
+        for ((bar, c) in score.changes) {
+            val new = c.key ?: continue
+            val old = score.keyOfBar(bar - 1)
+            if (new == old) continue
+            val at = score.bar(bar).start
+            val p = points.lastOrNull { slices[it].time < at } ?: continue
+            val ch = chords[p]
+            if (!ch.recognized || ch.roman.contains("/") || !ch.notes.all { old.isDiatonic(it.pc) && new.isDiatonic(it.pc) }) continue
+            val there = ChordAnalyzer.analyze(ch.notes, new)
+            if (!there.recognized || there.roman.contains("/")) continue
+            for (j in p until (points.firstOrNull { it > p } ?: slices.size)) shown[j] = ch.copy(roman = "${ch.roman} = ${there.roman}")
+        }
+        return Analysis(slices, shown, out.sortedWith(compareBy({ it.severity }, { it.slice })), points, ncts)
     }
 
     private fun String.cap() = replaceFirstChar { it.uppercase() }
 
     /** Metric weight: 3 downbeat, 2 middle beat of an even meter, 1 other beat; off the beat negative, finer subdivisions lower. */
-    internal fun weight(t: Fraction, ts: TimeSig): Int {
+    internal fun weight(t: Fraction, meter: Meter): Int {
+        val bar = meter.barAt(t)
+        val ts = bar.time
         val m = ts.measure
-        val bar = t / m
-        val pos = t - m * Fraction.of(bar.num / bar.den, 1)
+        val pos = t - bar.downbeat
         if (pos == Fraction.ZERO) return 3
         val b = pos / ts.beatLength
         if (b.den != 1L) return -b.den.toInt()
@@ -614,7 +629,7 @@ object VoiceLeading {
         if (lt != null && target != null && cb.root != null && cb.notes.any { it.pc == target }) {
             // The cadential ⁶₄ stands for V, so a leading tone of V still rises into it
             val toTarget = cb.root == target || cb.root.step == (target.step + 5) % 7 ||
-                (cb.roman == "Cad⁶₄" && target == score.key.degree(4))
+                (cb.roman == "Cad⁶₄" && target == score.keyAt(slices[h].time).degree(4))
             if (toTarget) for (v in V) {
                 val p = note(v) ?: continue
                 val q = nextNote(v, skipRepeats = true) ?: continue
@@ -649,7 +664,7 @@ object VoiceLeading {
 
         // Chromatic chord tones: the Neapolitan ♭2̂ moves down; other raised notes rise, lowered notes fall, by step.
         // Leading tones, sevenths and augmented sixths have their own rules above; so an applied chord (V/iii) has no others.
-        val key = score.key
+        val key = score.keyAt(slices[h].time)
         if (qa != null && !qa.isAug6 && !ca.roman.contains("/") && cb.recognized && cb.root != ca.root) for (v in V) {
             val p = note(v) ?: continue
             if (key.isDiatonic(p.pc) || ca.member(p.pc) < 0 || p.pc == ca.leadingTone || p.pc == ca.seventh) continue

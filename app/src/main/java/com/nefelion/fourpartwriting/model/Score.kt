@@ -73,9 +73,14 @@ data class Arrangement(val staffOf: List<Int>) {
     }
 }
 
+/** From a bar on: a new key and/or time signature (null = unchanged). */
+data class Change(val key: Key? = null, val time: TimeSig? = null)
+
 /**
  * Four independent SATB voice lines. Homophonic writing is the case where all voices share
  * one rhythm, but nothing here assumes it.
+ * [key] and [time] hold from the start; [changes] (by bar index, never 0) replace them from a later bar.
+ * [pickup]: length of an opening short bar (bar 0, numbered 0), shorter than a full bar.
  */
 data class Score(
     val key: Key = Key(0, Mode.MAJOR),
@@ -91,8 +96,36 @@ data class Score(
     val ignored: Set<String> = emptySet(),
     /** Voices given by an exercise: shown gray and not editable. */
     val given: Set<Voice> = emptySet(),
-) {
-    init { require(clefs.size == arrangement.staves) }
+    val pickup: Fraction? = null,
+    val changes: Map<Int, Change> = emptyMap(),
+) : Meter {
+    init {
+        require(clefs.size == arrangement.staves)
+        require(pickup == null || pickup > Fraction.ZERO && pickup < time.measure)
+        require(0 !in changes)
+    }
+
+    override fun barAt(t: Fraction): Bar {
+        var b = Bar(0, Fraction.ZERO, pickup ?: time.measure, time)
+        val last = changes.keys.maxOrNull() ?: 0
+        while (t >= b.end) {
+            if (b.index >= last) { // no change after this bar: equal bars from here on
+                val len = b.time.measure
+                val n = ((t - b.end) / len).let { it.num / it.den } + 1
+                return Bar(b.index + n.toInt(), b.end + len * Fraction.of(n - 1, 1), b.end + len * Fraction.of(n, 1), b.time)
+            }
+            val ts = changes[b.index + 1]?.time ?: b.time
+            b = Bar(b.index + 1, b.end, b.end + ts.measure, ts)
+        }
+        return b
+    }
+
+    /** Bar number shown for [t]: a pickup is bar 0. */
+    fun barNumber(t: Fraction) = barAt(t).index + if (pickup != null) 0 else 1
+
+    fun keyAt(t: Fraction): Key = keyOfBar(barAt(t).index)
+
+    fun keyOfBar(i: Int): Key = changes.entries.filter { it.key <= i && it.value.key != null }.maxByOrNull { it.key }?.value?.key ?: key
 
     /** Quarter notes per minute. */
     val qpm get() = tempo * time.beatLength.toDouble() * 4

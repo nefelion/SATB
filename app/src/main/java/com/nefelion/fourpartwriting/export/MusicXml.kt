@@ -20,9 +20,8 @@ object MusicXml {
     private tailrec fun gcd(a: Long, b: Long): Long = if (b == 0L) a else gcd(b, a % b)
 
     fun export(score: Score): String {
-        val ml = score.time.measure
         val written = Voice.entries.flatMap { v ->
-            Notation.splitVoice(score.voice(v), score.time).flatMapIndexed { i, segs ->
+            Notation.splitVoice(score.voice(v), score).flatMapIndexed { i, segs ->
                 segs.mapIndexed { k, s -> W(v, i, s, k, k == segs.lastIndex) }
             }
         }
@@ -32,10 +31,11 @@ object MusicXml {
             val q = w.seg.length * Fraction.of(4, 1)
             div = div / gcd(div, q.den) * q.den
         }
-        div = max(div, ml.let { (it * Fraction.of(4, 1)).den })
+        val barList = score.bars(score.length)
+        for (b in barList) div = max(div, ((b.end - b.start) * Fraction.of(4, 1)).den)
         fun dur(f: Fraction) = (f * Fraction.of(4 * div, 1)).let { it.num / it.den }
 
-        val bars = max(1, ceil(score.length.toDouble() / ml.toDouble() - 1e-9).toInt())
+        val bars = barList.size
         val sb = StringBuilder()
         sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
@@ -45,9 +45,22 @@ object MusicXml {
   <part id="P1">
 """)
         for (b in 0 until bars) {
-            val start = ml * Fraction.of(b.toLong(), 1)
-            val end = start + ml
-            sb.append("    <measure number=\"${b + 1}\">\n")
+            val bar = barList[b]
+            val start = bar.start
+            val end = bar.end
+            val key = score.keyOfBar(b)
+            // A pickup is measure 0, marked implicit (not counted)
+            sb.append("    <measure number=\"${score.barNumber(start)}\"" + (if (b == 0 && score.pickup != null) " implicit=\"yes\"" else "") + ">\n")
+            val change = score.changes[b]
+            if (b > 0 && change != null) {
+                sb.append("      <attributes>\n")
+                change.key?.let { k -> sb.append("        <key><fifths>${k.fifths}</fifths><mode>${if (k.mode == Mode.MAJOR) "major" else "minor"}</mode></key>\n") }
+                change.time?.let { t ->
+                    val sym = when (t.symbol) { TimeSig.Symbol.COMMON -> " symbol=\"common\""; TimeSig.Symbol.CUT -> " symbol=\"cut\""; else -> "" }
+                    sb.append("        <time$sym><beats>${t.beats}</beats><beat-type>${t.beatUnit}</beat-type></time>\n")
+                }
+                sb.append("      </attributes>\n")
+            }
             if (b == 0) {
                 sb.append("      <attributes>\n        <divisions>$div</divisions>\n")
                 sb.append("        <key><fifths>${score.key.fifths}</fifths><mode>${if (score.key.mode == Mode.MAJOR) "major" else "minor"}</mode></key>\n")
@@ -78,7 +91,7 @@ object MusicXml {
                 val p = score.voice(w.voice)[w.index].pitch ?: continue
                 if (w.segIndex > 0) continue
                 val staff = score.staffOf(w.voice)
-                val cur = state[staff to p.diatonic] ?: score.key.sigAlter(p.step)
+                val cur = state[staff to p.diatonic] ?: key.sigAlter(p.step)
                 if (p.alter != cur) accOf[w] = p.alter
                 state[staff to p.diatonic] = p.alter
             }

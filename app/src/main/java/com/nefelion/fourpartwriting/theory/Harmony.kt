@@ -45,11 +45,10 @@ object HarmonyAnalyzer {
     private val TRIADS = setOf(Quality.MAJOR, Quality.MINOR, Quality.DIM, Quality.AUG)
 
     fun analyze(score: Score, slices: List<Slice>): Harmony {
-        val beat = score.time.beatLength
         val points = slices.indices.filter { i ->
             val s = slices[i]
             // A rest in every voice is silence, not a chord
-            i == 0 || s.pitches.isNotEmpty() && ((s.time / beat).den == 1L || V.count { s.attacked[it.ordinal] && s.notes[it.ordinal] != null } >= 3)
+            i == 0 || s.pitches.isNotEmpty() && (score.onBeat(s.time) || V.count { s.attacked[it.ordinal] && s.notes[it.ordinal] != null } >= 3)
         }
         val ncts = HashMap<NoteRef, Nct>()
         val pointChord = HashMap<Int, Chord>()
@@ -67,7 +66,7 @@ object HarmonyAnalyzer {
             var j = distinct(v, idx, dir)
             var rest = Fraction.ZERO
             while (score.voice(v).getOrNull(j)?.let { it.pitch == null } == true) { rest += score.voice(v)[j].length; j += dir }
-            return if (rest < beat) pitchOf(v, j) else null
+            return if (rest == Fraction.ZERO || rest < score.barAt(score.onsets(v).getOrNull(idx) ?: score.length(v)).time.beatLength) pitchOf(v, j) else null
         }
         /**
          * A non-chord tone attacked as event [idx]: an anticipation when it (or the same pitch struck again)
@@ -79,7 +78,7 @@ object HarmonyAnalyzer {
             val last = distinct(v, idx, 1) - 1
             // (it comes on a weaker beat than the chord it anticipates, counted from its first strike)
             if (np != null && nextChord != null && slices[np].eventIndex[v.ordinal] in idx..last && isChordTone(nextChord, p) &&
-                VoiceLeading.weight(score.onsets(v)[first], score.time) < VoiceLeading.weight(slices[np].time, score.time))
+                VoiceLeading.weight(score.onsets(v)[first], score) < VoiceLeading.weight(slices[np].time, score))
                 return Nct(NctType.ANT, "ant")
             return classify(around(v, idx, -1), p, around(v, idx, 1), around(v, distinct(v, idx, 1), 1))
         }
@@ -88,7 +87,7 @@ object HarmonyAnalyzer {
         for (p in points) {
             val s = slices[p]
             val voices = V.filter { s.notes[it.ordinal] != null }
-            val direct = ChordAnalyzer.analyze(voices.map { s.notes[it.ordinal]!! }, score.key)
+            val direct = ChordAnalyzer.analyze(voices.map { s.notes[it.ordinal]!! }, score.keyAt(s.time))
             val directQ = direct.quality
             // Candidate accented NCTs per voice, with the pitch that replaces them in the chord
             data class Cand(val v: Voice, val nct: Nct, val replace: Pitch?, val rank: Int)
@@ -103,7 +102,7 @@ object HarmonyAnalyzer {
                 val pc = prevChord ?: return null
                 val foreign = voices.filter { !isChordTone(pc, s.notes[it.ordinal]!!) }
                 if (foreign.size > 2 || voices.all { s.attacked[it.ordinal] || it in foreign }) return null
-                val nextChord = np?.let { ChordAnalyzer.analyze(slices[it].pitches, score.key) }
+                val nextChord = np?.let { ChordAnalyzer.analyze(slices[it].pitches, score.keyAt(slices[it].time)) }
                 return pc to foreign.map { v ->
                     val idx = s.eventIndex[v.ordinal]
                     // (a note struck again counts from its first strike)
@@ -113,7 +112,7 @@ object HarmonyAnalyzer {
                     val f = figure(v, first, np, nextChord)
                     // A note held into the next chord belongs to it; an anticipation is short and struck again there
                     if (f.type == NctType.ANT && (!slices[np!!].attacked[v.ordinal] && slices[np].eventIndex[v.ordinal] in first until distinct(v, idx, 1) ||
-                            score.voice(v)[idx].length > beat)) return null
+                            score.voice(v)[idx].length > score.barAt(score.onsets(v)[idx]).time.beatLength)) return null
                     val resolved = f.type == NctType.ANT || np == null ||
                         score.onsets(v).getOrNull(distinct(v, idx, 1))?.let { it <= slices[np].time } == true
                     if (f.type == NctType.UNRESOLVED || !resolved) return null
@@ -149,7 +148,7 @@ object HarmonyAnalyzer {
                     acc += V.filter { slices[j].attacked[it.ordinal] }.mapNotNull { slices[j].notes[it.ordinal] }
                         .map { var x = it; while (x.midi < low) x = Pitch(x.step, x.alter, x.octave + 1); x }
                     if (acc.map { it.pc }.distinct().size > 3) break
-                    late = ChordAnalyzer.analyze(acc, score.key).takeIf(::fits)
+                    late = ChordAnalyzer.analyze(acc, score.keyAt(s.time)).takeIf(::fits)
                     if (late != null) break
                 }
                 val held = points.lastOrNull { it < p }?.let { pointChord[it] }
@@ -252,7 +251,7 @@ object HarmonyAnalyzer {
                     v == Voice.BASS && !s.attacked[v.ordinal] -> cands += Cand(v, Nct(NctType.PED, "ped"), null, 4)
                     // Inverted pedal: an upper voice holds (or strikes again) through other chords and is a chord tone again where it ends
                     held && points.last { slices[it].eventIndex[v.ordinal] in i until distinct(v, i, 1) }.let { lp ->
-                        lp != p && isChordTone(ChordAnalyzer.analyze(slices[lp].pitches, score.key), cur)
+                        lp != p && isChordTone(ChordAnalyzer.analyze(slices[lp].pitches, score.keyAt(slices[lp].time)), cur)
                     } -> cands += Cand(v, Nct(NctType.PED, "ped"), null, 4)
                     // Its next note belongs to a later chord, so it is dropped, not replaced
                     held -> cands += Cand(v, Nct(NctType.UNRESOLVED, "!"), null, 5)
@@ -265,11 +264,11 @@ object HarmonyAnalyzer {
                         if (c == null) s.notes[v.ordinal] else c.replace
                     }
                     if (notes.size < 2) continue
-                    val ch = ChordAnalyzer.analyze(notes, score.key)
+                    val ch = ChordAnalyzer.analyze(notes, score.keyAt(s.time))
                     val q = ch.quality ?: continue
                     if (q.name.contains("SUS") || (triadOnly && (q.seventh || q.incomplete))) continue
                     // A dropped note that belongs to the chord (its seventh) is not a non-chord tone
-                    if (combo.any { c -> c.replace == null && ChordAnalyzer.analyze(notes + s.notes[c.v.ordinal]!!, score.key).let { it.root == ch.root && it.quality != null } }) continue
+                    if (combo.any { c -> c.replace == null && ChordAnalyzer.analyze(notes + s.notes[c.v.ordinal]!!, score.keyAt(s.time)).let { it.root == ch.root && it.quality != null } }) continue
                     return ch to combo
                 }
                 return null

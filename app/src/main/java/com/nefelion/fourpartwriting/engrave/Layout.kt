@@ -1,5 +1,6 @@
 package com.nefelion.fourpartwriting.engrave
 
+import com.nefelion.fourpartwriting.model.Bar
 import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.TimeSig
@@ -154,10 +155,14 @@ object Engraver {
         fun headRight(staff: Int) = items.filter { it.staff == staff && it.isNote }.maxOfOrNull { it.xOff + it.headW } ?: Smufl.HEAD_W
     }
 
-    private class Meas(val index: Int, val start: Fraction, val end: Fraction, val cols: List<Col>, val items: List<Item>) {
+    /** [sigW]: room for a key or time signature that changes at this bar. */
+    private class Meas(val bar: Bar, val cols: List<Col>, val items: List<Item>, val sigW: Float) {
+        val index get() = bar.index
+        val start get() = bar.start
+        val end get() = bar.end
         val adv = FloatArray(cols.size)
         var lead = 0f
-        val width get() = if (cols.isEmpty()) EMPTY_MEASURE else lead + adv.sum()
+        val width get() = if (cols.isEmpty()) EMPTY_MEASURE + sigW else lead + adv.sum()
     }
 
     /**
@@ -168,7 +173,6 @@ object Engraver {
         score: Score, labels: Map<Fraction, ChordLabel> = emptyMap(), nctLabels: Map<NoteRef, String> = emptyMap(),
         show: Set<Voice>? = null,
     ): ScoreLayout {
-        val ml = score.time.measure
         val n = score.arrangement.staves
         val bare = show != null
         val shown = show ?: Voice.entries.toSet()
@@ -178,7 +182,7 @@ object Engraver {
         val all = mutableListOf<Item>()
         for (v in Voice.entries) {
             if (v !in shown) continue
-            val split = Notation.splitVoice(score.voice(v), score.time)
+            val split = Notation.splitVoice(score.voice(v), score)
             for ((i, e) in score.voice(v).withIndex()) {
                 val segs = split[i]
                 val staff = score.staffOf(v)
@@ -187,23 +191,21 @@ object Engraver {
             }
         }
         val total = score.length
-        val barCount = max(1, ceil(total.toDouble() / ml.toDouble() - 1e-9).toInt())
+        val bars = score.bars(total)
         // Where a voice has no notes up to the end of the last bar, show rests (display only:
         // their index is past the voice's last event, so they cannot be selected or edited).
         // An empty score is one bar of rests.
-        val barEnd = ml * Fraction.of(barCount.toLong(), 1)
+        val barEnd = bars.last().end
         if (!bare) for (v in Voice.entries) {
             val t = score.length(v)
             if (t >= barEnd) continue
             val staff = score.staffOf(v)
-            val groups = Notation.tupletGroups(score.voice(v), score.time)
-            for ((k, s) in Notation.split(t, barEnd - t, score.time, true, groups).withIndex())
+            val groups = Notation.tupletGroups(score.voice(v), score)
+            for ((k, s) in Notation.split(t, barEnd - t, score, true, groups).withIndex())
                 all += Item(v, score.voice(v).size, s, k, false, staff, null)
         }
-        val measures = (0 until barCount).map { m ->
-            val start = ml * Fraction.of(m.toLong(), 1)
-            val end = start + ml
-            buildMeasure(score, stems, m, start, end, all.filter { it.seg.onset >= start && it.seg.onset < end })
+        val measures = bars.map { b ->
+            buildMeasure(score, stems, b, if (bare) 0f else changeWidth(score, b.index), all.filter { it.seg.onset >= b.start && it.seg.onset < b.end })
         }
 
         // A tuplet that two voices of one staff share (same span and ratio) is marked once: the outer voice's
@@ -319,15 +321,22 @@ object Engraver {
         val labelBot = bot + max(3.0f, (0 - minP[n - 1]) * 0.5f + 2.6f)
         for ((mi, m) in measures.withIndex()) {
             val box = boxes[mi]
-            val isFinal = mi == measures.lastIndex && total > Fraction.ZERO && (total / ml).den == 1L
+            val isFinal = mi == measures.lastIndex && total > Fraction.ZERO && total == m.end
+            val keyNext = score.changes[m.index + 1]?.key?.let { it != score.keyOfBar(m.index) } == true
             if (bare) { if (mi < measures.lastIndex) marks += LineMark(box.x1, top, box.x1, bot, Smufl.THIN_BAR) }
             else if (isFinal) {
                 val tx = box.x1 - Smufl.THICK_BAR / 2
                 marks += LineMark(tx, top, tx, bot, Smufl.THICK_BAR)
                 val nx = box.x1 - Smufl.THICK_BAR - Smufl.BAR_SEP - Smufl.THIN_BAR / 2
                 marks += LineMark(nx, top, nx, bot, Smufl.THIN_BAR)
-            } else marks += LineMark(box.x1, top, box.x1, bot, Smufl.THIN_BAR)
-            if (mi > 0 && !bare) marks += TextMark("${mi + 1}", box.x0 + 0.2f, top - 0.6f, 1.0f, TextStyle.MEASURE_NO)
+            } else {
+                marks += LineMark(box.x1, top, box.x1, bot, Smufl.THIN_BAR)
+                // A key change follows a double bar
+                if (keyNext) marks += LineMark(box.x1 - Smufl.BAR_SEP - Smufl.THIN_BAR, top, box.x1 - Smufl.BAR_SEP - Smufl.THIN_BAR, bot, Smufl.THIN_BAR)
+            }
+            if (!bare && m.sigW > 0f) drawChange(score, m.index, box.x0 + 0.6f, n, ::sy, marks)
+            val shownNo = score.barNumber(m.start)
+            if (mi > 0 && !bare) marks += TextMark("$shownNo", box.x0 + 0.2f, top - 0.6f, 1.0f, TextStyle.MEASURE_NO)
             drawMeasure(score, shown, m, box, ::sy, ::syf, marks, heads, headAt, hidden, restBoxes)
             for (c in m.cols) {
                 val lab = labels[c.time]
@@ -399,8 +408,8 @@ object Engraver {
 
     // ---------- horizontal ----------
 
-    private fun keySigWidth(f: Int): Float {
-        val alter = if (f > 0) 1 else -1
+    private fun keySigWidth(f: Int, natural: Boolean = false): Float {
+        val alter = if (natural) 0 else if (f > 0) 1 else -1
         return abs(f) * (Smufl.accidentalWidth(alter) + 0.12f)
     }
 
@@ -436,11 +445,43 @@ object Engraver {
         return if (d != 0) d else if (pos >= 4f) -1 else 1
     }
 
-    private fun buildMeasure(score: Score, stems: List<Int>, index: Int, start: Fraction, end: Fraction, items: List<Item>): Meas {
+    /** Width of the key and/or time signature that changes at bar [i] (0 when nothing changes). */
+    private fun changeWidth(score: Score, i: Int): Float {
+        val c = score.changes[i] ?: return 0f
+        val old = score.keyOfBar(i - 1).fifths
+        var w = 0f
+        c.key?.fifths?.takeIf { it != old }?.let { f -> w += keySigWidth(if (f == 0) old else f, natural = f == 0) + 0.6f }
+        c.time?.let { w += timeSigWidth(it) + 0.6f }
+        return if (w > 0f) w + 0.6f else 0f
+    }
+
+    /** Key and time signature changing at bar [i], from [x]: a key without sharps or flats cancels the old one with naturals. */
+    private fun drawChange(score: Score, i: Int, x0: Float, n: Int, sy: (Int, Int) -> Float, marks: MutableList<Mark>) {
+        val c = score.changes[i] ?: return
+        val old = score.keyOfBar(i - 1).fifths
+        var x = x0
+        c.key?.fifths?.takeIf { it != old }?.let { f ->
+            val shown = if (f == 0) old else f
+            val alter = if (f == 0) 0 else if (f > 0) 1 else -1
+            for (s in 0 until n) {
+                var kx = x
+                for (p in score.clefs[s].keySigPositions(shown)) {
+                    marks += GlyphMark(Smufl.accidental(alter), kx, sy(s, p))
+                    kx += Smufl.accidentalWidth(alter) + 0.12f
+                }
+            }
+            x += keySigWidth(shown, natural = f == 0) + 0.6f
+        }
+        c.time?.let { t -> for (s in 0 until n) timeSig(t, x, sy, s, marks) }
+    }
+
+    private fun buildMeasure(score: Score, stems: List<Int>, bar: Bar, sigW: Float, items: List<Item>): Meas {
+        val start = bar.downbeat
+        val end = bar.end
         // Stem directions: fixed per voice, or per beam group / note for a voice alone on its staff
         for (v in Voice.entries) {
             val notes = items.filter { it.voice == v && it.isNote }.sortedBy { it.seg.onset }
-            val groups = beamGroups(notes, start, score.time)
+            val groups = beamGroups(notes, start, bar.time)
             val grouped = HashSet<Item>()
             for (g in groups) {
                 val dir = dirFor(stems, v, g.map { it.pos!!.toFloat() }.average().toFloat())
@@ -462,7 +503,7 @@ object Engraver {
                 for (nIt in notes) {
                     if (nIt.segIndex > 0) continue
                     val p = score.voice(nIt.voice)[nIt.index].pitch!!
-                    val cur = state[s to p.diatonic] ?: score.key.sigAlter(p.step)
+                    val cur = state[s to p.diatonic] ?: score.keyOfBar(bar.index).sigAlter(p.step)
                     if (p.alter != cur) nIt.acc = p.alter
                     state[s to p.diatonic] = p.alter
                 }
@@ -519,14 +560,14 @@ object Engraver {
             col.rightExt = r
             col
         }
-        val m = Meas(index, start, end, cols, items)
+        val m = Meas(bar, cols, items, sigW)
         for ((i, c) in cols.withIndex()) {
             val next = cols.getOrNull(i + 1)
             val dt = (next?.time ?: end) - c.time
             val need = c.rightExt + (next?.leftExt ?: 0.6f) + 0.5f
             m.adv[i] = max(idealSpace(dt), need)
         }
-        m.lead = 1.2f + (cols.firstOrNull()?.leftExt ?: 0f)
+        m.lead = sigW + 1.2f + (cols.firstOrNull()?.leftExt ?: 0f)
         return m
     }
 
@@ -580,7 +621,7 @@ object Engraver {
         val drawnGroups = HashSet<List<StemUnit>>()
         for (v in Voice.entries) {
             val notes = m.items.filter { it.voice == v && it.isNote }.sortedBy { it.seg.onset }
-            for (g in beamGroups(notes, m.start, score.time)) {
+            for (g in beamGroups(notes, m.bar.downbeat, m.bar.time)) {
                 val units = g.map { unitOf.getValue(it) }
                 beamedUnits += units
                 if (drawnGroups.add(units)) beam(units, colX, sy, syf(units.first().staff, 4f), marks)

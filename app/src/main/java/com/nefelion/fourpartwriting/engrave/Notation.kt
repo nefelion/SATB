@@ -3,6 +3,7 @@ package com.nefelion.fourpartwriting.engrave
 import com.nefelion.fourpartwriting.model.Duration
 import com.nefelion.fourpartwriting.model.Event
 import com.nefelion.fourpartwriting.model.Fraction
+import com.nefelion.fourpartwriting.model.Meter
 import com.nefelion.fourpartwriting.model.TimeSig
 
 /**
@@ -50,17 +51,18 @@ object Notation {
      * the bar. It starts on a multiple of its own length (a long note before it is cut there), else at the
      * plain time just before the run (e.g. triplets after an eighth).
      */
-    fun groups(lengths: List<Fraction>, time: TimeSig): List<TupletGroup> {
-        val ml = time.measure
+    fun groups(lengths: List<Fraction>, meter: Meter): List<TupletGroup> {
         val out = mutableListOf<TupletGroup>()
         var t = Fraction.ZERO
         var b0 = Fraction.ZERO
         val run = mutableListOf<Fraction>()
-        fun barStart(x: Fraction) = ml * Fraction.of((x / ml).let { it.num / it.den }, 1)
+        fun barStart(x: Fraction) = meter.barAt(x).start
         /** [b1]: the plain time ending the run (null: the voice ends inside it). */
         fun flush(b1: Fraction?) {
             if (run.isEmpty()) return
-            val bs = barStart(b0)
+            val bar = meter.barAt(b0)
+            val bs = bar.downbeat
+            val be = bar.end
             var from = b0
             var rest: List<Fraction> = run.toList()
             run.clear()
@@ -68,7 +70,7 @@ object Notation {
             while (rest.isNotEmpty()) {
                 val found = (rest.size downTo 1).firstNotNullOfOrNull { n ->
                     val pts = rest.take(n)
-                    val limit = minOf(rest.getOrNull(n) ?: b1 ?: (bs + ml), b1 ?: (bs + ml), bs + ml)
+                    val limit = minOf(rest.getOrNull(n) ?: b1 ?: be, b1 ?: be, be)
                     fun fits(start: Fraction, g: Fraction) = start >= from && start + g <= limit &&
                         pts.all { it < start + g && ((it - start) / (g / Fraction.of(3, 1))).den == 1L }
                     SIZES.reversed().firstNotNullOfOrNull { g ->
@@ -101,7 +103,7 @@ object Notation {
      * Tuplet groups of a voice. An event with a tuplet that is not inside a group starts one ([Tuplet.span]
      * long); events without one (older files) still get their triplet groups read from the lengths.
      */
-    fun tupletGroups(events: List<Event>, time: TimeSig): List<TupletGroup> {
+    fun tupletGroups(events: List<Event>, meter: Meter): List<TupletGroup> {
         val tagged = mutableListOf<TupletGroup>()
         var t = Fraction.ZERO
         for (e in events) {
@@ -109,15 +111,15 @@ object Notation {
             if (tp != null && tagged.lastOrNull().let { it == null || t >= it.end }) tagged += TupletGroup(t, t + tp.span, tp.n, tp.m)
             t += e.length
         }
-        val read = groups(events.map { it.length }, time).filter { g -> tagged.none { it.start < g.end && g.start < it.end } }
+        val read = groups(events.map { it.length }, meter).filter { g -> tagged.none { it.start < g.end && g.start < it.end } }
         return (tagged + read).sortedBy { it.start }
     }
 
     /** Written segments of every event of a voice (tuplet groups worked out from the whole voice). */
-    fun splitVoice(events: List<Event>, time: TimeSig): List<List<Seg>> {
-        val gs = tupletGroups(events, time)
+    fun splitVoice(events: List<Event>, meter: Meter): List<List<Seg>> {
+        val gs = tupletGroups(events, meter)
         var t = Fraction.ZERO
-        return events.map { e -> split(t, e.length, time, e.pitch == null, gs).also { t += e.length } }
+        return events.map { e -> split(t, e.length, meter, e.pitch == null, gs).also { t += e.length } }
     }
 
     /** Written values of a length inside an [n]:[m] tuplet (n/m of it); a length without one is tied from the largest values. */
@@ -143,16 +145,17 @@ object Notation {
     }
 
     /** [groups]: the voice's tuplet groups ([tupletGroups] of its events); parts inside one are written as tuplets. */
-    fun split(onset: Fraction, length: Fraction, time: TimeSig, isRest: Boolean, groups: List<TupletGroup> = emptyList()): List<Seg> {
+    fun split(onset: Fraction, length: Fraction, meter: Meter, isRest: Boolean, groups: List<TupletGroup> = emptyList()): List<Seg> {
         val out = mutableListOf<Seg>()
-        val ml = time.measure
         var t = onset
         val end = onset + length
         while (t < end) {
-            val bar = (t / ml).let { it.num / it.den }
-            val barStart = ml * Fraction.of(bar, 1)
-            val pieceEnd = minOf(end, barStart + ml)
-            val ctx = Ctx(time)
+            val bar = meter.barAt(t)
+            val ml = bar.time.measure
+            // Positions count from the downbeat (before the start of a pickup)
+            val barStart = bar.downbeat
+            val pieceEnd = minOf(end, bar.end)
+            val ctx = Ctx(bar.time)
             val p = t - barStart; val e = pieceEnd - barStart
             if (isRest && p == Fraction.ZERO && e == ml)
                 out += Seg(t, ml, representable(ml) ?: Duration(1), fullBar = true)

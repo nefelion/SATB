@@ -77,6 +77,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -133,6 +135,8 @@ import com.nefelion.fourpartwriting.engrave.tupletLabel
 import com.nefelion.fourpartwriting.model.Arrangement as StaffArrangement
 import com.nefelion.fourpartwriting.model.Clef
 import com.nefelion.fourpartwriting.model.Fraction
+import com.nefelion.fourpartwriting.model.Score
+import com.nefelion.fourpartwriting.model.Change
 import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Mode
 import com.nefelion.fourpartwriting.model.TimeSig
@@ -155,6 +159,8 @@ fun EditorScreen(vm: EditorViewModel) {
     // Score-wide actions offer Undo; Clear also asks first
     var undoable by remember { mutableStateOf<String?>(null) }
     var confirmClear by rememberSaveable { mutableStateOf(false) }
+    // Bar whose key or time change is being edited, or -1
+    var changeBar by rememberSaveable { mutableIntStateOf(-1) }
     var about by rememberSaveable { mutableStateOf(false) }
     var scores by rememberSaveable { mutableStateOf(false) }
     var figures by rememberSaveable { mutableStateOf(false) }
@@ -180,6 +186,7 @@ fun EditorScreen(vm: EditorViewModel) {
             item("Hint", false) { vm.hint() }
             if (st.selected != null) item("Fix this chord", false) { vm.fixChord() }
             if (st.selected != null) item(if (st.selectedEvent?.fermata == true) "Remove fermata" else "Fermata", false) { vm.fermata() }
+            if (st.selected != null) item("Key or time change", false) { vm.changeBarOfSelection()?.let { changeBar = it } }
             // Again while open: closes it, like Done
             item("Specify chord", false) { if (chords) chords = false else if (vm.startChords()) { chords = true; figures = false } }
             item("Export MusicXML", false) { xmlSaver.launch("${st.scoreName}.musicxml") }
@@ -264,9 +271,49 @@ fun EditorScreen(vm: EditorViewModel) {
         },
         dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
     )
+    if (changeBar > 0) ChangeDialog(st.score, changeBar, onDismiss = { changeBar = -1 }) { c -> vm.setChange(changeBar, c); changeBar = -1 }
     // Tapping the tempo, clef, key or time signature: the score's settings, applied as one undo step
     if (tempoDialog) ScoreDialog("Score settings", st.scoreName, st.score, askName = false, action = "Save",
         onDismiss = { tempoDialog = false }) { _, settings -> tempoDialog = false; vm.editScore(st.scoreName, settings) }
+}
+
+/** Key and time signature from bar [bar] on; [onSet] gets null to remove the change. */
+@Composable
+private fun ChangeDialog(score: Score, bar: Int, onDismiss: () -> Unit, onSet: (Change?) -> Unit) {
+    val before = score.keyOfBar(bar - 1)
+    val beforeTime = score.bar(bar - 1).time
+    val start = score.changes[bar]
+    var fifths by rememberSaveable { mutableIntStateOf((start?.key ?: before).fifths) }
+    var minor by rememberSaveable { mutableStateOf((start?.key ?: before).mode == Mode.MINOR) }
+    var beats by rememberSaveable { mutableIntStateOf((start?.time ?: beforeTime).beats) }
+    var unit by rememberSaveable { mutableIntStateOf((start?.time ?: beforeTime).beatUnit) }
+    val key = Key(fifths, if (minor) Mode.MINOR else Mode.MAJOR)
+    val time = TimeSig(beats, unit)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("From bar ${score.barNumber(score.bar(bar).start)}") },
+        text = {
+            KeepRefreshRate()
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Key", style = MaterialTheme.typography.titleSmall)
+                KeyPicker(key) { fifths = it.fifths; minor = it.mode == Mode.MINOR }
+                Text("Time signature", style = MaterialTheme.typography.titleSmall)
+                TimeSigPicker(time) { beats = it.beats; unit = it.beatUnit }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val c = Change(key.takeIf { it != before }, time.takeIf { it.beats != beforeTime.beats || it.beatUnit != beforeTime.beatUnit })
+                onSet(c.takeIf { it.key != null || it.time != null })
+            }) { Text("Set") }
+        },
+        dismissButton = {
+            Row {
+                if (start != null) TextButton(onClick = { onSet(null) }) { Text("Remove") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
 }
 
 /** Tempo in beats of [time]: type it, step it, or slide it. [onChange] runs live; [onCommit] ends one change (one undo step in the editor). */
@@ -317,7 +364,7 @@ internal fun Modifier.clearFocusOnTap(): Modifier {
 @Composable
 private fun ReorderPrompt(st: UiState, vm: EditorViewModel, modifier: Modifier) {
     val n = st.reorder.size
-    val bar = (st.reorder.first() / st.score.time.measure).let { it.num / it.den + 1 }
+    val bar = st.score.barNumber(st.reorder.first())
     Surface(modifier, shape = RoundedCornerShape(14.dp), tonalElevation = 6.dp, shadowElevation = 6.dp) {
         Row(Modifier.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (n == 1) "Voices out of order in bar $bar." else "Voices out of order in $n chords (from bar $bar).",
@@ -543,7 +590,7 @@ private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, more: @Comp
             Tool(onClick = vm::undo, label = "Undo") { Text("↶", fontSize = 22.sp, color = ink) }
             Tool(onClick = vm::redo, label = "Redo") { Text("↷", fontSize = 22.sp, color = ink) }
         }
-        val bar = st.selectedTime?.let { (it / st.score.time.measure).let { f -> f.num / f.den + 1 } }
+        val bar = st.selectedTime?.let { st.score.barNumber(it) }
         Tool(onClick = vm::delete, label = "Delete", hold = HoldTarget(if (bar != null) "🗑  Delete bar $bar" else "🗑  Select a note first", below, danger = true, onDrop = vm::deleteMeasure)) {
             Text("⌫", fontSize = 20.sp, color = ink)
         }
@@ -790,7 +837,7 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
                             .clickable { vm.focusIssue(i) },
                     ) {
                         Box(Modifier.width(4.dp).fillMaxHeight().background(if (issue.severity == Severity.ERROR) sc.errorText else sc.warnText))
-                        val head = "${where(t, st.score.time)} · ${issue.rule.label}"
+                        val head = "${where(t, st.score)} · ${issue.rule.label}"
                         val pad = Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 6.dp)
                         if (oneLine) Row(pad, verticalAlignment = Alignment.CenterVertically) {
                             Text(head, style = MaterialTheme.typography.labelLarge)
@@ -816,12 +863,11 @@ private fun Badge(text: String, color: Color) =
     Text(text, style = MaterialTheme.typography.labelLarge, color = color, fontWeight = FontWeight.Bold,
         modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(color.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 3.dp))
 
-private fun where(t: Fraction, time: TimeSig): String {
-    val ml = time.measure
-    val bar = (t / ml).let { it.num / it.den }
-    val beat = ((t - ml * Fraction.of(bar, 1)) / Fraction.of(1, time.beatUnit.toLong())).toDouble() + 1
+private fun where(t: Fraction, score: Score): String {
+    val bar = score.barAt(t)
+    val beat = ((t - bar.downbeat) / Fraction.of(1, bar.time.beatUnit.toLong())).toDouble() + 1
     val b = if (beat % 1.0 == 0.0) beat.toInt().toString() else "%.2f".format(beat).trimEnd('0')
-    return "Bar ${bar + 1}, beat $b"
+    return "Bar ${score.barNumber(t)}, beat $b"
 }
 
 // ---------- settings ----------
