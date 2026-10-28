@@ -160,6 +160,8 @@ object HarmonyAnalyzer {
                     continue
                 }
                 (late ?: held)?.let { pointChord[p] = it; continue }
+                // A lone voice (a melody before the other parts are written) makes no chord
+                if (voices.size == 1) { pointChord[p] = ChordAnalyzer.analyze(emptyList(), score.keyAt(s.time)); continue }
             }
 
             val cands = mutableListOf<Cand>()

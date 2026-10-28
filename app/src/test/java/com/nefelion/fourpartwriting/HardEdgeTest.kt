@@ -125,6 +125,16 @@ class HardEdgeTest {
         assertTrue(a.issues.toString(), Rule.MISSING_VOICE !in a.rules())
     }
 
+    /** A melody written before the other parts: its lone notes carry no chord, so no harmony is judged under them. */
+    @Test fun loneMelodyIsNotAChord() {
+        val a = linesScore("E5 D5 C5 D5 D5 C5 C5 B4 C5:1", "G4 F4 F4 F4", "C4 A3 A3 A3", "C3 D3 F3 D3").analysis()
+        val bad = setOf(Rule.UNRESOLVED_NCT, Rule.CADENCE, Rule.HARMONIC_RHYTHM, Rule.UNRECOGNIZED)
+        assertTrue(a.issues.toString(), a.rules().none { it in bad })
+        val missing = a.issues.filter { it.rule == Rule.MISSING_VOICE }
+        assertEquals(5, missing.size)
+        assertEquals("Alto, tenor and bass have no note here.", missing[0].message)
+    }
+
     /** The final cadence is checked even when the piece ends with rests. */
     @Test fun finalCadenceBeforeRests() {
         val v = c("C5 G4 E4 C3", "B4 G4 D4 G2", "r:2 r:2 r:2 r:2")

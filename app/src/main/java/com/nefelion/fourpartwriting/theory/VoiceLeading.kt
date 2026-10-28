@@ -192,8 +192,11 @@ object VoiceLeading {
         for ((k, i) in points.withIndex()) {
             val s = slices[i]
             val chord = chords[i]
-            for (v in V) if (s.notes[v.ordinal] == null && s.pitches.isNotEmpty())
-                add(Severity.WARNING, i, Rule.MISSING_VOICE, "${v.name.lowercase().cap()} has no note here.")
+            val missing = V.filter { s.notes[it.ordinal] == null }.map { it.name.lowercase() }
+            if (missing.isNotEmpty() && s.pitches.isNotEmpty()) {
+                val names = if (missing.size == 1) missing[0] else missing.dropLast(1).joinToString(", ") + " and " + missing.last()
+                add(Severity.WARNING, i, Rule.MISSING_VOICE, "${names.cap()} ${if (missing.size == 1) "has" else "have"} no note here.")
+            }
             // Doubling and construction ignore non-chord tones
             val chordSlice = s.copy(notes = V.map { v -> if (isNct(s, v)) null else s.notes[v.ordinal] })
             val prevI = points.getOrNull(k - 1)
