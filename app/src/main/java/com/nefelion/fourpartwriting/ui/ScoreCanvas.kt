@@ -395,8 +395,8 @@ fun ScoreCanvas(
                 if (!state.playing && !state.moving) {
                     val col = sc.voices[state.shownVoice.ordinal]
                     paints.fill.color = col.copy(alpha = sc.caretAlpha).toArgb()
-                    // From above the highest note to below the lowest, so the voice letter never sits under a note
-                    val cTop = min(layout.top - 2f, layout.noteTop - 1f)
+                    // From above the highest note and chord symbol to below the lowest note, so the voice letter never sits under either
+                    val cTop = minOf(layout.top - 2f, layout.noteTop - 1f, layout.textTop - 0.6f)
                     nc.drawRect((caretX - 0.3f) * sp, cTop * sp, (caretX + 1.5f) * sp, max(layout.bottom + 2f, layout.noteBottom + 1f) * sp, paints.fill)
                     paints.text.color = col.toArgb()
                     paints.text.textSize = 1.4f * sp

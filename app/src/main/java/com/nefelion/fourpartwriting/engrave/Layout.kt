@@ -85,6 +85,8 @@ class ScoreLayout(
     val rests: List<HeadBox> = emptyList(),
     /** Key/time signature changes by bar index: their bounds (x0, y0, x1, y1), tappable like the header. */
     val changeBoxes: Map<Int, FloatArray> = emptyMap(),
+    /** Top of the chord symbols and names above the music, so the caret letter can clear them. */
+    val textTop: Float = staffTop.first(),
 ) {
     val top get() = staffTop.first()
     val bottom get() = staffTop.last() + 4
@@ -239,7 +241,8 @@ object Engraver {
         // Chord names the user wrote get their own row above the music (and above the analysis labels)
         val nameH = if (Voice.entries.any { v -> v in shown && score.voice(v).any { it.chord != null } }) 2.2f else 0f
         val st = FloatArray(n)
-        var y = 3.2f + (if (hasLabels) 2.8f else 0f) + nameH + max(0f, (maxP[0] - 8) * 0.5f)
+        // Labels get extra room above so the caret's voice letter fits over them
+        var y = 3.2f + (if (hasLabels) 4.2f else 0f) + nameH + max(0f, (maxP[0] - 8) * 0.5f)
         for (s in 0 until n) {
             if (s > 0) y += max(5f, (0 - minP[s - 1]) * 0.5f + (maxP[s] - 8) * 0.5f + 1.5f)
             st[s] = y
@@ -411,8 +414,9 @@ object Engraver {
         val tempoBox = floatArrayOf(tx - 0.5f, tempoY - 3.2f, tempoX + 5.3f, tempoY + 0.8f)
         // From the page edge (brace or bracket included) to the first bar
         val headerBox = if (bare) FloatArray(4) else floatArrayOf(0f, top - 1f, x0 + header, bot + 1f)
+        val textTop = marks.minOfOrNull { m -> if (m is TextMark && (m.style == TextStyle.SYMBOL || m.style == TextStyle.NAME)) m.y - m.size else top } ?: top
         return ScoreLayout(xEnd + TAIL, height, marks, st, boxes, heads, total, tempoBox, headerBox,
-            noteTop = min(top, syf(0, maxP[0].toFloat())), noteBottom = max(bot, syf(n - 1, minP[n - 1].toFloat())), rests = restBoxes, changeBoxes = changeBoxes)
+            noteTop = min(top, syf(0, maxP[0].toFloat())), noteBottom = max(bot, syf(n - 1, minP[n - 1].toFloat())), rests = restBoxes, changeBoxes = changeBoxes, textTop = textTop)
     }
 
     // ---------- horizontal ----------
