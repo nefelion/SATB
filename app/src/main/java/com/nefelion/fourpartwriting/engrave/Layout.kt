@@ -82,6 +82,8 @@ class ScoreLayout(
     val noteBottom: Float = staffTop.last() + 4,
     /** Written rests (not the display-only ones after a voice ends), tappable like heads. */
     val rests: List<HeadBox> = emptyList(),
+    /** Key/time signature changes by bar index: their bounds (x0, y0, x1, y1), tappable like the header. */
+    val changeBoxes: Map<Int, FloatArray> = emptyMap(),
 ) {
     val top get() = staffTop.first()
     val bottom get() = staffTop.last() + 4
@@ -319,6 +321,7 @@ object Engraver {
         val headAt = HashMap<Triple<Voice, Int, Int>, Pair<Item, Pair<Float, Float>>>()
         val labelTop = top - max(2.4f, (maxP[0] - 8) * 0.5f + 1.6f)
         val labelBot = bot + max(3.0f, (0 - minP[n - 1]) * 0.5f + 2.6f)
+        val changeBoxes = HashMap<Int, FloatArray>()
         for ((mi, m) in measures.withIndex()) {
             val box = boxes[mi]
             val isFinal = mi == measures.lastIndex && total > Fraction.ZERO && total == m.end
@@ -334,7 +337,10 @@ object Engraver {
                 // A key change follows a double bar
                 if (keyNext) marks += LineMark(box.x1 - Smufl.BAR_SEP - Smufl.THIN_BAR, top, box.x1 - Smufl.BAR_SEP - Smufl.THIN_BAR, bot, Smufl.THIN_BAR)
             }
-            if (!bare && m.sigW > 0f) drawChange(score, m.index, box.x0 + 0.6f, n, ::sy, marks)
+            if (!bare && m.sigW > 0f) {
+                drawChange(score, m.index, box.x0 + 0.6f, n, ::sy, marks)
+                changeBoxes[m.index] = floatArrayOf(box.x0, top - 1f, box.x0 + m.sigW + 0.6f, bot + 1f)
+            }
             val shownNo = score.barNumber(m.start)
             if (mi > 0 && !bare) marks += TextMark("$shownNo", box.x0 + 0.2f, top - 0.6f, 1.0f, TextStyle.MEASURE_NO)
             drawMeasure(score, shown, m, box, ::sy, ::syf, marks, heads, headAt, hidden, restBoxes)
@@ -403,7 +409,7 @@ object Engraver {
         // From the page edge (brace or bracket included) to the first bar
         val headerBox = if (bare) FloatArray(4) else floatArrayOf(0f, top - 1f, x0 + header, bot + 1f)
         return ScoreLayout(xEnd + TAIL, height, marks, st, boxes, heads, total, tempoBox, headerBox,
-            noteTop = min(top, syf(0, maxP[0].toFloat())), noteBottom = max(bot, syf(n - 1, minP[n - 1].toFloat())), rests = restBoxes)
+            noteTop = min(top, syf(0, maxP[0].toFloat())), noteBottom = max(bot, syf(n - 1, minP[n - 1].toFloat())), rests = restBoxes, changeBoxes = changeBoxes)
     }
 
     // ---------- horizontal ----------

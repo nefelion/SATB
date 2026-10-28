@@ -185,7 +185,6 @@ fun EditorScreen(vm: EditorViewModel) {
             }
             item("Hint", false) { vm.hint() }
             if (st.selected != null) item("Fix this chord", false) { vm.fixChord() }
-            if (st.selected != null) item(if (st.selectedEvent?.fermata == true) "Remove fermata" else "Fermata", false) { vm.fermata() }
             if (st.selected != null) item("Key or time change", false) { vm.changeBarOfSelection()?.let { changeBar = it } }
             // Again while open: closes it, like Done
             item("Specify chord", false) { if (chords) chords = false else if (vm.startChords()) { chords = true; figures = false } }
@@ -231,6 +230,7 @@ fun EditorScreen(vm: EditorViewModel) {
                         onAim = vm::aim,
                         caretAtSelection = chords || figures,
                         onTempoTap = { tempoDialog = true },
+                        onChangeTap = { changeBar = it },
                         savedViewport = vm.viewport, onViewport = vm::rememberViewport,
                         edges = edges,
                     )
@@ -689,7 +689,8 @@ private fun RowScope.NoteTools(st: UiState, vm: EditorViewModel) {
         GlyphIcon(Smufl.accidental(ALTERS[it]), 42, ink)
     }
     // "⁀" sits high in the font; nudge it to the button's middle
-    Tool(onClick = vm::tie, label = "Tie") { Text("⁀", fontSize = 30.sp, color = ink, modifier = Modifier.offset(y = 7.dp)) }
+    // Hold Tie and slide onto Fermata: a fermata on the selected note's chord
+    Tool(onClick = vm::tie, label = "Tie", hold = HoldTarget(if (st.selectedEvent?.fermata == true) "𝄐  Remove fermata" else "𝄐  Fermata", below = false, onDrop = vm::fermata)) { Text("⁀", fontSize = 30.sp, color = ink, modifier = Modifier.offset(y = 7.dp)) }
 }
 
 private val ALTERS = listOf(-2, -1, 0, 1, 2)
