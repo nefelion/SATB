@@ -237,7 +237,6 @@ fun ScoreCanvas(
         val tempoTap by rememberUpdatedState(onTempoTap)
         val changeTap by rememberUpdatedState(onChangeTap)
         val hasSelection by rememberUpdatedState(state.selected != null && !state.placed)
-        val hasGhost by rememberUpdatedState(state.ghost != null)
         val inputStaff by rememberUpdatedState(state.score.staffOf(state.locked ?: state.voice))
         // Finger position while aiming a new note (magnifier shown)
         var loupe by remember { mutableStateOf<Offset?>(null) }
@@ -280,12 +279,13 @@ fun ScoreCanvas(
                         val changeBar = currentLayout.changeBoxes.entries.firstOrNull { (_, b) -> dx in b[0]..b[2] && dy in b[1]..b[3] }?.key
                         val onTempo = (dx in tb[0]..tb[2] && dy in tb[1]..tb[3]) || (dx in hb[0]..hb[2] && dy in hb[1]..hb[3]) || changeBar != null
                         val downHit = if (onTempo) null else currentLayout.hitTest(dx, dy)
-                        val downGhost = press(downHit) != null
+                        // The note a tap would add is shown and heard only once the touch can't be a pan or pinch
+                        // (else zooming or panning flashes and plays a note)
+                        var shown = downHit == null
+                        var downGhost = false
                         // With a note selected, a drag changes its pitch: no aiming, no magnifier
-                        // (read each time: the ghost from press() shows up only after recomposition)
-                        fun canAim() = hasGhost && !hasSelection
-                        // Magnifier from the first touch where a note can go
-                        loupe = down.position.takeIf { downGhost && !hasSelection }
+                        fun canAim() = downGhost && !hasSelection
+                        loupe = null
                         var moved = Offset.Zero
                         var acc = 0f
                         var aim: Hit? = null
@@ -318,16 +318,29 @@ fun ScoreCanvas(
                             }
                             loupeShift = -shift * sp / 2
                         }
-                        // Find the range limit already at a touch outside it, so the magnifier starts on the note
-                        if (loupe != null) aimAt(down.position)
+                        fun show() {
+                            shown = true
+                            downGhost = press(downHit) != null
+                            // Magnifier from the touch where a note can go; find the range limit already
+                            // at a touch outside it, so the magnifier starts on the note
+                            if (canAim()) aimAt(down.position)
+                        }
                         while (true) {
-                            // Held still where a note can go: start aiming
-                            val ev = if (mode == 0 && canAim()) withTimeoutOrNull(maxOf(1L, down.uptimeMillis + 200 - currentEvent.changes.first().uptimeMillis)) { awaitPointerEvent() }
-                                ?: run { mode = 4; aimAt(down.position); continue }
+                            // Held still: show the note after the second-finger window, start aiming after 200 ms
+                            val deadline = when {
+                                mode != 0 -> null
+                                !shown -> down.uptimeMillis + 120
+                                canAim() -> down.uptimeMillis + 200
+                                else -> null
+                            }
+                            val ev = if (deadline != null) withTimeoutOrNull(maxOf(1L, deadline - currentEvent.changes.first().uptimeMillis)) { awaitPointerEvent() }
+                                ?: run { if (!shown) show() else { mode = 4; aimAt(down.position) }; continue }
                             else awaitPointerEvent()
                             val pressed = ev.changes.filter { it.pressed }
                             if (pressed.isEmpty()) {
                                 if (mode == 0) {
+                                    // A quick tap: play the note now (tap() doesn't)
+                                    if (!shown) press(downHit)
                                     if (downHit == null) changeBar?.let(changeTap) ?: tempoTap() else tap(downHit)
                                 }
                                 if (mode == 1) drag(true)
@@ -361,7 +374,12 @@ fun ScoreCanvas(
                             if (mode == 0) {
                                 // Decide once the finger has clearly moved, and not in the first moments
                                 // (a second finger may still be on its way).
-                                if (moved.getDistance() < slop || ch.uptimeMillis - down.uptimeMillis < 120) continue
+                                val early = ch.uptimeMillis - down.uptimeMillis < 120
+                                // Jitter keeps events coming, so the timeout above may never fire
+                                if (!early && !shown && moved.getDistance() < slop) show()
+                                if (moved.getDistance() < slop || early) continue
+                                // A vertical drag where a note can go aims it, as before
+                                if (!shown && abs(moved.y) > abs(moved.x) && !hasSelection) show()
                                 if (canAim() && abs(moved.y) > abs(moved.x)) { mode = 4; aimAt(ch.position); ch.consume(); continue }
                                 mode = if (hasSelection && abs(moved.y) > abs(moved.x) * 1.3f) 1 else 2
                                 loupe = null
