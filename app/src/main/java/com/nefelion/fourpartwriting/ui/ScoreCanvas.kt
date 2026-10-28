@@ -237,6 +237,8 @@ fun ScoreCanvas(
         val hasGhost by rememberUpdatedState(state.ghost != null)
         // Finger position while aiming a new note (magnifier shown)
         var loupe by remember { mutableStateOf<Offset?>(null) }
+        // Pitch shift of the aimed note (past the highest/lowest note) in px: the magnifier source moves with it
+        var loupeShift by remember { mutableFloatStateOf(0f) }
         // Center of the ghost head on screen
         val ghostPx = state.ghost?.let { g ->
             Offset((layout.xFor(g.at) + Smufl.HEAD_W / 2) * sp + offX, (layout.staffTop[g.staff] + 4 - g.pos / 2f) * sp + offY)
@@ -249,9 +251,16 @@ fun ScoreCanvas(
             Modifier
                 .size(maxWidth, maxHeight)
                 .magnifier(
-                    // Always centered on the ghost; the loupe itself follows the finger
-                    // (a sub-pixel nudge by the finger: Android moves the loupe only when its source changes)
-                    sourceCenter = { loupe?.let { f -> ghostPx?.plus(Offset(f.x * 3e-4f, f.y * 1e-4f)) } ?: Offset.Unspecified },
+                    // Follows the finger (shifted like the pitch) smoothly, but stays within 40 dp (in the loupe) of the ghost
+                    // (plus a sub-pixel nudge by the finger: Android moves the loupe only when its source changes)
+                    sourceCenter = {
+                        val f = loupe; val g = ghostPx
+                        if (f == null || g == null) Offset.Unspecified else {
+                            val s = f + Offset(0f, loupeShift)
+                            val d = s - g; val r = 40.dp.toPx() / loupeZoom
+                            (if (d.getDistance() > r) g + d * (r / d.getDistance()) else s) + Offset(f.x * 3e-4f, f.y * 1e-4f)
+                        }
+                    },
                     magnifierCenter = { loupe?.let { it - Offset(0f, 110.dp.toPx()) } ?: Offset.Unspecified },
                     zoom = loupeZoom, size = DpSize(170.dp, 170.dp), cornerRadius = 85.dp,
                 )
@@ -277,20 +286,31 @@ fun ScoreCanvas(
                         var aim = downHit
                         // Positions added to the finger's: past the highest/lowest note the finger drags this
                         // along, so moving back moves the note at once
-                        var shift = 0
+                        // (continuous, so the magnifier moved by it doesn't step)
+                        var shift = 0f
+                        // Highest/lowest position found so far (the note is kept in range)
+                        var hi = Float.MAX_VALUE; var lo = -Float.MAX_VALUE
+                        loupeShift = 0f
                         fun aimAt(p: Offset) {
                             loupe = p
                             val d = downHit ?: return
                             val h = currentLayout.hitTest((p.x - offX) / sp, (p.y - offY) / sp)
-                            val raw = ((currentLayout.staffTop[d.staff] + 4 - (p.y - offY) / sp) * 2).roundToInt() + shift
+                            val f = (currentLayout.staffTop[d.staff] + 4 - (p.y - offY) / sp) * 2
+                            shift += (f + shift).coerceIn(lo, hi) - (f + shift)
+                            val raw = (f + shift).roundToInt()
                             // Keep the down point's staff and refs: pitch and time follow the finger
                             // (the nearest staff would flip between the staves, making the note jump)
                             val a = d.copy(position = raw, time = h.time, afterLast = h.afterLast)
-                            if (a == aim) return
-                            // Where no note can go, the ghost stays at the last place one could
-                            val pos = aimTo(a) ?: return
-                            shift += pos - raw
-                            aim = a.copy(position = pos)
+                            if (a != aim) {
+                                // Where no note can go, the ghost stays at the last place one could
+                                val pos = aimTo(a)
+                                if (pos != null) {
+                                    if (pos < raw) hi = pos.toFloat() else if (pos > raw) lo = pos.toFloat()
+                                    shift += (f + shift).coerceIn(lo, hi) - (f + shift)
+                                    aim = a.copy(position = pos)
+                                }
+                            }
+                            loupeShift = -shift * sp / 2
                         }
                         while (true) {
                             // Held still where a note can go: start aiming
