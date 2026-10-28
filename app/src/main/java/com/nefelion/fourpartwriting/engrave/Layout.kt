@@ -36,14 +36,15 @@ data class TieMark(val x1: Float, val x2: Float, val y: Float, val above: Boolea
 data class TextMark(val text: String, override val x: Float, val y: Float, val size: Float, val style: TextStyle) : Mark {
     override val ref: NoteRef? get() = null
 }
-enum class TextStyle { ROMAN, SYMBOL, TEMPO, MEASURE_NO, NCT, FIGURE, NAME }
+enum class TextStyle { ROMAN, ROMAN_ALT, SYMBOL, TEMPO, MEASURE_NO, NCT, FIGURE, NAME }
 
-data class ChordLabel(val symbol: String, val roman: String)
+/** [alt]: faint second reading under the numeral, around a key change ("G: IV"). */
+data class ChordLabel(val symbol: String, val roman: String, val alt: String? = null)
 
 /** Labels per slice onset; unrecognized sonorities show only "?" (details are in the issues list). */
 fun chordLabels(a: Analysis): Map<Fraction, ChordLabel> = a.points.associate { i ->
     val c = a.chords[i]
-    a.slices[i].time to ChordLabel(if (c.recognized) c.symbol else "", c.roman)
+    a.slices[i].time to ChordLabel(if (c.recognized) c.symbol else "", c.roman, c.alt)
 }
 
 class ColumnBox(val time: Fraction, val x: Float)
@@ -244,7 +245,7 @@ object Engraver {
             st[s] = y
             y += 4f
         }
-        val height = y + max(2.5f, (0 - minP[n - 1]) * 0.5f + 1f) + (if (hasLabels) 3.6f else 0f) + figH
+        val height = y + max(2.5f, (0 - minP[n - 1]) * 0.5f + 1f) + (if (hasLabels) 3.6f else 0f) + figH + (if (labels.values.any { it.alt != null }) 1.8f else 0f)
         fun sy(staff: Int, p: Int) = st[staff] + (8 - p) * 0.5f
         fun syf(staff: Int, p: Float) = st[staff] + (8 - p) * 0.5f
 
@@ -363,9 +364,11 @@ object Engraver {
                     val r = row(lab.symbol, 1.3f, symRight)
                     marks += TextMark(lab.symbol, cx, labelTop - r * 1.4f, 1.3f, TextStyle.SYMBOL)
                 }
-                if (!same(lab.roman, prev?.roman)) {
+                // A chord with a second reading is labeled even when held or repeated
+                if (!same(lab.roman, prev?.roman) || lab.alt != null) {
                     val r = row(lab.roman, 1.6f, romRight)
                     marks += TextMark(lab.roman, cx, labelBot + figH + r * 2.0f, 1.6f, TextStyle.ROMAN)
+                    lab.alt?.let { marks += TextMark(it, cx, labelBot + figH + r * 2.0f + 1.7f, 1.2f, TextStyle.ROMAN_ALT) }
                 }
             }
         }

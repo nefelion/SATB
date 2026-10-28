@@ -577,6 +577,7 @@ private fun drawText(nc: android.graphics.Canvas, t: TextMark, sp: Float, p: Pai
         TextStyle.SYMBOL -> { paint.typeface = p.bold; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.NCT -> { paint.typeface = p.italic; paint.textAlign = Paint.Align.LEFT; paint.color = p.nct; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.ROMAN -> drawRoman(nc, t, sp, p)
+        TextStyle.ROMAN_ALT -> { paint.color = p.ink and 0x00FFFFFF or (0x80 shl 24); drawRoman(nc, t, sp, p) } // half-transparent ink
         TextStyle.NAME -> { paint.typeface = p.roman; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.FIGURE -> { paint.typeface = p.roman; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
     }

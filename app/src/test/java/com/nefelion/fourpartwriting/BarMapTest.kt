@@ -69,9 +69,9 @@ class BarMapTest {
     @Test fun modulationIsReadInTheNewKeyWithAPivot() {
         val s = chordsScore(KC, "E5 G4 C4 C3", "F5 A4 C4 F3", "D5 G4 B3 G2", "E5 G4 C4 C3", "D5 A4 F#4 D3", "D5 G4 B3 G2", "D5 G4 B3 G2", "D5 G4 B3 G2")
             .copy(changes = mapOf(1 to Change(key = G)))
-        val r = s.analysis().romans()
-        assertEquals("I = IV", r[3])
-        assertEquals("V", r[4])
-        assertEquals("I", r[5])
+        val a = s.analysis()
+        assertEquals(listOf("I", "V", "I"), a.romans().subList(3, 6))
+        // The pivot also reads in the new key, the first chord after the change in the old one
+        assertEquals(listOf("G: IV", "C: V/V", null), a.points.subList(3, 6).map { a.chords[it].alt })
     }
 }

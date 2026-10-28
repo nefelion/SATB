@@ -186,6 +186,8 @@ data class Key(val fifths: Int, val mode: Mode) {
     }
 
     val name get() = tonic.name + if (mode == Mode.MAJOR) " major" else " minor"
+    /** Textbook key label before a numeral: "G" major, "e" minor. */
+    val short get() = if (mode == Mode.MAJOR) tonic.name else tonic.name.replaceFirstChar { it.lowercase() }
 
     /** Same signature, other mode (C major ↔ A minor). */
     val relative get() = copy(mode = if (mode == Mode.MAJOR) Mode.MINOR else Mode.MAJOR)

@@ -74,6 +74,8 @@ data class Chord(
     /** For dominant-function chords: root of the chord they resolve to, and the leading tone. */
     val target: PitchClass? = null,
     val leadingTone: PitchClass? = null,
+    /** Around a key change: the chord read in the other key ("G: IV"), shown faint under [roman]. */
+    val alt: String? = null,
 ) {
     val recognized get() = quality != null
     /** Generic interval of [pc] above the root (0 root, 2 third, 4 fifth, 6 seventh...), -1 if none. */

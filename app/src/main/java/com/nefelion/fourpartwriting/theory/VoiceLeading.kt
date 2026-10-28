@@ -383,19 +383,23 @@ object VoiceLeading {
 
         // Errors first, then warnings; each by position in the score (slices are in time order)
         out.removeAll { ignoreKey(it, slices) in score.ignored }
-        // Pivot chords: the last chord before a key change, when it belongs to both keys, shows both numerals ("vi = ii")
+        // Around a key change, the chord on each side is also read in the other key (faint under its numeral):
+        // the last one before it when it belongs to both keys (the pivot, "G: IV"), and the first one after it ("C: V/V")
         val shown = chords.toMutableList()
+        fun alt(p: Int, other: Key) {
+            val there = ChordAnalyzer.analyze(chords[p].notes, other)
+            if (!there.recognized) return
+            for (j in p until (points.firstOrNull { it > p } ?: slices.size)) shown[j] = chords[p].copy(alt = "${other.short}: ${there.roman}")
+        }
         for ((bar, c) in score.changes) {
             val new = c.key ?: continue
             val old = score.keyOfBar(bar - 1)
             if (new == old) continue
             val at = score.bar(bar).start
-            val p = points.lastOrNull { slices[it].time < at } ?: continue
-            val ch = chords[p]
-            if (!ch.recognized || ch.roman.contains("/") || !ch.notes.all { old.isDiatonic(it.pc) && new.isDiatonic(it.pc) }) continue
-            val there = ChordAnalyzer.analyze(ch.notes, new)
-            if (!there.recognized || there.roman.contains("/")) continue
-            for (j in p until (points.firstOrNull { it > p } ?: slices.size)) shown[j] = ch.copy(roman = "${ch.roman} = ${there.roman}")
+            points.lastOrNull { slices[it].time < at }?.takeIf { p ->
+                chords[p].recognized && !chords[p].roman.contains("/") && chords[p].notes.all { old.isDiatonic(it.pc) && new.isDiatonic(it.pc) }
+            }?.let { alt(it, new) }
+            points.firstOrNull { slices[it].time >= at }?.takeIf { chords[it].recognized }?.let { alt(it, old) }
         }
         return Analysis(slices, shown, out.sortedWith(compareBy({ it.severity }, { it.slice })), points, ncts)
     }
