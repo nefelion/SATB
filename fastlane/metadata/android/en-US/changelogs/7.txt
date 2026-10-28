@@ -1,0 +1,2 @@
+- Zooming or scrolling the score no longer flashes and plays a note.
+- Deleting a bar of an exercise's given voice no longer says it was deleted.
