@@ -720,7 +720,7 @@ object Engraver {
             }
             if (!alone && (hangs || ri == 1) && pos % 2 != 0) pos += key.first // whole/half rests sit on a line
             val glyph = if (it.seg.fullBar) Smufl.REST_WHOLE else Smufl.RESTS[ri]
-            val rx = if (it.seg.fullBar) (box.x0 + box.x1) / 2 - 0.56f else c.x
+            val rx = if (it.seg.fullBar) (box.x0 + m.sigW + box.x1) / 2 - 0.56f else c.x
             for (r in (if (allSame) rests else g)) {
                 marks += GlyphMark(glyph, rx, sy(s, pos), r.ref)
                 if (r.index < score.voice(r.voice).size) restBoxes += HeadBox(r.ref, rx + 0.6f, sy(s, pos), s, pos, r.seg.onset)
