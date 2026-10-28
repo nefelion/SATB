@@ -242,14 +242,17 @@ fun ScoreCanvas(
             Offset((layout.xFor(g.at) + Smufl.HEAD_W / 2) * sp + offX, (layout.staffTop[g.staff] + 4 - g.pos / 2f) * sp + offY)
         }
 
+        // Same staff size in the magnifier at any view zoom (16 dp per staff space)
+        val loupeZoom = (with(density) { 16.dp.toPx() } / sp).coerceAtLeast(1f)
+
         Canvas(
             Modifier
                 .size(maxWidth, maxHeight)
                 .magnifier(
-                    // Only while the ghost is inside the magnified area (170 dp at zoom 2 = 42.5 dp radius around the finger)
-                    sourceCenter = { loupe?.takeIf { f -> ghostPx?.let { (it - f).getDistance() < 42.5.dp.toPx() } == true } ?: Offset.Unspecified },
+                    // Only while the ghost is inside the magnified area (85 dp radius / zoom around the finger)
+                    sourceCenter = { loupe?.takeIf { f -> ghostPx?.let { (it - f).getDistance() < 85.dp.toPx() / loupeZoom } == true } ?: Offset.Unspecified },
                     magnifierCenter = { loupe?.let { it - Offset(0f, 110.dp.toPx()) } ?: Offset.Unspecified },
-                    zoom = 2f, size = DpSize(170.dp, 170.dp), cornerRadius = 85.dp,
+                    zoom = loupeZoom, size = DpSize(170.dp, 170.dp), cornerRadius = 85.dp,
                 )
                 .pointerInput(viewKey) {
                     val slop = viewConfiguration.touchSlop
@@ -263,8 +266,11 @@ fun ScoreCanvas(
                         val onTempo = (dx in tb[0]..tb[2] && dy in tb[1]..tb[3]) || (dx in hb[0]..hb[2] && dy in hb[1]..hb[3])
                         val downHit = if (onTempo) null else currentLayout.hitTest(dx, dy)
                         press(downHit)
+                        // With a note selected, a drag changes its pitch: no aiming, no magnifier
+                        // (read each time: the ghost from press() shows up only after recomposition)
+                        fun canAim() = hasGhost && !hasSelection
                         // Magnifier from the first touch (it only shows once a ghost note is under the finger)
-                        loupe = down.position.takeIf { downHit != null }
+                        loupe = down.position.takeIf { downHit != null && !hasSelection }
                         var moved = Offset.Zero
                         var acc = 0f
                         var aim = downHit
@@ -281,7 +287,7 @@ fun ScoreCanvas(
                         }
                         while (true) {
                             // Held still where a note can go: start aiming
-                            val ev = if (mode == 0 && hasGhost) withTimeoutOrNull(maxOf(1L, down.uptimeMillis + 200 - currentEvent.changes.first().uptimeMillis)) { awaitPointerEvent() }
+                            val ev = if (mode == 0 && canAim()) withTimeoutOrNull(maxOf(1L, down.uptimeMillis + 200 - currentEvent.changes.first().uptimeMillis)) { awaitPointerEvent() }
                                 ?: run { mode = 4; aimAt(down.position); continue }
                             else awaitPointerEvent()
                             val pressed = ev.changes.filter { it.pressed }
@@ -321,7 +327,7 @@ fun ScoreCanvas(
                                 // Decide once the finger has clearly moved, and not in the first moments
                                 // (a second finger may still be on its way).
                                 if (moved.getDistance() < slop || ch.uptimeMillis - down.uptimeMillis < 120) continue
-                                if (hasGhost && abs(moved.y) > abs(moved.x)) { mode = 4; aimAt(ch.position); ch.consume(); continue }
+                                if (canAim() && abs(moved.y) > abs(moved.x)) { mode = 4; aimAt(ch.position); ch.consume(); continue }
                                 mode = if (hasSelection && abs(moved.y) > abs(moved.x) * 1.3f) 1 else 2
                                 loupe = null
                                 press(null)

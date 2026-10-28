@@ -691,6 +691,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                         analysis = it.analysis?.let { _ -> VoiceLeading.check(sc, it.rules) }, focusedIssue = null)
                 }
                 checkOrder()
+                deselect() // dragged note is done: next touch enters notes again
             }
             false -> {
                 val base = dragBase ?: return
