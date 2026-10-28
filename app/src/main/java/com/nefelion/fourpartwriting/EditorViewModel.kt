@@ -796,7 +796,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun undo() {
         _state.update {
             val prev = it.undo.lastOrNull() ?: return@update it
+            // Back to the voice the undone edit went to (an entered note had moved input on to the next voice)
+            val changed = Voice.entries.filter { v -> prev.voice(v) != it.score.voice(v) }.singleOrNull()
             it.copy(score = prev, undo = it.undo.dropLast(1), redo = it.redo + it.score, selected = null, placed = false,
+                voice = changed ?: it.voice,
                 analysis = it.analysis?.let { _ -> VoiceLeading.check(prev, it.rules) })
         }
         checkOrder()
