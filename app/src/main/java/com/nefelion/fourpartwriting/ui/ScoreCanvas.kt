@@ -86,7 +86,7 @@ fun ScoreCanvas(
     onDrag: (Boolean?) -> Unit,
     onTempoTap: () -> Unit,
     /** Finger held and moved to a hit: show the note a release there would add. False if none can go there. */
-    onAim: (Hit) -> Boolean = { false },
+    onAim: (Hit) -> Int? = { null },
     /** The caret stands on the selected note (while naming its chord or figures) instead of after the voice. */
     caretAtSelection: Boolean = false,
     savedViewport: Pair<Float, Float>?,
@@ -249,8 +249,9 @@ fun ScoreCanvas(
             Modifier
                 .size(maxWidth, maxHeight)
                 .magnifier(
-                    // Only while the ghost is inside the magnified area (85 dp radius / zoom around the finger)
-                    sourceCenter = { loupe?.takeIf { f -> ghostPx?.let { (it - f).getDistance() < 85.dp.toPx() / loupeZoom } == true } ?: Offset.Unspecified },
+                    // Always centered on the ghost; the loupe itself follows the finger
+                    // (a sub-pixel nudge by the finger: Android moves the loupe only when its source changes)
+                    sourceCenter = { loupe?.let { f -> ghostPx?.plus(Offset(f.x * 3e-4f, f.y * 1e-4f)) } ?: Offset.Unspecified },
                     magnifierCenter = { loupe?.let { it - Offset(0f, 110.dp.toPx()) } ?: Offset.Unspecified },
                     zoom = loupeZoom, size = DpSize(170.dp, 170.dp), cornerRadius = 85.dp,
                 )
@@ -274,16 +275,22 @@ fun ScoreCanvas(
                         var moved = Offset.Zero
                         var acc = 0f
                         var aim = downHit
+                        // Positions added to the finger's: past the highest/lowest note the finger drags this
+                        // along, so moving back moves the note at once
+                        var shift = 0
                         fun aimAt(p: Offset) {
                             loupe = p
                             val d = downHit ?: return
                             val h = currentLayout.hitTest((p.x - offX) / sp, (p.y - offY) / sp)
+                            val raw = ((currentLayout.staffTop[d.staff] + 4 - (p.y - offY) / sp) * 2).roundToInt() + shift
                             // Keep the down point's staff and refs: pitch and time follow the finger
                             // (the nearest staff would flip between the staves, making the note jump)
-                            val a = d.copy(position = ((currentLayout.staffTop[d.staff] + 4 - (p.y - offY) / sp) * 2).roundToInt(),
-                                time = h.time, afterLast = h.afterLast)
+                            val a = d.copy(position = raw, time = h.time, afterLast = h.afterLast)
+                            if (a == aim) return
                             // Where no note can go, the ghost stays at the last place one could
-                            if (a != aim && aimTo(a)) aim = a
+                            val pos = aimTo(a) ?: return
+                            shift += pos - raw
+                            aim = a.copy(position = pos)
                         }
                         while (true) {
                             // Held still where a note can go: start aiming

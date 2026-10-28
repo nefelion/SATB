@@ -363,16 +363,19 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Finger down on the score: show and play the note a tap there would add, before the finger lifts. */
     fun press(hit: Hit?) {
-        if (hit == null || !aim(hit)) _state.update { it.copy(ghost = null) }
+        if (hit == null || aim(hit) == null) _state.update { it.copy(ghost = null) }
     }
 
-    /** Finger held and moved: shows and plays the note a release at [hit] would add. False (nothing changes) if no note can go there. */
-    fun aim(hit: Hit): Boolean {
-        val t = target(hit) ?: return false
-        val v = s.locked ?: s.voice
-        _state.update { it.copy(ghost = Ghost(it.score.staffOf(v), it.score.clefs[it.score.staffOf(v)].position(t.pitch), t.at)) }
-        preview(t.pitch)
-        return true
+    /**
+     * Finger held and moved: shows and plays the note a release at [hit] would add.
+     * Returns its position on [hit]'s staff (it may differ: the pitch is kept in range), or null (nothing changes) if no note can go there.
+     */
+    fun aim(hit: Hit): Int? {
+        val t = target(hit) ?: return null
+        val sc = s.score
+        val g = Ghost(sc.staffOf(s.locked ?: s.voice), sc.clefs[sc.staffOf(s.locked ?: s.voice)].position(t.pitch), t.at)
+        if (g != s.ghost) { _state.update { it.copy(ghost = g) }; preview(t.pitch) }
+        return sc.clefs[hit.staff].position(t.pitch)
     }
 
     /** Returns true when a note was placed. */
