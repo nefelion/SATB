@@ -1,0 +1,7 @@
+- Key and time signature changes mid-score, with chords read in both keys around the change.
+- Fermatas: hold Tie and slide onto Fermata; playback holds the chord.
+- Pickup bar, numbered bar 0.
+- Dragging a selected note changes its pitch again.
+- Check no longer invents chords from a lone melody.
+- Smoother magnifier at any zoom.
+- Undo after a note returns to its voice.
