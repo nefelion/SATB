@@ -103,7 +103,7 @@ class ChordEdgeTest {
     @Test fun contextLabels() {
         fun prog(key: Key, vararg cs: String) = ChordAnalyzer.analyzeAll(cs.map { c -> c.split(" ").map { Pitch.parse(it) } }, key).map { it.roman }
         assertEquals(listOf("Cad⁶₄", "V⁷", "i"), prog(Am, "E2 A3 C4 E4", "E2 G#3 B3 D4", "A2 A3 C4 E4"))
-        assertEquals(listOf("V", "I⁶ (Picardy)"), prog(Am, "E3 B3 E4 G#4", "C#3 A3 E4 A4"))
+        assertEquals(listOf("V", "I⁶"), prog(Am, "E3 B3 E4 G#4", "C#3 A3 E4 A4"))
         // A major tonic in the middle of an A minor piece is V/iv
         assertEquals(listOf("V/iv", "iv"), prog(Am, "A2 E3 C#4 A4", "D3 A3 F4 D5"))
         // I⁶₄ moving to IV is not cadential

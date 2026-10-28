@@ -143,7 +143,7 @@ object ChordAnalyzer {
             // A major tonic ending a minor-key piece is a Picardy third, not V/iv.
             if (list.drop(i + 1).all { it.root == c.root && it.quality == c.quality } && key.mode == Mode.MINOR && c.root == key.tonic &&
                 c.quality in setOf(Quality.MAJOR, Quality.MAJOR_NO5)
-            ) chords[i] = c.copy(roman = "I" + triadFigure(c.inversion) + " (Picardy)", target = null, leadingTone = null)
+            ) chords[i] = c.copy(roman = "I" + triadFigure(c.inversion), target = null, leadingTone = null, alt = "Picardy")
         }
         return chords
     }

@@ -110,7 +110,8 @@ class TheoryTest {
         assertEquals(listOf("Cad⁶₄", "V⁷", "I"), r)
 
         val pic = listOf(listOf("E2", "B3", "E4", "G#4"), listOf("A2", "A3", "E4", "C#5")).map { s -> s.map { Pitch.parse(it) } }
-        assertEquals("I (Picardy)", ChordAnalyzer.analyzeAll(pic, Am).last().roman)
+        assertEquals("I", ChordAnalyzer.analyzeAll(pic, Am).last().roman)
+        assertEquals("Picardy", ChordAnalyzer.analyzeAll(pic, Am).last().alt)
     }
 
     @Test fun unrecognized() {

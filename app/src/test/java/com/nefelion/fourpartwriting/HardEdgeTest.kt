@@ -108,7 +108,8 @@ class HardEdgeTest {
 
     @Test fun picardyHeldOverTwoBeats() {
         val a = linesScore("B4:4 C#5:4 E5:2", "E4:4 E4:2.", "G#3:4 A3:2.", "E3:4 A2:2.", key = Am).analysis()
-        assertEquals(listOf("V", "I (Picardy)", "I (Picardy)"), a.romans())
+        assertEquals(listOf("V", "I", "I"), a.romans())
+        assertEquals("Picardy", a.chords[a.points.last()].alt)
     }
 
     @Test fun cadentialSixFourRestruck() {
