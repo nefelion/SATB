@@ -216,11 +216,16 @@ object Engraver {
 
         // Vertical extents per staff (note positions incl. stems, and room for tuplet numbers beyond them)
         val maxP = IntArray(n) { 8 }; val minP = IntArray(n) { 0 }
+        val shared = BooleanArray(n) { s -> score.voicesOn(s).count { it in shown } > 1 }
         for (it in all) {
             val p = it.pos ?: continue
             val stem = (if (it.d.base > 1) 7 else 0) + if (it.seg.tuplet && (it.voice to it.seg.group!!) !in hidden) 4 else 0
             maxP[it.staff] = max(maxP[it.staff], p + if (it.dir > 0) stem else 0)
             minP[it.staff] = min(minP[it.staff], p - if (it.dir < 0) stem else 0)
+            if (hasFermata(score, it)) {
+                if (fermataAbove(shared, it)) maxP[it.staff] = max(maxP[it.staff], max(13, p + (if (it.dir > 0) stem else 0) + 4))
+                else minP[it.staff] = min(minP[it.staff], min(-5, p - (if (it.dir < 0) stem else 0) - 4))
+            }
         }
         val hasLabels = labels.isNotEmpty()
         // Bass figures stack under the bottom staff, above the roman numerals
@@ -350,6 +355,15 @@ object Engraver {
             }
         }
         drawTies(score, shown, headAt, marks)
+        for ((it, xy) in headAt.values) {
+            if (!hasFermata(score, it)) continue
+            val (hx, hy) = xy
+            val gx = hx + it.headW / 2 - Smufl.FERMATA_W / 2
+            val stem = it.d.base > 1
+            marks += if (fermataAbove(shared, it))
+                GlyphMark(Smufl.FERMATA_ABOVE, gx, min(sy(it.staff, 8) - 0.9f, hy - (if (stem && it.dir > 0) 3.5f else 0.5f) - 0.7f), it.ref)
+            else GlyphMark(Smufl.FERMATA_BELOW, gx, max(sy(it.staff, 0) + 0.9f, hy + (if (stem && it.dir < 0) 3.5f else 0.5f) + 0.7f), it.ref)
+        }
         // Non-chord-tone labels, next to the first written head of the note
         val labeled = HashSet<NoteRef>()
         for (h in heads) {
@@ -758,6 +772,12 @@ object Engraver {
     }
 
     // ---------- ties ----------
+
+    /** A fermata goes over a note's last written head. */
+    private fun hasFermata(score: Score, it: Item) = it.isNote && !it.tieNext && score.voice(it.voice).getOrNull(it.index)?.fermata == true
+
+    /** Shared staff: above the upper voice, below the lower one (like stems); a voice alone: above. */
+    private fun fermataAbove(shared: BooleanArray, it: Item) = !shared[it.staff] || it.dir > 0
 
     private fun drawTies(score: Score, shown: Set<Voice>, headAt: Map<Triple<Voice, Int, Int>, Pair<Item, Pair<Float, Float>>>, marks: MutableList<Mark>) {
         for ((key, v) in headAt) {

@@ -142,8 +142,11 @@ object MusicXml {
         sb.append("<staff>${score.staffOf(w.voice) + 1}</staff>")
         val tupStart = tup?.contains("start") == true
         val tupStop = tup?.contains("stop") == true
-        if (tieStart || tieStop || tupStart || tupStop) {
+        val fermata = p != null && w.last && e.fermata
+        if (tieStart || tieStop || tupStart || tupStop || fermata) {
             sb.append("<notations>")
+            // Below the lower voice of a shared staff, like the editor
+            if (fermata) sb.append(if (stem < 0) "<fermata type=\"inverted\"/>" else "<fermata type=\"upright\"/>")
             if (tieStop) sb.append("<tied type=\"stop\"/>")
             if (tieStart) sb.append("<tied type=\"start\"/>")
             if (tupStart) sb.append(if (w.seg.group!!.label.contains(':')) "<tuplet type=\"start\" show-number=\"both\"/>" else "<tuplet type=\"start\"/>")

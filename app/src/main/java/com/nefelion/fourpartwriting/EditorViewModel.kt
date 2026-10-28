@@ -273,8 +273,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edited: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice,
         selectedAt: Fraction? = if (selected == s.selected) s.selectedAt else null,
     ) {
-        // An exercise's given voices stay as they are (naming their chords is fine)
-        s.score.given.firstOrNull { v -> v in edited.given && edited.voice(v).map { it.copy(chord = null) } != s.score.voice(v).map { it.copy(chord = null) } }?.let { v ->
+        // An exercise's given voices stay as they are (naming their chords and fermatas is fine)
+        s.score.given.firstOrNull { v -> v in edited.given && edited.voice(v).map { it.copy(chord = null, fermata = false) } != s.score.voice(v).map { it.copy(chord = null, fermata = false) } }?.let { v ->
             return msg("The ${v.name.lowercase()} is given in this exercise.")
         }
         val new = if (dragBase != null) edited else VoiceLeading.pruneMutes(edited)
@@ -728,6 +728,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         entered(new)
     }
 
+    fun fermata() {
+        val r = s.selected ?: return msg("Select a note to put a fermata on its chord.")
+        if (s.score.voice(r.voice).getOrNull(r.index)?.pitch == null) return msg("Select a note to put a fermata on its chord.")
+        edit(Edit.fermata(s.score, onsetOf(r)))
+    }
+
     fun tie() {
         val r = s.selected ?: run { msg("Select a note to tie it to the next one."); return }
         val e = s.selectedEvent ?: return
@@ -1149,7 +1155,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             delay(50)
             while (true) {
                 val whole = Synth.position() ?: break
-                _state.update { st -> st.copy(playTime = onsets.lastOrNull { it.toDouble() <= whole + 1e-9 }) }
+                _state.update { st -> st.copy(playTime = onsets.lastOrNull { Synth.played(it) <= whole + 1e-9 }) }
                 delay(30)
             }
             _state.update { it.copy(playing = false, playTime = null) }

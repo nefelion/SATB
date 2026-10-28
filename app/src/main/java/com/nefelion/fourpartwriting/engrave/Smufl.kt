@@ -29,6 +29,9 @@ object Smufl {
     /** Rough advance of a tuplet digit / colon, in staff spaces. */
     const val TUPLET_DIGIT_W = 0.84f
     const val TUPLET_COLON_W = 0.7f
+    const val FERMATA_ABOVE = ''
+    const val FERMATA_BELOW = ''
+    const val FERMATA_W = 2.42f
     const val DOT = ''
     val FLAG_UP = charArrayOf('', '', '', '')
     val FLAG_DOWN = charArrayOf('', '', '', '')

@@ -179,6 +179,7 @@ fun EditorScreen(vm: EditorViewModel) {
             }
             item("Hint", false) { vm.hint() }
             if (st.selected != null) item("Fix this chord", false) { vm.fixChord() }
+            if (st.selected != null) item(if (st.selectedEvent?.fermata == true) "Remove fermata" else "Fermata", false) { vm.fermata() }
             // Again while open: closes it, like Done
             item("Specify chord", false) { if (chords) chords = false else if (vm.startChords()) { chords = true; figures = false } }
             item("Export MusicXML", false) { xmlSaver.launch("${st.scoreName}.musicxml") }

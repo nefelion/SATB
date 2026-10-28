@@ -6,10 +6,12 @@ package com.nefelion.fourpartwriting.model
  * the ratio the user picked, since the length alone cannot tell 5:4 from 5:2.
  * [figures]: figured-bass lines, top to bottom ("6", "#", "b7"; see FiguredBass); used on bass notes only.
  * [chord]: the chord the user named at this note ("G7/B", "V65"; see ChordText), shown above the score.
+ * [fermata]: held longer in playback; drawn over the note's last head.
  */
 data class Event(
     val length: Fraction, val pitch: Pitch?, val tuplet: Tuplet? = null,
     val figures: List<String> = emptyList(), val chord: String? = null,
+    val fermata: Boolean = false,
 ) {
     constructor(d: Duration, pitch: Pitch?) : this(d.value, pitch)
 }

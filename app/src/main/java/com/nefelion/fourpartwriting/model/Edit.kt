@@ -122,9 +122,16 @@ object Edit {
         val a = list.getOrNull(i) ?: return s
         val b = list.getOrNull(i + 1) ?: return s
         if (a.pitch == null) return s
-        list[i] = a.copy(length = a.length + b.length)
+        list[i] = a.copy(length = a.length + b.length, fermata = a.fermata || b.fermata)
         list.removeAt(i + 1)
         return s.withVoice(v, list)
+    }
+
+    /** Fermata on or off for the chord at [t]: every note starting there. Off only when all of them have one. */
+    fun fermata(s: Score, t: Fraction): Score {
+        val at = Voice.entries.mapNotNull { v -> s.onsets(v).indexOf(t).takeIf { it >= 0 && s.voice(v)[it].pitch != null }?.let { v to it } }
+        val on = !at.all { (v, i) -> s.voice(v)[i].fermata }
+        return at.fold(s) { acc, (v, i) -> acc.withVoice(v, acc.voice(v).toMutableList().also { it[i] = it[i].copy(fermata = on) }) }
     }
 
     /**

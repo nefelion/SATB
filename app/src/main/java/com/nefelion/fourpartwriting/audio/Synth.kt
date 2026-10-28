@@ -25,16 +25,25 @@ object Synth {
     /** Quarter notes per minute; applies at once, also to a score that is playing. */
     fun setTempo(qpm: Double) = nativeSetTempo(qpm)
 
-    /** Schedules the whole score in musical time; the native side applies the current tempo. */
+    /** Fermata holds of the score playing: (where the held chord ends, extra time), by time. */
+    private var holds = emptyList<Pair<Fraction, Fraction>>()
+
+    /** Played time (whole notes) of score time [t]: fermatas before it add their hold. */
+    fun played(t: Fraction): Double = t.toDouble() + holds.filter { it.first <= t }.sumOf { it.second.toDouble() }
+
+    /** Schedules the whole score in musical time; the native side applies the current tempo. A fermata doubles its chord. */
     fun play(score: Score) {
+        holds = Voice.entries.flatMap { v -> score.voice(v).zip(score.onsets(v)).filter { (e, _) -> e.fermata && e.pitch != null } }
+            .groupBy({ it.second }, { it.first.length })
+            .map { (on, lens) -> lens.max().let { on + it to it } }.sortedBy { it.first }
         val ev = ArrayList<Double>()
         for (v in Voice.entries) {
             var t = Fraction.ZERO
             for (e in score.voice(v)) {
                 val end = t + e.length
                 e.pitch?.let { p ->
-                    ev += t.toDouble(); ev += p.midi.toDouble(); ev += 90.0
-                    ev += end.toDouble(); ev += p.midi.toDouble(); ev += 0.0
+                    ev += played(t); ev += p.midi.toDouble(); ev += 90.0
+                    ev += played(end); ev += p.midi.toDouble(); ev += 0.0
                 }
                 t = end
             }
