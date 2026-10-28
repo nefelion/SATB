@@ -362,9 +362,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Finger down on the score: show and play the note a tap there would add, before the finger lifts. */
-    fun press(hit: Hit?) {
-        if (hit == null || aim(hit) == null) _state.update { it.copy(ghost = null) }
-    }
+    fun press(hit: Hit?): Int? = hit?.let(::aim).also { if (it == null) _state.update { s -> s.copy(ghost = null) } }
 
     /**
      * Finger held and moved: shows and plays the note a release at [hit] would add.

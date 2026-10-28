@@ -81,7 +81,7 @@ fun ScoreCanvas(
     state: UiState,
     onTap: (Hit) -> Unit,
     /** Finger down at a hit (null: the touch became a drag or pinch, or hit the tempo mark). */
-    onPress: (Hit?) -> Unit,
+    onPress: (Hit?) -> Int?,
     onNudge: (Int) -> Unit,
     onDrag: (Boolean?) -> Unit,
     onTempoTap: () -> Unit,
@@ -235,6 +235,7 @@ fun ScoreCanvas(
         val tempoTap by rememberUpdatedState(onTempoTap)
         val hasSelection by rememberUpdatedState(state.selected != null && !state.placed)
         val hasGhost by rememberUpdatedState(state.ghost != null)
+        val inputStaff by rememberUpdatedState(state.score.staffOf(state.locked ?: state.voice))
         // Finger position while aiming a new note (magnifier shown)
         var loupe by remember { mutableStateOf<Offset?>(null) }
         // Pitch shift of the aimed note (past the highest/lowest note) in px: the magnifier source moves with it
@@ -275,15 +276,15 @@ fun ScoreCanvas(
                         // Tempo, clef, key or time signature: opens the score settings
                         val onTempo = (dx in tb[0]..tb[2] && dy in tb[1]..tb[3]) || (dx in hb[0]..hb[2] && dy in hb[1]..hb[3])
                         val downHit = if (onTempo) null else currentLayout.hitTest(dx, dy)
-                        press(downHit)
+                        val downGhost = press(downHit) != null
                         // With a note selected, a drag changes its pitch: no aiming, no magnifier
                         // (read each time: the ghost from press() shows up only after recomposition)
                         fun canAim() = hasGhost && !hasSelection
-                        // Magnifier from the first touch (it only shows once a ghost note is under the finger)
-                        loupe = down.position.takeIf { downHit != null && !hasSelection }
+                        // Magnifier from the first touch where a note can go
+                        loupe = down.position.takeIf { downGhost && !hasSelection }
                         var moved = Offset.Zero
                         var acc = 0f
-                        var aim = downHit
+                        var aim: Hit? = null
                         // Positions added to the finger's: past the highest/lowest note the finger drags this
                         // along, so moving back moves the note at once
                         // (continuous, so the magnifier moved by it doesn't step)
@@ -293,13 +294,14 @@ fun ScoreCanvas(
                         loupeShift = 0f
                         fun aimAt(p: Offset) {
                             loupe = p
-                            val d = downHit ?: return
+                            // Pitch is read on the input voice's staff, where the ghost is drawn
+                            // (the nearest staff would flip between the staves, making the note jump)
+                            val d = downHit?.copy(staff = inputStaff) ?: return
                             val h = currentLayout.hitTest((p.x - offX) / sp, (p.y - offY) / sp)
                             val f = (currentLayout.staffTop[d.staff] + 4 - (p.y - offY) / sp) * 2
                             shift += (f + shift).coerceIn(lo, hi) - (f + shift)
                             val raw = (f + shift).roundToInt()
-                            // Keep the down point's staff and refs: pitch and time follow the finger
-                            // (the nearest staff would flip between the staves, making the note jump)
+                            // Keep the down point's refs: pitch and time follow the finger
                             val a = d.copy(position = raw, time = h.time, afterLast = h.afterLast)
                             if (a != aim) {
                                 // Where no note can go, the ghost stays at the last place one could
@@ -312,6 +314,8 @@ fun ScoreCanvas(
                             }
                             loupeShift = -shift * sp / 2
                         }
+                        // Find the range limit already at a touch outside it, so the magnifier starts on the note
+                        if (loupe != null) aimAt(down.position)
                         while (true) {
                             // Held still where a note can go: start aiming
                             val ev = if (mode == 0 && canAim()) withTimeoutOrNull(maxOf(1L, down.uptimeMillis + 200 - currentEvent.changes.first().uptimeMillis)) { awaitPointerEvent() }
