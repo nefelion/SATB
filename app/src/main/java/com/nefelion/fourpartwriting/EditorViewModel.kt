@@ -30,6 +30,7 @@ import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Analysis
 import com.nefelion.fourpartwriting.theory.ChordAnalyzer
 import com.nefelion.fourpartwriting.theory.Exercises
+import com.nefelion.fourpartwriting.theory.Lessons
 import com.nefelion.fourpartwriting.theory.FiguredBass
 import com.nefelion.fourpartwriting.theory.Issue
 import com.nefelion.fourpartwriting.theory.Voicer
@@ -89,6 +90,8 @@ data class UiState(
     val quiz: Quiz? = null,
     /** ✓ asks the user to find the mistakes first. */
     val selfCheck: Boolean = true,
+    /** Lessons (indexes into Lessons.ALL) whose exercise has been solved. */
+    val lessonsDone: Set<Int> = emptySet(),
     val playing: Boolean = false,
     /** Onset of the slice under the playback cursor. */
     val playTime: Fraction? = null,
@@ -121,6 +124,8 @@ data class UiState(
     /** Movement mode (tap the active voice button): taps only select notes, nothing is added. */
     val moving: Boolean = false,
 ) {
+    /** Rules the open score is checked with: a lesson's own, whatever is switched off in Settings. */
+    val checkRules: Set<Rule> get() = score.lesson?.let(Lessons::rulesUpTo) ?: rules
     /** Voice shown on the caret and voice buttons: while dragging, the dragged note's voice, not the next input voice. */
     val shownVoice: Voice get() = selected?.voice?.takeIf { dragging } ?: voice
     val selectedEvent: Event? get() = selected?.let { score.voice(it.voice).getOrNull(it.index) }
@@ -225,6 +230,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             themeChosen = prefs.contains("dark"),
             tutorialSeen = prefs.getBoolean("tutorialSeen", false),
             selfCheck = prefs.getBoolean("selfCheck", true),
+            lessonsDone = prefs.getStringSet("lessonsDone", emptySet())!!.mapNotNull { it.toIntOrNull() }.toSet(),
             dark = prefs.getBoolean("dark", app.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES),
             soundName = prefs.getString("sf2Name", null),
             voice = Voice.entries.getOrElse(prefs.getInt("voice", 0)) { Voice.SOPRANO },
@@ -235,6 +241,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Copy of the SoundFont made by older versions; still used until the user picks a file again. */
     private val sf2 = File(app.filesDir, "piano.sf2")
     private var playJob: Job? = null
+    /** Score whose solution was shown: solving it no longer finishes its lesson. shortcut: forgotten on restart, persist it if users game it. */
+    private var solutionShown: String? = null
     /** SoundFont load started on app start, and a Play tap waiting for it. */
     private var loadJob: Job? = null
     private var waitJob: Job? = null
@@ -305,7 +313,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edited: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice,
         selectedAt: Fraction? = if (selected == s.selected) s.selectedAt else null,
     ): Boolean {
-        if (s.study != null) { msg("Study scores can't be changed. Duplicate it in Scores to get a copy you can edit."); return false }
+        if (s.study != null) { msg("This score can't be changed. Duplicate it in Scores to get a copy you can edit."); return false }
         // An exercise's given voices stay as they are (naming their chords and fermatas is fine)
         s.score.given.firstOrNull { v -> v in edited.given && edited.voice(v).map { it.copy(chord = null, fermata = false) } != s.score.voice(v).map { it.copy(chord = null, fermata = false) } }?.let { v ->
             msg("The ${v.name.lowercase()} is given in this exercise.")
@@ -588,7 +596,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val upTo = sc.copy(voices = Voice.entries.map { v ->
             if (v !in open) sc.voice(v) else filled.voice(v).filterIndexed { i, _ -> filled.onsets(v)[i] <= t }
         })
-        val rules = s.rules
+        val rules = s.checkRules
         val best = withContext(Dispatchers.Default) { Voicer.fix(upTo, t, rules, open) } ?: upTo
         if (s.score != sc) return@launch
         val notes = Voice.entries.map { v -> best.eventAt(v, t).takeIf { it >= 0 }?.let { best.voice(v)[it].pitch } }
@@ -609,7 +617,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val sc = s.score
         val r = s.selected ?: return@launch msg("Select a note of the chord to fix.")
         val t = sc.onsets(r.voice)[r.index]
-        val rules = s.rules
+        val rules = s.checkRules
         val fixed = withContext(Dispatchers.Default) { Voicer.fix(sc, t, rules) }
             ?: return@launch msg("No clean voicing of this chord fits the chords around it. Try fixing a neighbor first.")
         if (fixed == sc) return@launch msg("No cleaner voicing nearby. Press ✓ to see what's flagged.")
@@ -731,7 +739,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             false -> {
                 val base = dragBase ?: return
                 dragBase = null
-                _state.update { it.copy(score = base, dragging = false, analysis = it.analysis?.let { _ -> VoiceLeading.check(base, it.rules) }) }
+                _state.update { it.copy(score = base, dragging = false, analysis = it.analysis?.let { _ -> VoiceLeading.check(base, it.checkRules) }) }
                 checkOrder()
             }
         }
@@ -916,7 +924,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Empty score with the key, time, tempo, staves and clefs of [settings]. */
     fun newScore(name: String, settings: Score) {
         flushScore()
-        newBlank(name, settings.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet(), tempo = settings.tempo.coerceIn(20, 300)))
+        newBlank(name, settings.copy(voices = List(4) { emptyList() }, rulesOff = emptySet(), ignored = emptySet(), lesson = null, tempo = settings.tempo.coerceIn(20, 300)))
     }
 
     /** A new generated exercise (figured bass, or given [soprano]), opened as a new score. */
@@ -932,7 +940,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val sc = s.score
         // Your notes are kept when they can be continued; otherwise the answer starts over from the given voices
         val fresh = sc.copy(voices = Voice.entries.map { if (it in sc.given) sc.voice(it) else emptyList() })
-        val rules = s.rules
+        val rules = s.checkRules
         val (solved, note) = withContext(Dispatchers.Default) {
             // The checker may flag chords the solver wrote (it doesn't model every rule): polish revoices them
             when (val out = Voicer.attempt(sc)) {
@@ -942,7 +950,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         if (solved == null) return@launch msg("No solution found for this exercise.")
-        if (s.score == sc) { edit(solved, null); note?.let(::msg) }
+        if (s.score == sc) { edit(solved, null); note?.let(::msg); solutionShown = s.scoreName }
     }
 
     private fun newBlank(wanted: String = "Untitled", sc: Score = blank()) {
@@ -1083,6 +1091,34 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         note?.let { msg("$id, bar $bar: $it") }
     }
 
+    // ---------- lessons ----------
+
+    /** Plays a lesson's [score] (no cursor: it is not the open score). */
+    fun playPassage(score: Score) {
+        if (!s.soundLoaded) return msg(if (loadJob?.isActive == true) "Loading the sound… try again in a moment." else "Load a SoundFont (.sf2) in Settings to play.")
+        stop()
+        Synth.play(score)
+    }
+
+    /** Opens lesson [i]'s passage read-only with the self-check started: the user finds its mistakes. */
+    fun openLessonFind(i: Int) {
+        val l = Lessons.ALL[i]
+        flushScore()
+        val sc = l.find.copy(lesson = i)
+        show("Lesson ${i + 1}: find the mistakes", sc, "Lesson ${i + 1}")
+        _state.update { it.copy(quiz = Quiz(VoiceLeading.check(sc, it.checkRules))) }
+        msg(l.findNote)
+    }
+
+    /** A new exercise with lesson [i]'s chords, checked with its rules. */
+    fun newLessonExercise(i: Int) = viewModelScope.launch {
+        val ex = withContext(Dispatchers.Default) { Exercises.generate(Exercises.Level.EASY, only = Lessons.ALL[i].chords) }
+            ?: return@launch msg("Could not make an exercise. Try again.")
+        flushScore()
+        newBlank("Lesson ${i + 1} exercise", ex.copy(lesson = i))
+        _state.update { it.copy(voice = Voice.SOPRANO) }
+    }
+
     /** Display name and size in bytes of a picked file, when the provider tells them. */
     private fun fileInfo(uri: Uri): Pair<String?, Long?> {
         val row = runCatching {
@@ -1099,7 +1135,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun check() {
         if (s.analysis != null || s.quiz != null) return closeAnalysis()
         toMovement()
-        val a = VoiceLeading.check(s.score, s.rules)
+        val a = VoiceLeading.check(s.score, s.checkRules)
         if (s.selfCheck && a.issues.isNotEmpty()) return _state.update { it.copy(quiz = Quiz(a), focusedIssue = null) }
         _state.update { it.copy(analysis = a, focusedIssue = null) }
         solved(a)?.let(::msg)
@@ -1109,7 +1145,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun solved(a: Analysis): String? {
         val sc = s.score
         if (sc.given.isEmpty() || !Voice.entries.all { sc.length(it) == sc.length && sc.voice(it).isNotEmpty() } || a.issues.any { it.severity == Severity.ERROR }) return null
-        return if (a.issues.isEmpty()) "Solved, with no rule breaks or warnings!" else "Solved: no rule breaks. Look at the warnings to make it better."
+        val lesson = sc.lesson?.takeIf { solutionShown != s.scoreName }?.let { i ->
+            if (i !in s.lessonsDone) {
+                _state.update { it.copy(lessonsDone = it.lessonsDone + i) }
+                prefs.edit().putStringSet("lessonsDone", s.lessonsDone.map { "$it" }.toSet()).apply()
+            }
+            " Lesson ${i + 1} done."
+        }.orEmpty()
+        return (if (a.issues.isEmpty()) "Solved, with no rule breaks or warnings!" else "Solved: no rule breaks. Look at the warnings to make it better.") + lesson
     }
 
     /** Self-check: marks or unmarks a note as breaking a rule. */
@@ -1144,7 +1187,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun checked(st: UiState, new: Score): UiState {
         if (st.analysis == null && st.quiz == null) return st
         if (new.copy(ignored = st.score.ignored, rulesOff = st.score.rulesOff) == st.score)
-            return st.copy(analysis = st.analysis?.let { VoiceLeading.check(new, st.rules) }, quiz = st.quiz?.takeIf { !it.revealed }, focusedIssue = null)
+            return st.copy(analysis = st.analysis?.let { VoiceLeading.check(new, st.checkRules) }, quiz = st.quiz?.takeIf { !it.revealed }, focusedIssue = null)
         return st.copy(analysis = null, quiz = null, focusedIssue = null, message = "Score changed. Press ✓ to check again.")
     }
 
@@ -1179,7 +1222,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setStyle(style: Style) = setRules(style.rules)
 
     private fun setRules(rules: Set<Rule>) {
-        _state.update { it.copy(rules = rules, analysis = it.analysis?.let { _ -> VoiceLeading.check(it.score, rules) }, focusedIssue = null) }
+        _state.update { it.copy(rules = rules).let { st -> st.copy(analysis = st.analysis?.let { VoiceLeading.check(st.score, st.checkRules) }, focusedIssue = null) } }
         prefs.edit().putStringSet("rulesOff", (Rule.entries - rules).map { it.name }.toSet()).apply()
     }
 

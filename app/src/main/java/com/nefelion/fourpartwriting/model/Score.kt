@@ -98,6 +98,8 @@ data class Score(
     val given: Set<Voice> = emptySet(),
     val pickup: Fraction? = null,
     val changes: Map<Int, Change> = emptyMap(),
+    /** A lesson's exercise or passage (index into Lessons.ALL): checked with that lesson's rules. */
+    val lesson: Int? = null,
 ) : Meter {
     init {
         require(clefs.size == arrangement.staves)

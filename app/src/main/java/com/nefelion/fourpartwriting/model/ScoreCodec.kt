@@ -20,6 +20,7 @@ object ScoreCodec {
         appendLine("clefs " + s.clefs.joinToString(" ") { it.name })
         if (s.rulesOff.isNotEmpty()) appendLine("off " + s.rulesOff.joinToString(" "))
         if (s.given.isNotEmpty()) appendLine("given " + s.given.joinToString(" ") { it.label })
+        s.lesson?.let { appendLine("lesson $it") }
         for (k in s.ignored) appendLine("ignore " + k.replace('\n', ' '))
         for (v in Voice.entries) {
             append(v.label)
@@ -118,6 +119,7 @@ object ScoreCodec {
             given = map["given"].orEmpty().split(" ").mapNotNull { l -> Voice.entries.firstOrNull { it.label == l } }.toSet(),
             pickup = map["pickup"]?.trim()?.split("/")?.map { it.toLong() }?.let { (n, d) -> Fraction.of(n, d) },
             changes = changes,
+            lesson = map["lesson"]?.trim()?.toIntOrNull(),
         )
     }.getOrNull()
 }

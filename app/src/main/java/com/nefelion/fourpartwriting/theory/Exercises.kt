@@ -65,9 +65,9 @@ object Exercises {
      * A new exercise: the bass with figures given (locked), the upper voices empty; with [soprano], the soprano
      * given instead, a moving melody ending on the tonic, and the lower voices empty. It is checked by solving it, so at least one
      * answer without errors exists; of the tries, the one whose answer has the fewest warnings wins.
-     * Null only if every try failed.
+     * Null only if every try failed. [only]: use just these chords (a lesson's).
      */
-    fun generate(level: Level, rnd: Random = Random.Default, soprano: Boolean = false): Score? {
+    fun generate(level: Level, rnd: Random = Random.Default, soprano: Boolean = false, only: Set<String>? = null): Score? {
         val chords = when (level) { Level.EASY -> 9; Level.MEDIUM -> 13; Level.HARD -> 17 }
         var best: Score? = null
         var bestWarnings = Int.MAX_VALUE
@@ -76,7 +76,7 @@ object Exercises {
             val minor = level != Level.EASY && rnd.nextBoolean()
             val reach = when (level) { Level.EASY -> 2; Level.MEDIUM -> 3; Level.HARD -> 4 }
             val key = Key(rnd.nextInt(-reach, reach + 1), if (minor) Mode.MINOR else Mode.MAJOR)
-            val plan = progression(level, minor, chords, rnd) ?: return@repeat
+            val plan = progression(level, minor, chords, rnd, only) ?: return@repeat
             val fb = figuredBass(plan, key, rnd) ?: return@repeat
             val sc = if (!soprano) fb else {
                 val melody = solve(fb)?.voice(Voice.SOPRANO) ?: return@repeat
@@ -94,8 +94,8 @@ object Exercises {
         return best
     }
 
-    private fun progression(level: Level, minor: Boolean, n: Int, rnd: Random): List<String>? {
-        val allowed = when (level) { Level.EASY -> EASY; Level.MEDIUM -> MEDIUM; Level.HARD -> STEPS.keys }
+    private fun progression(level: Level, minor: Boolean, n: Int, rnd: Random, only: Set<String>?): List<String>? {
+        val allowed = only ?: when (level) { Level.EASY -> EASY; Level.MEDIUM -> MEDIUM; Level.HARD -> STEPS.keys }
             .let { if (minor) it - "ii" else it } // ii° in root position is avoided
         repeat(2000) {
             val p = mutableListOf("I")

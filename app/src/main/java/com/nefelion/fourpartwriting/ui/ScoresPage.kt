@@ -68,6 +68,7 @@ import com.nefelion.fourpartwriting.theory.Rule
 import androidx.compose.runtime.key
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Exercises
+import com.nefelion.fourpartwriting.theory.Lessons
 import com.nefelion.fourpartwriting.model.ScoreCodec
 import androidx.compose.runtime.saveable.Saver
 
@@ -89,6 +90,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     var formatFor by rememberSaveable { mutableStateOf<String?>(null) }
     var asXml by rememberSaveable { mutableStateOf(false) }
     var studying by rememberSaveable { mutableStateOf(false) }
+    var learning by rememberSaveable { mutableStateOf(false) }
     // Generic type: providers keep an unknown .satb or .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val name = exporting
@@ -141,6 +143,11 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
                 OutlinedButton(onClick = { studying = true }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Bach chorales") }
             }
         }
+        item {
+            FilledTonalButton(onClick = { learning = true }, shape = SHAPE, modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()) {
+                Text("Lessons" + if (st.lessonsDone.isEmpty()) "" else " (${st.lessonsDone.size} of ${Lessons.ALL.size} done)")
+            }
+        }
         // (a study score is not in the library, so a score of yours with the same name is listed)
         val other = st.scores.filter { st.study != null || it.first != st.scoreName }
         item {
@@ -158,6 +165,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
         }
     }
     if (exercise) ExerciseDialog(Voice.SOPRANO in st.score.given, onDismiss = { exercise = false }) { level, soprano -> exercise = false; vm.newExercise(level, soprano); onDismiss() }
+    if (learning) LessonsPage(st, vm) { learning = false }
     if (studying) StudyPage(st, vm, onDismiss = { studying = false }) { studying = false; onDismiss() }
     if (naming) ScoreDialog("New score", "", Score(), askName = true, action = "Create", onDismiss = { naming = false }) { name, settings ->
         naming = false; vm.newScore(name, settings); onDismiss()
