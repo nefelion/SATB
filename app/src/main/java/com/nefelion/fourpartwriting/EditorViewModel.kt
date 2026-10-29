@@ -1007,9 +1007,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Saves a copy of a score to a file the user picked (to back up or share). */
-    fun exportScoreFile(name: String, uri: Uri) = viewModelScope.launch {
+    /** Writes score [name] to [uri] as a .satb file, or as MusicXML when [xml]. */
+    fun exportScoreFile(name: String, uri: Uri, xml: Boolean) = viewModelScope.launch {
         flushScore()
-        val text = scoreOf(name)?.let { ScoreCodec.encode(it, name) }
+        val text = scoreOf(name)?.let { if (xml) MusicXml.export(it) else ScoreCodec.encode(it, name) }
         val ok = text != null && withContext(Dispatchers.IO) {
             runCatching {
                 getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
@@ -1333,15 +1334,5 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun releaseSf2(uri: String) = runCatching {
         getApplication<Application>().contentResolver.releasePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-
-    fun exportMusicXml(uri: Uri) = viewModelScope.launch {
-        val xml = MusicXml.export(s.score)
-        val ok = withContext(Dispatchers.IO) {
-            runCatching {
-                getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(xml.toByteArray()) }
-            }.isSuccess
-        }
-        msg(if (ok) "MusicXML exported." else "Could not write the file.")
     }
 }

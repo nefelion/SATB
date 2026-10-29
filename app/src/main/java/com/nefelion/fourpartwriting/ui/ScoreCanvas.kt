@@ -13,6 +13,10 @@ import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -250,10 +254,15 @@ fun ScoreCanvas(
 
         // Same staff size in the magnifier at any view zoom (16 dp per staff space)
         val loupeZoom = (with(density) { 16.dp.toPx() } / sp).coerceAtLeast(1f)
+        // Canvas top in the window and the status bar height: Android pushes a magnifier above them back down
+        var canvasTop by remember { mutableFloatStateOf(0f) }
+        val barsTop = WindowInsets.systemBars.getTop(density)
+        val canvasW = constraints.maxWidth
 
         Canvas(
             Modifier
                 .size(maxWidth, maxHeight)
+                .onGloballyPositioned { canvasTop = it.positionInWindow().y }
                 .magnifier(
                     // Follows the finger (shifted like the pitch) smoothly, but stays within 40 dp (in the loupe) of the ghost
                     // (plus a sub-pixel nudge by the finger: Android moves the loupe only when its source changes)
@@ -265,7 +274,14 @@ fun ScoreCanvas(
                             (if (d.getDistance() > r) g + d * (r / d.getDistance()) else s) + Offset(f.x * 3e-4f, f.y * 1e-4f)
                         }
                     },
-                    magnifierCenter = { loupe?.let { it - Offset(0f, 110.dp.toPx()) } ?: Offset.Unspecified },
+                    // Above the finger; where Android would push it down onto the finger, beside it instead
+                    magnifierCenter = {
+                        loupe?.let { f ->
+                            val up = f - Offset(0f, 110.dp.toPx())
+                            if (canvasTop + up.y - 89.dp.toPx() >= barsTop) up
+                            else up + Offset(if (f.x < canvasW / 2) 110.dp.toPx() else -110.dp.toPx(), 0f)
+                        } ?: Offset.Unspecified
+                    },
                     zoom = loupeZoom, size = DpSize(170.dp, 170.dp), cornerRadius = 85.dp,
                 )
                 .pointerInput(viewKey) {

@@ -85,12 +85,15 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     var duplicating by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     var exporting by rememberSaveable { mutableStateOf<String?>(null) }
+    // Score whose file format is being picked, and the picked one
+    var formatFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var asXml by rememberSaveable { mutableStateOf(false) }
     var studying by rememberSaveable { mutableStateOf(false) }
-    // Generic type, as for MusicXML: providers then keep the .satb extension
+    // Generic type: providers keep an unknown .satb or .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val name = exporting
         exporting = null
-        if (uri != null && name != null) vm.exportScoreFile(name, uri)
+        if (uri != null && name != null) vm.exportScoreFile(name, uri, asXml)
     }
     val opener = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { vm.importScoreFile(uri); onDismiss() }
@@ -118,7 +121,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
                     if (!study) item("Rules") { rulesFor = name }
                     if (!study) item("Rename") { renaming = name }
                     item("Duplicate") { duplicating = name }
-                    item("Save to file…") { exporting = name; saver.launch("$name${ScoreLibrary.EXT}") }
+                    item("Save to file…") { formatFor = name }
                     if (!study) HorizontalDivider()
                     if (!study) item("Delete", danger = true) { deleting = name }
                 }
@@ -174,6 +177,29 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     renaming?.let { old -> NameDialog("Rename score", old, "Rename", onDismiss = { renaming = null }) { vm.renameScore(old, it); renaming = null } }
     duplicating?.let { from ->
         NameDialog("Duplicate score", vm.copyName(from), "Duplicate", onDismiss = { duplicating = null }) { vm.duplicateScore(from, it); duplicating = null }
+    }
+    formatFor?.let { name ->
+        val pick = { xml: Boolean -> formatFor = null; asXml = xml; exporting = name; saver.launch(name + if (xml) ".musicxml" else ScoreLibrary.EXT) }
+        AlertDialog(
+            onDismissRequest = { formatFor = null },
+            title = { Text("Save $name as") },
+            text = {
+                KeepRefreshRate()
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for ((xml, label, about) in listOf(
+                        Triple(false, "SATB score", "Opens in this app with everything kept"),
+                        Triple(true, "MusicXML", "For MuseScore, Sibelius, Finale and other notation apps"),
+                    )) OutlinedButton(onClick = { pick(xml) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                            Text(label, style = MaterialTheme.typography.titleSmall)
+                            Text(about, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { formatFor = null }) { Text("Cancel") } },
+        )
     }
     deleting?.let { name ->
         AlertDialog(

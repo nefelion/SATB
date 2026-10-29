@@ -169,10 +169,6 @@ fun EditorScreen(vm: EditorViewModel) {
     var bassX by remember { mutableFloatStateOf(-1f) }
     // The figures pocket belongs to the bass: leaving the bass voice closes it
     LaunchedEffect(st.shownVoice) { if (st.shownVoice != Voice.BASS) figures = false }
-    // Generic type: providers keep an unknown .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
-    val xmlSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        uri?.let(vm::exportMusicXml)
-    }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     val more: @Composable RowScope.() -> Unit = {
         MoreButton(moreOpen, { moreOpen = it }) { item ->
@@ -188,7 +184,6 @@ fun EditorScreen(vm: EditorViewModel) {
             if (st.selected != null) item("Key or time change", false) { vm.changeBarOfSelection()?.let { changeBar = it } }
             // Again while open: closes it, like Done
             item("Specify chord", false) { if (chords) chords = false else if (vm.startChords()) { chords = true; figures = false } }
-            item("Export MusicXML", false) { xmlSaver.launch("${st.scoreName}.musicxml") }
             item("Clear score", true) { confirmClear = true }
             HorizontalDivider()
             item("Settings", false) { settings = true }
@@ -1003,7 +998,7 @@ private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
         onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null } }
     FullScreenPage("Rules to check", onDismiss) {
         item {
-            Group("Most important first") { for (r in Rule.entries) key(r.name) { RuleRow(r, r in st.rules, onInfo = { info = r }) { vm.toggleRule(r) } } }
+            Group(null) { for (r in Rule.entries) key(r.name) { RuleRow(r, r in st.rules, onInfo = { info = r }) { vm.toggleRule(r) } } }
         }
     }
 }
