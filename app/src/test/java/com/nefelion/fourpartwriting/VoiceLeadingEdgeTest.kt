@@ -4,6 +4,7 @@ import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Mode
 import com.nefelion.fourpartwriting.model.TimeSig
 import com.nefelion.fourpartwriting.theory.Rule
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -181,5 +182,35 @@ class VoiceLeadingEdgeTest {
     @Test fun leavingAUnisonIsNotOverlap() {
         chordsScore(KC, "E5 C5 C4 C4", "D5 B4 G3 G2", "C5 C5 E3 C3").analysis().let { assertFalse(it.issues.toString(), it.has(Rule.OVERLAP)) }
         chordsScore(KC, "E5 C5 G4 C4", "D5 B4 B3 G3", "C5 C5 G3 C3").analysis().let { assertTrue(it.issues.toString(), it.has(Rule.OVERLAP)) }
+    }
+
+    /** A chord between two forms of one harmony over a stepping or held bass is a neighbor or passing chord, not a retrogression. */
+    @Test fun neighborChordIsNoRetrogression() {
+        val neighbor = c("D5 G4 G3 B2", "C5 F4 F3 A2", "D5 F4 G3 B2", "C5 E4 G3 C3")
+        assertFalse(neighbor.issues.toString(), neighbor.has(Rule.PROGRESSION))
+        // V⁶–IV⁶–I does not come back: still a retrogression
+        assertTrue(c("D5 G4 G3 B2", "C5 F4 F3 A2", "C5 E4 G3 C3").has(Rule.PROGRESSION))
+    }
+
+    /** A seventh struck between chord points as a neighbor (D–C–D in eighths) or rising to the root inside the chord is figuration. */
+    @Test fun seventhAsFiguration() {
+        val neighbor = linesScore("C5 C5 B4 C5", "G4 A4 G4 G4", "E4 D4:8 C4:8 D4 E4", "C3 F3 G3 C3").analysis()
+        assertFalse(neighbor.issues.toString(), neighbor.has(Rule.SEVENTH))
+        val rising = linesScore("E5 D5 C5:2", "G4 G4 G4:2", "C4 B3 C4:2", "C3 F3:8 G3:8 C3:2").analysis()
+        assertFalse(rising.issues.toString(), rising.has(Rule.SEVENTH))
+        // Struck on the chord and rising at the change: still wrong
+        assertTrue(linesScore("C5 D5 B4 C5", "G4 A4 G4 G4", "E4 C4 D4 E4", "C3 F3 G3 C3").analysis().has(Rule.SEVENTH))
+    }
+
+    /** Voices crossed after the move: one crossing, not a crossing and an overlap. */
+    @Test fun crossingIsNotAlsoOverlap() {
+        val a = c("C5 G4 G3 E3", "C5 G4 C3 E3")
+        assertTrue(a.issues.toString(), a.has(Rule.CROSSING) && !a.has(Rule.OVERLAP))
+    }
+
+    /** A note out of range is reported once, not again on every eighth it is held under. */
+    @Test fun rangeOncePerNote() {
+        val a = linesScore("C5:8 D5:8 E5:8 D5:8 C5:2", "G4:1", "E4:1", "D4:2 C3:2").analysis()
+        assertEquals(a.issues.toString(), 1, a.rules().count { it == Rule.RANGE })
     }
 }
