@@ -153,6 +153,8 @@ fun ScoreCanvas(
             }.distinct().groupBy { it.ref.voice }.mapValues { (_, hs) -> hs.sortedBy { it.x } }
         }
 
+        // Notes outside a picked issue: drawn under plain ink, so a head shared with a flagged note (a unison) shows the flagged one
+        val faded = lerp(paper, sc.ink, sc.otherInk).toArgb()
         val colors = remember(analysis, flagged, state.selected, state.placed, state.playTime, state.score, sc, paper) {
             val play = sc.play.toArgb()
             val m = HashMap<NoteRef, Int>()
@@ -165,7 +167,6 @@ fun ScoreCanvas(
             if (analysis != null && flagged.isNotEmpty()) {
                 // Check with an issue picked: its notes stay plain ink (rings mark them), the rest fades toward paper, opaque so staff lines don't show through
                 val keep = flagged.values.flatten().map { it.ref }.toSet()
-                val faded = lerp(paper, sc.ink, sc.otherInk).toArgb()
                 for (v in Voice.entries) for (i in state.score.voice(v).indices) NoteRef(v, i).let { if (it !in keep) m[it] = faded }
             }
             state.playTime?.let { t ->
@@ -441,7 +442,7 @@ fun ScoreCanvas(
                     }
                     nc.restore()
                 }
-                drawMarks(nc, layout.marks, sp, paints, visL, visR) { mk ->
+                drawMarks(nc, layout.marks, sp, paints, visL, visR, behind = faded) { mk ->
                     val color = mk.ref?.let { colors[it] }
                     when {
                         color == null -> null
@@ -518,16 +519,17 @@ fun ScoreCanvas(
 
 /**
  * Draws engraved [marks] at [sp] px per staff space. [colorOf] gives a mark's color, or null for plain ink.
- * Two passes: plain marks, then colored ones on top (a selected unison stays visible).
- * Marks outside [visL]..[visR] (staff spaces) are skipped.
+ * Passes: plain marks of no note (staff lines), notes colored [behind], plain notes, then other colored ones on top
+ * (a selected unison stays visible). Marks outside [visL]..[visR] (staff spaces) are skipped.
  */
 internal fun drawMarks(
     nc: android.graphics.Canvas, marks: List<Mark>, sp: Float, paints: Paints,
-    visL: Float = Float.NEGATIVE_INFINITY, visR: Float = Float.POSITIVE_INFINITY, colorOf: (Mark) -> Int?,
+    visL: Float = Float.NEGATIVE_INFINITY, visR: Float = Float.POSITIVE_INFINITY, behind: Int? = null, colorOf: (Mark) -> Int?,
 ) {
-    for (pass in 0..1) for (mk in marks) {
+    for (pass in 0..3) for (mk in marks) {
         val color = colorOf(mk)
-        if ((pass == 0) != (color == null)) continue
+        val p = when (color) { null -> if (mk.ref == null) 0 else 2; behind -> 1; else -> 3 }
+        if (p != pass) continue
         if (mk.x > visR) continue
         if (mk is LineMark && max(mk.x1, mk.x2) < visL) continue
         if (mk is TieMark && mk.x2 < visL) continue
