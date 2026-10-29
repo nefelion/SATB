@@ -479,6 +479,16 @@ fun ScoreCanvas(
                         p += if (g.pos > 8) 2 else -2
                     }
                 }
+                // Self-check marks: a ring round each marked head; once revealed, the ok color on a mistake, gray on a false alarm
+                state.quiz?.takeIf { it.marked.isNotEmpty() }?.let { q ->
+                    val pr = paints.ring
+                    pr.style = Paint.Style.STROKE
+                    pr.strokeWidth = 0.3f * sp
+                    for (h in layout.heads) if (h.ref in q.marked) {
+                        pr.color = when { !q.revealed -> ink; q.hit(h.ref) -> sc.ok.toArgb(); else -> (ink and 0xFFFFFF) or (0x59 shl 24) }
+                        nc.drawOval((h.x - 1.25f) * sp, (h.y - 1f) * sp, (h.x + 1.25f) * sp, (h.y + 1f) * sp, pr)
+                    }
+                }
                 analysis?.let { a ->
                     if (focused == null) {
                         // Nothing picked: a small tick above the system where each problem is, errors drawn last

@@ -31,6 +31,7 @@ import com.nefelion.fourpartwriting.theory.Analysis
 import com.nefelion.fourpartwriting.theory.ChordAnalyzer
 import com.nefelion.fourpartwriting.theory.Exercises
 import com.nefelion.fourpartwriting.theory.FiguredBass
+import com.nefelion.fourpartwriting.theory.Issue
 import com.nefelion.fourpartwriting.theory.Voicer
 import com.nefelion.fourpartwriting.theory.Severity
 import com.nefelion.fourpartwriting.theory.Rule
@@ -77,6 +78,10 @@ data class UiState(
     val rules: Set<Rule> = Rule.entries.toSet(),
     val analysis: Analysis? = null,
     val focusedIssue: Int? = null,
+    /** A check whose results stay hidden while the user marks the notes they think are wrong. */
+    val quiz: Quiz? = null,
+    /** ✓ asks the user to find the mistakes first. */
+    val selfCheck: Boolean = true,
     val playing: Boolean = false,
     /** Onset of the slice under the playback cursor. */
     val playTime: Fraction? = null,
@@ -146,6 +151,20 @@ data class Ghost(val staff: Int, val pos: Int, val at: Fraction, val voice: Voic
 /** Notes suggested by Hint, shown while the score is still [score] (any edit hides them). */
 data class Hint(val score: Score, val notes: List<Ghost>)
 
+/**
+ * "Find it yourself": the result of a check, hidden until [revealed]; [marked]: notes the user thinks are wrong;
+ * [bars]: the bars with issues are shown as a clue.
+ */
+data class Quiz(val analysis: Analysis, val marked: Set<NoteRef> = emptySet(), val bars: Boolean = false, val revealed: Boolean = false) {
+    /** The notes of [issue]; one that names none (a missing third) is its whole chord. */
+    fun refs(issue: Issue): Set<NoteRef> = issue.notes.ifEmpty { Voice.entries.map { issue.slice to it } }.mapNotNull { (si, v) ->
+        analysis.slices.getOrNull(si)?.eventIndex?.get(v.ordinal)?.takeIf { it >= 0 }?.let { NoteRef(v, it) }
+    }.toSet()
+    fun found(issue: Issue) = refs(issue).any { it in marked }
+    /** [r] belongs to some issue (a marked note that is not is a false alarm). */
+    fun hit(r: NoteRef) = analysis.issues.any { r in refs(it) }
+}
+
 private fun chorale(vararg chords: String): List<List<Event>> {
     val parsed = chords.map { it.split(" ") }
     return Voice.entries.map { v ->
@@ -195,6 +214,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             // Until the user picks, start in the phone's current mode
             themeChosen = prefs.contains("dark"),
             tutorialSeen = prefs.getBoolean("tutorialSeen", false),
+            selfCheck = prefs.getBoolean("selfCheck", true),
             dark = prefs.getBoolean("dark", app.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES),
             soundName = prefs.getString("sf2Name", null),
             voice = Voice.entries.getOrElse(prefs.getInt("voice", 0)) { Voice.SOPRANO },
@@ -285,12 +305,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (new == s.score) { _state.update { it.copy(selected = selected, selectedAt = selectedAt, voice = voice, placed = placed) }; return true }
         val dragging = dragBase != null
         _state.update {
-            it.copy(
+            // While dragging a pitch, the check reacts once on release (dragPitch(true)), not at every step
+            (if (dragging) it else checked(it, new)).copy(
                 score = new, selected = selected, selectedAt = selectedAt, voice = voice, placed = placed,
                 followTick = if (dragging) it.followTick else it.followTick + 1,
                 undo = if (dragging) it.undo else (it.undo + it.score).takeLast(200), redo = emptyList(),
-                // While dragging a pitch, check once on release (dragPitch(true)), not at every step
-                analysis = if (dragging) it.analysis else it.analysis?.let { _ -> VoiceLeading.check(new, it.rules) },
                 focusedIssue = if (dragging) it.focusedIssue else null,
             )
         }
@@ -383,6 +402,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Returns true when a note was placed. */
     fun tap(hit: Hit): Boolean {
         _state.update { it.copy(ghost = null) }
+        if (s.quiz?.revealed == false) { (hit.exact ?: hit.near)?.let(::toggleMark); return false }
         if (s.moving) {
             if (hit.near != null) select(hit.near, hit.nearAt) else if (hit.exact != null) select(hit.exact, hit.exactAt)
             else if (hit.rest != null) select(hit.rest, hit.restAt)
@@ -692,8 +712,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(dragging = false) }
                 if (base != s.score) _state.update {
                     val sc = VoiceLeading.pruneMutes(it.score)
-                    it.copy(score = sc, undo = (it.undo + base).takeLast(200), redo = emptyList(),
-                        analysis = it.analysis?.let { _ -> VoiceLeading.check(sc, it.rules) }, focusedIssue = null)
+                    checked(it.copy(score = base), sc).copy(score = sc, undo = (it.undo + base).takeLast(200), redo = emptyList(), focusedIssue = null)
                 }
                 checkOrder()
                 deselect() // dragged note is done: next touch enters notes again
@@ -825,9 +844,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             val prev = it.undo.lastOrNull() ?: return@update it
             // Back to the voice the undone edit went to (an entered note had moved input on to the next voice)
             val changed = Voice.entries.filter { v -> prev.voice(v) != it.score.voice(v) }.singleOrNull()
-            it.copy(score = prev, undo = it.undo.dropLast(1), redo = it.redo + it.score, selected = null, placed = false,
-                voice = changed ?: it.voice,
-                analysis = it.analysis?.let { _ -> VoiceLeading.check(prev, it.rules) })
+            checked(it, prev).copy(score = prev, undo = it.undo.dropLast(1), redo = it.redo + it.score, selected = null, placed = false,
+                voice = changed ?: it.voice)
         }
         checkOrder()
         Synth.setTempo(s.score.qpm) // undoing a tempo change applies to playback too
@@ -836,8 +854,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun redo() {
         _state.update {
             val next = it.redo.lastOrNull() ?: return@update it
-            it.copy(score = next, redo = it.redo.dropLast(1), undo = it.undo + it.score, selected = null, placed = false,
-                analysis = it.analysis?.let { _ -> VoiceLeading.check(next, it.rules) })
+            checked(it, next).copy(score = next, redo = it.redo.dropLast(1), undo = it.undo + it.score, selected = null, placed = false)
         }
         checkOrder()
         Synth.setTempo(s.score.qpm) // undoing a tempo change applies to playback too
@@ -866,7 +883,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString("current", name).apply()
         _state.update {
             it.copy(scoreName = name, score = score, scores = library.list(), undo = emptyList(), redo = emptyList(),
-                selected = null, selectedAt = null, placed = false, analysis = null, focusedIssue = null, reorder = emptyList())
+                selected = null, selectedAt = null, placed = false, analysis = null, quiz = null, focusedIssue = null, reorder = emptyList())
         }
         Synth.setTempo(score.qpm)
         checkOrder()
@@ -1015,23 +1032,62 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- analysis ----------
 
-    /** ✓ button: show results, or hide them when they are shown. */
+    /** ✓ button: check (with [UiState.selfCheck], first let the user find the mistakes), or close the results. */
     fun check() {
-        if (s.analysis == null) toMovement()
-        _state.update {
-            if (it.analysis != null) it.copy(analysis = null, focusedIssue = null)
-            else it.copy(analysis = VoiceLeading.check(it.score, it.rules), focusedIssue = null)
-        }
-        // An exercise with every voice written and no errors is solved
-        val a = s.analysis ?: return
+        if (s.analysis != null || s.quiz != null) return closeAnalysis()
+        toMovement()
+        val a = VoiceLeading.check(s.score, s.rules)
+        if (s.selfCheck && a.issues.isNotEmpty()) return _state.update { it.copy(quiz = Quiz(a), focusedIssue = null) }
+        _state.update { it.copy(analysis = a, focusedIssue = null) }
+        solved(a)?.let(::msg)
+    }
+
+    /** An exercise with every voice written and no errors is solved: the message to show, else null. */
+    private fun solved(a: Analysis): String? {
         val sc = s.score
-        if (sc.given.isNotEmpty() && Voice.entries.all { sc.length(it) == sc.length && sc.voice(it).isNotEmpty() } && a.issues.none { it.severity == Severity.ERROR })
-            msg(if (a.issues.isEmpty()) "Solved, with no errors or warnings!" else "Solved: no errors. Look at the warnings to make it better.")
+        if (sc.given.isEmpty() || !Voice.entries.all { sc.length(it) == sc.length && sc.voice(it).isNotEmpty() } || a.issues.any { it.severity == Severity.ERROR }) return null
+        return if (a.issues.isEmpty()) "Solved, with no errors or warnings!" else "Solved: no errors. Look at the warnings to make it better."
+    }
+
+    /** Self-check: marks or unmarks a note as wrong. */
+    fun toggleMark(r: NoteRef) = _state.update { st ->
+        val q = st.quiz?.takeIf { !it.revealed } ?: return@update st
+        st.copy(quiz = q.copy(marked = if (r in q.marked) q.marked - r else q.marked + r))
+    }
+    fun showBars() = _state.update { it.copy(quiz = it.quiz?.copy(bars = true)) }
+
+    /** Self-check: shows the results and how many of them the user found. */
+    fun reveal() {
+        val q = s.quiz?.takeIf { !it.revealed } ?: return
+        val a = q.analysis
+        _state.update { it.copy(analysis = a, quiz = q.copy(revealed = true), focusedIssue = null) }
+        val (errors, warnings) = a.issues.partition { it.severity == Severity.ERROR }
+        fun part(l: List<Issue>, what: String) = "${l.count(q::found)} of ${l.size} $what${if (l.size == 1) "" else "s"}"
+        val found = listOfNotNull(part(errors, "error").takeIf { errors.isNotEmpty() }, part(warnings, "warning").takeIf { warnings.isNotEmpty() })
+        val falseAlarms = q.marked.count { !q.hit(it) }
+        msg(listOfNotNull("You found ${found.joinToString(" and ")}.",
+            "$falseAlarms marked note${if (falseAlarms == 1) " was" else "s were"} fine.".takeIf { falseAlarms > 0 }, solved(a)).joinToString(" "))
+    }
+
+    fun setSelfCheck(on: Boolean) {
+        _state.update { it.copy(selfCheck = on) }
+        prefs.edit().putBoolean("selfCheck", on).apply()
+    }
+
+    /**
+     * The check after the score of [st] became [new]: rechecked when only mutes changed ("Ignore here");
+     * hidden after a change to the music, so the user checks again with ✓ instead of editing until the marks go away.
+     */
+    private fun checked(st: UiState, new: Score): UiState {
+        if (st.analysis == null && st.quiz == null) return st
+        if (new.copy(ignored = st.score.ignored, rulesOff = st.score.rulesOff) == st.score)
+            return st.copy(analysis = st.analysis?.let { VoiceLeading.check(new, st.rules) }, quiz = st.quiz?.takeIf { !it.revealed }, focusedIssue = null)
+        return st.copy(analysis = null, quiz = null, focusedIssue = null, message = "Score changed. Press ✓ to check again.")
     }
 
     /** Opening the check or tapping a found issue drops the selection into movement mode. */
     private fun toMovement() { deselect(); _state.update { it.copy(moving = true) } }
-    fun closeAnalysis() = _state.update { it.copy(analysis = null, focusedIssue = null) }
+    fun closeAnalysis() = _state.update { it.copy(analysis = null, quiz = null, focusedIssue = null) }
     fun focusIssue(i: Int?) {
         toMovement()
         _state.update { it.copy(focusedIssue = if (it.focusedIssue == i) null else i) }

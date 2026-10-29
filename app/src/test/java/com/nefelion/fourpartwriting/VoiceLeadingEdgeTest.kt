@@ -151,4 +151,20 @@ class VoiceLeadingEdgeTest {
         // The bass may leap an octave without turning back
         assertFalse(Rule.LEAPS in c("E4 C4 G3 C3", "E4 C4 G3 C2", "F4 C4 A3 F2").rules())
     }
+
+    @Test fun fifthsSequenceOverridesTendencies() {
+        // I–IV–vii°–iii–vi–ii–V–I: doubled vii° root and the F–B bass leap belong to the pattern
+        val seq = c("E5 C5 G4 C3", "C5 A4 F4 F3", "D5 B4 F4 B2", "B4 G4 E4 E3", "C5 A4 E4 A2", "A4 F4 D4 D3", "B4 G4 D4 G2", "C5 G4 E4 C3")
+        assertTrue(seq.issues.toString(), seq.rules().none { it in setOf(Rule.DOUBLING, Rule.LEAPS, Rule.MELODIC) })
+        // Rising tritone F–B in the bass of the sequence too
+        val up = c("C5 G4 E4 C3", "C5 A4 F4 F2", "B4 F4 D4 B2", "B4 G4 E4 E2", "C5 A4 E4 A2", "A4 F4 D4 D3", "B4 G4 D4 G2", "C5 G4 E4 C3")
+        assertFalse(up.issues.toString(), Rule.MELODIC in up.rules())
+        // Chain of dominant sevenths: the voices fall together with the bass by pattern
+        val chain = c("D5 G#4 B3 E3", "C#5 G4 A3 A2", "C5 F#4 A3 D3", "B4 F4 G3 G2", "C5:1 E4:1 G3:1 C3:1")
+        assertTrue(chain.issues.toString(), chain.issues.isEmpty())
+        // Too short to be a sequence: the usual rules apply
+        val short = c("E5 C5 G4 C3", "C5 A4 F4 F3", "D5 B4 F4 B2", "B4 G4 E4 E3:2")
+        assertTrue(Rule.DOUBLING in short.errorRules())
+        assertTrue(Rule.LEAPS in short.rules())
+    }
 }

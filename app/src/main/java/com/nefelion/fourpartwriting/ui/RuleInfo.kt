@@ -272,6 +272,8 @@ fun RuleInfoDialog(
                 Text(rule.desc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Why: ") }; append(rule.why) },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("How to avoid: ") }; append(rule.how) },
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (demo != null) DemoCanvas(demo)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Check this rule", Modifier.weight(1f))

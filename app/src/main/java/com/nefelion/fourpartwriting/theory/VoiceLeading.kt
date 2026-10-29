@@ -18,61 +18,89 @@ enum class Severity { ERROR, WARNING }
 
 /** Checks the user can switch on or off, most important first. */
 /** [why]: what the rule protects against. */
-enum class Rule(val label: String, val desc: String, val why: String) {
+/** [how]: the voicing habit that keeps the mistake from happening. */
+enum class Rule(val label: String, val desc: String, val why: String, val how: String) {
     PARALLEL_OCTAVES("Parallel octaves", "Two voices an octave or unison apart must not move to another octave or unison.",
-        "Octaves and unisons fuse into one sound, so two voices moving in parallel merge into one and the texture loses a part."),
+        "Octaves and unisons fuse into one sound, so two voices moving in parallel merge into one and the texture loses a part.",
+        "Keep common tones, move the upper voices against the bass, and double a different note."),
     PARALLEL_FIFTHS("Parallel fifths", "Two voices a fifth apart must not move to another fifth.",
-        "Fifths fuse almost as strongly as octaves; a pair of them sounds hollow and takes away the independence of the two voices."),
+        "Fifths fuse almost as strongly as octaves; a pair of them sounds hollow and takes away the independence of the two voices.",
+        "Move the upper voices in contrary motion to the bass, keep common tones, or change which voice takes the fifth."),
     LEADING_TONE("Leading tone", "In V–I the leading tone rises by step to the tonic.",
-        "The leading tone sits a half step below the tonic and the ear expects it to rise; leaving it hanging weakens the cadence."),
+        "The leading tone sits a half step below the tonic and the ear expects it to rise; leaving it hanging weakens the cadence.",
+        "Before writing V, see which voice holds the leading tone and leave it a step below the tonic of the next chord."),
     SEVENTH("Seventh", "The chordal seventh resolves down by step.",
-        "The seventh is a dissonance; stepping down to the nearest chord tone releases its tension smoothly."),
+        "The seventh is a dissonance; stepping down to the nearest chord tone releases its tension smoothly.",
+        "Prepare the seventh as a held or stepwise note and plan the next chord so it has the note a step below."),
     CROSSING("Voice crossing", "A lower voice must not sound above a higher one.",
-        "The ear follows the highest and lowest pitch, not the singer, so crossed voices blur which line is which."),
+        "The ear follows the highest and lowest pitch, not the singer, so crossed voices blur which line is which.",
+        "Give each voice its own register and move to the nearest chord tone instead of jumping past a neighbor."),
     MISSING_THIRD("Missing third", "Every chord needs its third.",
-        "The third decides major or minor; without it the chord sounds empty and its quality is unclear."),
+        "The third decides major or minor; without it the chord sounds empty and its quality is unclear.",
+        "Place the third first, then fill the other voices; drop the fifth if a note must go."),
     DOUBLING("Doubling", "Never double the leading tone or the seventh; in major triads double the root.",
-        "A doubled tendency tone must resolve the same way in both voices, which makes parallel octaves; the root is the most stable note to reinforce."),
+        "A doubled tendency tone must resolve the same way in both voices, which makes parallel octaves; the root is the most stable note to reinforce.",
+        "Choose the doubled note before voicing: the root in root position, never a tendency tone."),
     SPACING("Spacing", "Keep upper neighboring voices within an octave; tenor and bass within a twelfth.",
-        "Wide gaps in the upper voices make the chord sound hollow and split apart; the bass may sit further away, as the low overtones are spread wide too."),
+        "Wide gaps in the upper voices make the chord sound hollow and split apart; the bass may sit further away, as the low overtones are spread wide too.",
+        "Write the soprano and bass first, then keep alto and tenor close to the soprano."),
     MELODIC("Melodic interval", "No augmented intervals, sevenths or leaps beyond an octave within a voice.",
-        "Every part must be singable; awkward intervals are hard to pitch and break the line."),
+        "Every part must be singable; awkward intervals are hard to pitch and break the line.",
+        "Move each voice to the nearest chord tone; replace an awkward leap by a step or a common tone."),
     OVERLAP("Voice overlap", "A voice must not move past the previous note of its neighbor.",
-        "When a voice passes its neighbor's previous note, the ear hears the line jump into the other voice, almost like crossing."),
+        "When a voice passes its neighbor's previous note, the ear hears the line jump into the other voice, almost like crossing.",
+        "Move the voices one at a time to their nearest notes and check that none passes its neighbor's last note."),
     DIRECT("Direct fifths/octaves", "Outer voices may not leap in similar motion into a fifth or octave.",
-        "The outer voices are heard most clearly; reaching a perfect interval by similar motion with a leap exposes it like a hidden parallel."),
+        "The outer voices are heard most clearly; reaching a perfect interval by similar motion with a leap exposes it like a hidden parallel.",
+        "Let the soprano reach a fifth or octave with the bass by step, or move it against the bass."),
     TENDENCY("Tendency tones", "Chromatic notes keep their pull: raised notes rise, lowered notes fall.",
-        "A chromatic note acts as a temporary leading tone; moving against its pull sounds like a wrong note."),
+        "A chromatic note acts as a temporary leading tone; moving against its pull sounds like a wrong note.",
+        "Find the chromatic note and the note a half step beyond it in the next chord, then join them in one voice."),
     UNRESOLVED_NCT("Non-chord tones", "A dissonance must be a passing, neighbor, suspension or other standard figure.",
-        "A dissonance makes sense only when the ear hears where it comes from and where it goes; otherwise it sounds like a mistake."),
+        "A dissonance makes sense only when the ear hears where it comes from and where it goes; otherwise it sounds like a mistake.",
+        "Approach and leave each dissonance by step, or hold it over from the chord before."),
     CADENCE("Final cadence", "End on the tonic in root position after V or IV.",
-        "The ending must confirm the key; V–I or IV–I in root position gives the strongest sense of arrival."),
+        "The ending must confirm the key; V–I or IV–I in root position gives the strongest sense of arrival.",
+        "Plan the last two chords first: V or IV in the bass, then I in root position."),
     NAMED_CHORD("Named chords", "The notes play the chord you named.",
-        "Choosing the chord first and then voicing it is the core of four-part writing; a note outside it changes the harmony you meant."),
+        "Choosing the chord first and then voicing it is the core of four-part writing; a note outside it changes the harmony you meant.",
+        "Write the chord's notes down before voicing, then pick from them only."),
     FIGURES("Figured bass", "The upper voices play the notes the bass figures ask for.",
-        "The figures are a shorthand for the harmony over each bass note; any other note changes the chord they ask for."),
+        "The figures are a shorthand for the harmony over each bass note; any other note changes the chord they ask for.",
+        "Read the figures as intervals above the bass in the key, then spread those notes over the upper voices."),
     PROGRESSION("Chord progression", "Move tonic → predominant → dominant → tonic; avoid going backwards.",
-        "Functional order builds tension and releases it; going backwards undoes the tension before it can resolve."),
+        "Functional order builds tension and releases it; going backwards undoes the tension before it can resolve.",
+        "Plan the harmony before the notes: tonic, then a predominant (ii, IV), then V, then I."),
     SIX_FOUR("Six-four chords", "Use a ⁶₄ chord only as cadential, passing, pedal or arpeggiated.",
-        "The fourth over the bass is unstable, so a ⁶₄ chord sounds unfinished unless its context explains it."),
+        "The fourth over the bass is unstable, so a ⁶₄ chord sounds unfinished unless its context explains it.",
+        "Use a ⁶₄ only over a held, stepping or cadential bass; otherwise move the bass to the root or third."),
     RANGE("Range", "Keep each voice inside its usual range.",
-        "Real singers have limits; notes outside them strain the voice or vanish in the texture."),
+        "Real singers have limits; notes outside them strain the voice or vanish in the texture.",
+        "Start each voice in the middle of its range and leave room above and below."),
     LEAPS("Leap handling", "After a big leap turn back by step; no tritone outlines.",
-        "A big leap leaves a gap the ear wants filled, and stepping back balances the line; tritone outlines sound awkward and are hard to sing."),
+        "A big leap leaves a gap the ear wants filled, and stepping back balances the line; tritone outlines sound awkward and are hard to sing.",
+        "After a leap, step back the other way; fill wide gaps with stepwise motion."),
     CROSS_RELATION("Cross relation", "A note and its chromatic version should not appear in different voices in a row.",
-        "A note clashing with its chromatic version in another voice sounds like a wrong note and blurs the key."),
+        "A note clashing with its chromatic version in another voice sounds like a wrong note and blurs the key.",
+        "Keep a note and its chromatic version in the same voice, moving by a half step."),
     UNEQUAL_FIFTHS("Unequal fifths", "A diminished fifth over the bass should not move to a perfect fifth.",
-        "The diminished fifth wants to close to a third; turning it into a perfect fifth skips that resolution and sounds like parallel fifths."),
+        "The diminished fifth wants to close to a third; turning it into a perfect fifth skips that resolution and sounds like parallel fifths.",
+        "Resolve the diminished fifth inward to a third, or move the bass the other way."),
     HARMONIC_RHYTHM("Harmonic rhythm", "Do not repeat a chord from a weak beat to the downbeat.",
-        "A chord held from a weak beat into the downbeat makes the downbeat bring nothing new, so the meter seems to shift."),
+        "A chord held from a weak beat into the downbeat makes the downbeat bring nothing new, so the meter seems to shift.",
+        "Change the chord on the downbeat; repeat a chord from strong to weak beats instead."),
     SIMILAR_MOTION("All voices in one direction", "Keep at least one voice moving against or holding against the others.",
-        "When all voices move together the texture lurches as one block and parallels creep in; contrary motion keeps the parts independent."),
+        "When all voices move together the texture lurches as one block and parallels creep in; contrary motion keeps the parts independent.",
+        "Move the bass first, then send at least one upper voice the other way or hold a common tone."),
     MISSING_VOICE("Missing voice", "Every voice should sound in every chord.",
-        "Four-part writing needs four lines; a gap thins the harmony and breaks a melody."),
+        "Four-part writing needs four lines; a gap thins the harmony and breaks a melody.",
+        "Write a note in every voice for every chord; tie or repeat a note instead of resting."),
     UNRECOGNIZED("Chord", "The notes should form a recognizable chord.",
-        "Each sonority should have a clear harmonic function; an unclear chord leaves the listener without bearings."),
+        "Each sonority should have a clear harmonic function; an unclear chord leaves the listener without bearings.",
+        "Decide the chord first, then voice it; mark passing notes so the chord stays clear."),
     STRUCTURE("Structure", "All voices equal in length; the last bar complete.",
-        "Unequal voices or an incomplete bar leave the piece unfinished and chords cannot line up between the parts."),
+        "Unequal voices or an incomplete bar leave the piece unfinished and chords cannot line up between the parts.",
+        "Write all four voices to the same length and complete the last bar."),
 }
 
 /** A rule violation. [notes] are (slice index, voice) pairs to highlight. */
@@ -130,6 +158,24 @@ object VoiceLeading {
         val pointChord = points.indices.associate { points[it] to named[it] }
         var gov = 0
         val chords = slices.indices.map { i -> if (i in pointChord) gov = i; pointChord.getValue(gov) }
+        // Descending-fifths sequences: 5+ chord points whose roots fall a fifth each time. The pattern overrides the
+        // usual tendencies (a doubled vii° root, the F–B tritone in the bass); [runOf]: first point of its run, else -1
+        val runOf = IntArray(points.size) { -1 }
+        var seqStart = 0
+        for (k in 1..points.size) {
+            val a = chords[points[k - 1]]
+            val b = chords.getOrNull(points.getOrNull(k) ?: -1)
+            val ra = a.root; val rb = b?.root
+            if (b != null && a.recognized && b.recognized && ra != null && rb != null && Math.floorMod(rb.step - ra.step, 7) == 3) continue
+            if (k - seqStart >= 5) for (j in seqStart until k) runOf[j] = seqStart
+            seqStart = k
+        }
+        var pk = -1
+        val seqRun = IntArray(slices.size) { i -> if (pk + 1 < points.size && points[pk + 1] == i) pk++; if (pk >= 0) runOf[pk] else -1 }
+        fun inSeq(a: Int, b: Int) = a >= 0 && b >= 0 && seqRun[a] >= 0 && seqRun[a] == seqRun[b]
+        // The bass on the chord roots at both slices, inside one sequence
+        fun bassSeq(a: Int, b: Int) = inSeq(a, b) &&
+            slices[a].notes[Voice.BASS.ordinal]?.pc == chords[a].root && slices[b].notes[Voice.BASS.ordinal]?.pc == chords[b].root
         val ncts = harmony.ncts
         val out = mutableListOf<Issue>()
         fun add(sev: Severity, i: Int, rule: Rule, msg: String, vararg n: Pair<Int, Voice>) {
@@ -202,7 +248,7 @@ object VoiceLeading {
             val prevI = points.getOrNull(k - 1)
             val nextI = points.getOrNull(k + 1)
             val prev = prevI?.let { chords[it] }
-            if (s.pitches.size >= 3) chordRules(i, chordSlice, chord, prev, nextI?.let { chords[it] }, score.keyAt(s.time), ::add)
+            if (s.pitches.size >= 3) chordRules(i, chordSlice, chord, prev, nextI?.let { chords[it] }, score.keyAt(s.time), runOf[k] >= 0, ::add)
             if (prevI != null) resolutionRules(score, prevI, i, slices, chords, chords[prevI], chord, ::isNct, ::add)
             if (prevI != null && i - prevI > 1) ornamentedParallels(prevI, i, slices, ::isNct, ::add)
 
@@ -279,7 +325,7 @@ object VoiceLeading {
                     add(Severity.WARNING, i, Rule.SPACING, "More than a twelfth between ${vu.label} and B.", i to vu, i to vl)
             }
 
-            if (i > 0) motionRules(i, slices[i - 1], s, ::add)
+            if (i > 0) motionRules(i, slices[i - 1], s, inSeq(i - 1, i), bassSeq(i - 1, i), ::add)
         }
 
         // Leaps: one larger than a fifth turns back by step; two in one direction stay within an octave, not a seventh
@@ -303,6 +349,7 @@ object VoiceLeading {
                 val i0 = sliceOf(run[k - 2]); val i1 = sliceOf(run[k - 1]); val i2 = sliceOf(run[k])
                 val stepBack = abs(d2) == 1 && d2.sign != d1.sign
                 val leap = Interval.between(p0, p1)
+                if (v == Voice.BASS && bassSeq(i0, i1)) continue // a sequence's bass follows its roots
                 if (leap.quality == IntervalQuality.D && leap.number in 4..5 && !stepBack)
                     add(Severity.WARNING, i2, Rule.LEAPS, "${v.label}: after the diminished leap ${p0.name}–${p1.name}, move back inside by step.", i1 to v, i2 to v)
                 else if (abs(d1) >= 5 && !stepBack && !(v == Voice.BASS && abs(d1) == 7))
@@ -426,7 +473,7 @@ object VoiceLeading {
         V.filter { s.notes[it.ordinal]?.pc == pc }
 
     private fun chordRules(
-        i: Int, s: Slice, c: Chord, prev: Chord?, next: Chord?, key: Key,
+        i: Int, s: Slice, c: Chord, prev: Chord?, next: Chord?, key: Key, inSeq: Boolean,
         add: (Severity, Int, Rule, String, Array<out Pair<Int, Voice>>) -> Unit,
     ) {
         if (!c.recognized) {
@@ -440,7 +487,9 @@ object VoiceLeading {
             add(Severity.ERROR, i, Rule.MISSING_THIRD, "The chord has no third: ${c.symbol}.", emptyArray())
         c.leadingTone?.let { lt ->
             val vs = voicesWith(s, lt)
-            if (vs.size > 1) add(Severity.ERROR, i, Rule.DOUBLING, "Doubled leading tone (${lt.name}).", vs.map { i to it }.toTypedArray())
+            // The root of a diatonic vii° inside a sequence is no leading tone
+            val seqVii = inSeq && c.root == lt && !c.roman.contains("/")
+            if (vs.size > 1 && !seqVii) add(Severity.ERROR, i, Rule.DOUBLING, "Doubled leading tone (${lt.name}).", vs.map { i to it }.toTypedArray())
         }
         c.seventh?.let { sev ->
             val vs = voicesWith(s, sev)
@@ -470,7 +519,7 @@ object VoiceLeading {
     }
 
     private fun motionRules(
-        i: Int, a: Slice, b: Slice,
+        i: Int, a: Slice, b: Slice, inSeq: Boolean, bassSeq: Boolean,
         add: (Severity, Int, Rule, String, Array<out Pair<Int, Voice>>) -> Unit,
     ) {
         val h = i - 1
@@ -484,7 +533,8 @@ object VoiceLeading {
             if (!moved(v)) continue
             val iv = Interval.between(a.notes[v.ordinal]!!, b.notes[v.ordinal]!!)
             // A chromatic semitone (A1) in one voice is the correct way to write a chromatic change
-            if ((iv.quality == IntervalQuality.A && iv.number != 1) || iv.quality == IntervalQuality.AA)
+            // (the F–B tritone of a sequence's bass excepted)
+            if ((iv.quality == IntervalQuality.A && iv.number != 1 && !(v == Voice.BASS && bassSeq)) || iv.quality == IntervalQuality.AA)
                 add(Severity.ERROR, i, Rule.MELODIC, "${v.label}: augmented melodic interval (${iv.name}).", both(v))
             else if (iv.number > 8)
                 add(Severity.ERROR, i, Rule.MELODIC, "${v.label}: leap larger than an octave (${iv.name}).", both(v))
@@ -496,7 +546,8 @@ object VoiceLeading {
 
         // All four voices moving the same way
         val dirs = V.map { v -> if (moved(v)) (b.notes[v.ordinal]!!.midi - a.notes[v.ordinal]!!.midi).sign else 0 }
-        if (dirs.all { it == 1 } || dirs.all { it == -1 })
+        // (in a chain of fifths the upper voices fall by pattern, so they fall with the bass every other chord)
+        if (!inSeq && (dirs.all { it == 1 } || dirs.all { it == -1 }))
             add(Severity.WARNING, i, Rule.SIMILAR_MOTION, "All four voices move in the same direction.", V.flatMap { both(it).toList() }.toTypedArray())
 
         // Cross relation: a letter changes its accidental between two different voices

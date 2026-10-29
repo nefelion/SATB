@@ -236,6 +236,7 @@ fun EditorScreen(vm: EditorViewModel) {
                     )
                     if (st.reorder.isNotEmpty()) ReorderPrompt(st, vm, Modifier.align(Alignment.TopCenter).padding(8.dp))
                 }
+                if (st.quiz?.revealed == false) QuizBar(st, vm, safe.only(WindowInsetsSides.Horizontal))
                 st.analysis?.let { IssuesStrip(st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide, onUndoable = { undoable = it }) }
                 if (figures) { HorizontalDivider(); FiguresPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { figures = false } }
                 if (chords) { HorizontalDivider(); ChordPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { chords = false } }
@@ -838,7 +839,8 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
                             .clickable { vm.focusIssue(i) },
                     ) {
                         Box(Modifier.width(4.dp).fillMaxHeight().background(if (issue.severity == Severity.ERROR) sc.errorText else sc.warnText))
-                        val head = "${where(t, st.score)} · ${issue.rule.label}"
+                        val quiz = st.quiz?.takeIf { it.revealed }
+                        val head = "${where(t, st.score)} · ${issue.rule.label}" + (quiz?.let { if (it.found(issue)) " · found ✓" else " · missed" } ?: "")
                         val pad = Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 6.dp)
                         if (oneLine) Row(pad, verticalAlignment = Alignment.CenterVertically) {
                             Text(head, style = MaterialTheme.typography.labelLarge)
@@ -857,6 +859,38 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
     }
 }
 
+
+/** Self-check: how many issues there are, the bars as a clue, and Reveal. */
+@Composable
+private fun QuizBar(st: UiState, vm: EditorViewModel, insets: WindowInsets) {
+    val q = st.quiz ?: return
+    val a = q.analysis
+    val errors = a.issues.count { it.severity == Severity.ERROR }
+    val warnings = a.issues.size - errors
+    val sc = LocalScoreColors.current
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(Modifier.fillMaxWidth().windowInsetsPadding(insets)) {
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (errors > 0) Badge("$errors error${if (errors == 1) "" else "s"}", sc.errorText)
+                if (warnings > 0) Badge("$warnings warning${if (warnings == 1) "" else "s"}", sc.warnText)
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.size(44.dp).clickable(onClick = vm::closeAnalysis).semantics { contentDescription = "Close check" },
+                    contentAlignment = Alignment.Center) { Text("✕", color = muted) }
+            }
+            val bars = a.issues.mapNotNull { a.slices.getOrNull(it.slice)?.time?.let(st.score::barNumber) }.distinct().sorted()
+            val clue = if (q.bars) "Look in bar${if (bars.size == 1) "" else "s"} ${bars.joinToString(", ")}. " else ""
+            Text("${clue}Tap the notes you think are wrong (${q.marked.size} marked).",
+                Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.bodySmall, color = muted)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                if (!q.bars) TextButton(onClick = vm::showBars) { Text("Show bars") }
+                FilledTonalButton(onClick = vm::reveal, shape = SHAPE) { Text("Reveal") }
+            }
+        }
+    }
+}
 
 /** Small tinted count label, e.g. "2 warnings". */
 @Composable
@@ -905,6 +939,14 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Un
                 Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { rulesOpen = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Rules to check", Modifier.weight(1f))
                     Text("${st.rules.size} of ${Rule.entries.size} on  ›", color = MaterialTheme.colorScheme.primary)
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Find mistakes yourself first")
+                        Text("✓ shows only how many there are until you mark them and tap Reveal.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = st.selfCheck, onCheckedChange = vm::setSelfCheck)
                 }
             }
         }
