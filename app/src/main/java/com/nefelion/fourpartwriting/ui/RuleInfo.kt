@@ -362,7 +362,7 @@ private fun DemoCanvas(d: Demo) {
             }
         }
     }
-    Text(if (right) "✓ Right" else "✗ Wrong", fontWeight = FontWeight.Bold, color = if (right) sc.ok else sc.errorText,
+    Text(if (right) "✓ Rule kept" else "✗ Rule broken", fontWeight = FontWeight.Bold, color = if (right) sc.ok else sc.errorText,
         style = MaterialTheme.typography.labelLarge)
     // Always takes two lines so the card does not jump between phases
     Text(if (right) " " else d.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

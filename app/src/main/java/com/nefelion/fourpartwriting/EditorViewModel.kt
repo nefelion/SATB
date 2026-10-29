@@ -1103,14 +1103,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         solved(a)?.let(::msg)
     }
 
-    /** An exercise with every voice written and no errors is solved: the message to show, else null. */
+    /** An exercise with every voice written and no rule breaks is solved: the message to show, else null. */
     private fun solved(a: Analysis): String? {
         val sc = s.score
         if (sc.given.isEmpty() || !Voice.entries.all { sc.length(it) == sc.length && sc.voice(it).isNotEmpty() } || a.issues.any { it.severity == Severity.ERROR }) return null
-        return if (a.issues.isEmpty()) "Solved, with no errors or warnings!" else "Solved: no errors. Look at the warnings to make it better."
+        return if (a.issues.isEmpty()) "Solved, with no rule breaks or warnings!" else "Solved: no rule breaks. Look at the warnings to make it better."
     }
 
-    /** Self-check: marks or unmarks a note as wrong. */
+    /** Self-check: marks or unmarks a note as breaking a rule. */
     fun toggleMark(r: NoteRef) = _state.update { st ->
         val q = st.quiz?.takeIf { !it.revealed } ?: return@update st
         st.copy(quiz = q.copy(marked = if (r in q.marked) q.marked - r else q.marked + r))
@@ -1124,7 +1124,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(analysis = a, quiz = q.copy(revealed = true), focusedIssue = null) }
         val (errors, warnings) = a.issues.partition { it.severity == Severity.ERROR }
         fun part(l: List<Issue>, what: String) = "${l.count(q::found)} of ${l.size} $what${if (l.size == 1) "" else "s"}"
-        val found = listOfNotNull(part(errors, "error").takeIf { errors.isNotEmpty() }, part(warnings, "warning").takeIf { warnings.isNotEmpty() })
+        val found = listOfNotNull(part(errors, "rule break").takeIf { errors.isNotEmpty() }, part(warnings, "warning").takeIf { warnings.isNotEmpty() })
         val falseAlarms = q.marked.count { !q.hit(it) }
         msg(listOfNotNull("You found ${found.joinToString(" and ")}.",
             "$falseAlarms marked note${if (falseAlarms == 1) " was" else "s were"} fine.".takeIf { falseAlarms > 0 }, solved(a)).joinToString(" "))

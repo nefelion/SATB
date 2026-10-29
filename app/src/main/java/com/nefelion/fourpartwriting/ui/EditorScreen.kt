@@ -827,9 +827,9 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
             HorizontalDivider()
             Row(Modifier.fillMaxWidth().height(44.dp).clickable { open = !open }.padding(start = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (a.issues.isEmpty()) Text("No problems found ✓", style = MaterialTheme.typography.titleSmall, color = sc.ok)
+                if (a.issues.isEmpty()) Text("All rules kept ✓", style = MaterialTheme.typography.titleSmall, color = sc.ok)
                 else {
-                    if (errors > 0) Badge("$errors error${if (errors == 1) "" else "s"}", sc.errorText)
+                    if (errors > 0) Badge("$errors rule break${if (errors == 1) "" else "s"}", sc.errorText)
                     if (warnings > 0) Badge("$warnings warning${if (warnings == 1) "" else "s"}", sc.warnText)
                     Text(if (open) "▾" else "▴", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -882,7 +882,7 @@ private fun QuizBar(st: UiState, vm: EditorViewModel, insets: WindowInsets) {
             HorizontalDivider()
             Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (errors > 0) Badge("$errors error${if (errors == 1) "" else "s"}", sc.errorText)
+                if (errors > 0) Badge("$errors rule break${if (errors == 1) "" else "s"}", sc.errorText)
                 if (warnings > 0) Badge("$warnings warning${if (warnings == 1) "" else "s"}", sc.warnText)
                 Spacer(Modifier.weight(1f))
                 Box(Modifier.size(44.dp).clickable(onClick = vm::closeAnalysis).semantics { contentDescription = "Close check" },
@@ -890,7 +890,7 @@ private fun QuizBar(st: UiState, vm: EditorViewModel, insets: WindowInsets) {
             }
             val bars = a.issues.mapNotNull { a.slices.getOrNull(it.slice)?.time?.let(st.score::barNumber) }.distinct().sorted()
             val clue = if (q.bars) "Look in bar${if (bars.size == 1) "" else "s"} ${bars.joinToString(", ")}. " else ""
-            Text("${clue}Tap the notes you think are wrong (${q.marked.size} marked).",
+            Text("${clue}Tap the notes you think break a rule (${q.marked.size} marked).",
                 Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.bodySmall, color = muted)
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 if (!q.bars) TextButton(onClick = vm::showBars) { Text("Show bars") }
@@ -950,7 +950,7 @@ private fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Un
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Find mistakes yourself first")
+                        Text("Find rule breaks yourself first")
                         Text("✓ shows only how many there are until you mark them and tap Reveal.",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }

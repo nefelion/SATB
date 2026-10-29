@@ -13,15 +13,15 @@ An Android app for writing four-part (SATB) harmony and checking it against comm
 
 - Write four voices by tapping notes onto the staff, or play them on a USB or Bluetooth MIDI keyboard.
 - Harmony check against 25 voice-leading rules (parallel fifths and octaves, leading tone, doubling, spacing …), each explained with an example.
-- Find the mistakes yourself: the check first shows only how many there are, then reveals what you found and missed.
+- Find the rule breaks yourself: the check first shows only how many there are, then reveals what you found and missed.
 - 84 Bach chorales to study, with rule cards that point to where Bach keeps or breaks each rule.
 - Figured bass and given soprano exercises: write the other voices around a given bass or melody, check them, or ask for a hint or a full solution.
 - Chord symbols, Roman numerals and named non-chord tones.
 - Playback with any SoundFont (`.sf2`) and export to MusicXML.
 
-<img alt="Harmony check: parallel octaves highlighted in the score, with the list of errors and warnings below" src="docs/images/check.png">
+<img alt="Harmony check: parallel octaves highlighted in the score, with the list of rule breaks and warnings below" src="docs/images/check.png">
 
-Tap a mistake to see the notes involved. The ⓘ button explains the rule with an example.
+Tap a rule break to see the notes involved. The ⓘ button explains the rule with an example.
 
 <img alt="Phone screens: harmony check, a rule explanation, and the list of rules" src="docs/images/phone.png">
 
