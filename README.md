@@ -14,6 +14,7 @@ An Android app for writing four-part (SATB) harmony and checking it against comm
 - Write four voices by tapping notes onto the staff, or play them on a USB or Bluetooth MIDI keyboard.
 - Harmony check against 25 voice-leading rules (parallel fifths and octaves, leading tone, doubling, spacing …), each explained with an example.
 - Find the mistakes yourself: the check first shows only how many there are, then reveals what you found and missed.
+- 84 Bach chorales to study, with rule cards that point to where Bach keeps or breaks each rule.
 - Figured bass and given soprano exercises: write the other voices around a given bass or melody, check them, or ask for a hint or a full solution.
 - Chord symbols, Roman numerals and named non-chord tones.
 - Playback with any SoundFont (`.sf2`) and export to MusicXML.
@@ -50,5 +51,7 @@ It comes with no warranty.
 ## Credits
 
 Music font: [Bravura](https://github.com/steinbergmedia/bravura) by Steinberg, under the SIL Open Font License (`app/src/main/assets/Bravura-OFL.txt`).
+
+Bach chorales: the [Bach Chorales Figured Bass dataset](https://github.com/juyaolongpaul/Bach_chorale_FB) by Yaolong Ju et al., based on the Neue Bach-Ausgabe, under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Converted to the app's format: continuo part left out, old modal key signatures written as modern ones (`app/src/main/assets/study/`).
 
 SoundFont synthesis: [TinySoundFont](https://github.com/schellingb/TinySoundFont) by Bernhard Schelling, under the MIT License (`app/src/main/cpp/tsf.h`).
