@@ -64,6 +64,10 @@ import com.nefelion.fourpartwriting.model.Interval
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Analysis
+import com.nefelion.fourpartwriting.theory.BachSpot
+import com.nefelion.fourpartwriting.theory.IN_BACH
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import com.nefelion.fourpartwriting.theory.Rule
 import com.nefelion.fourpartwriting.theory.RuleExample
 import com.nefelion.fourpartwriting.theory.RuleExamples
@@ -256,11 +260,13 @@ private fun phase(t: Float, a: Float, b: Float) = ((t - a) / (b - a)).coerceIn(0
 /**
  * Floating card explaining [rule]: its description and a looping animation of a wrong passage being corrected.
  * Arrows show the motion, brackets the interval, and the offending notes glide to their right place.
+ * With [onStudy], it also lists spots in Bach's chorales where the rule is kept or broken; a tap opens one.
  */
 @Composable
 fun RuleInfoDialog(
     rule: Rule, enabled: Boolean, onToggle: () -> Unit,
     onIgnoreHere: (() -> Unit)? = null, onIgnoreInScore: (() -> Unit)? = null,
+    onStudy: ((BachSpot) -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     val demo = remember(rule) { RuleExamples.ALL[rule]?.let { Demo(rule, it) } }
@@ -275,6 +281,19 @@ fun RuleInfoDialog(
                 Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("How to avoid: ") }; append(rule.how) },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (demo != null) DemoCanvas(demo)
+                val spots = IN_BACH[rule].orEmpty()
+                if (onStudy != null && spots.isNotEmpty()) {
+                    Text("In Bach's chorales", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                    for (spot in spots) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onStudy(spot) }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${spot.study}, bar ${spot.bar} · ${if (spot.breaks) "breaks it" else "keeps it"}", style = MaterialTheme.typography.labelLarge,
+                                color = if (spot.breaks) LocalScoreColors.current.warnText else LocalScoreColors.current.ok)
+                            Text(spot.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text("›", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Check this rule", Modifier.weight(1f))
                     Switch(checked = enabled, onCheckedChange = { onToggle() })

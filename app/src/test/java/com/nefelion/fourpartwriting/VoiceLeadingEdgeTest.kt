@@ -167,4 +167,19 @@ class VoiceLeadingEdgeTest {
         assertTrue(Rule.DOUBLING in short.errorRules())
         assertTrue(Rule.LEAPS in short.rules())
     }
+
+    /** After a fermata a new phrase starts: Bach's leap from a half cadence to the next phrase is not a parallel. */
+    @Test fun fermataEndsThePhrase() {
+        fun score(f: String) = chordsScore(KC, "C5 G4 E4 C3", "B4$f G4$f D4$f G2$f", "E4 C4 G3 C3", "D4 B3 G3 G2", "C4 C4 E3 C3")
+        val plain = score("").analysis()
+        assertTrue(plain.issues.toString(), plain.has(Rule.PARALLEL_FIFTHS) && plain.has(Rule.PARALLEL_OCTAVES))
+        val phrased = score("^").analysis()
+        assertFalse(phrased.issues.toString(), phrased.has(Rule.PARALLEL_FIFTHS) || phrased.has(Rule.PARALLEL_OCTAVES) || phrased.has(Rule.MELODIC))
+    }
+
+    /** Tenor and bass on one note, then both falling: the tenor ends below the old unison but nothing was overlapped. */
+    @Test fun leavingAUnisonIsNotOverlap() {
+        chordsScore(KC, "E5 C5 C4 C4", "D5 B4 G3 G2", "C5 C5 E3 C3").analysis().let { assertFalse(it.issues.toString(), it.has(Rule.OVERLAP)) }
+        chordsScore(KC, "E5 C5 G4 C4", "D5 B4 B3 G3", "C5 C5 G3 C3").analysis().let { assertTrue(it.issues.toString(), it.has(Rule.OVERLAP)) }
+    }
 }

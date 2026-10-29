@@ -85,6 +85,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     var duplicating by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     var exporting by rememberSaveable { mutableStateOf<String?>(null) }
+    var studying by rememberSaveable { mutableStateOf(false) }
     // Generic type, as for MusicXML: providers then keep the .satb extension
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val name = exporting
@@ -111,13 +112,15 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
                     @Composable fun item(label: String, danger: Boolean = false, action: () -> Unit) = DropdownMenuItem(
                         text = { Text(label, color = if (danger) MaterialTheme.colorScheme.error else Color.Unspecified) },
                         onClick = { menuFor = null; action() })
-                    item("Edit") { editingScore = name }
-                    item("Rules") { rulesFor = name }
-                    item("Rename") { renaming = name }
+                    // The open study score is read-only and not in the library: it can only be copied
+                    val study = open && st.study != null
+                    if (!study) item("Edit") { editingScore = name }
+                    if (!study) item("Rules") { rulesFor = name }
+                    if (!study) item("Rename") { renaming = name }
                     item("Duplicate") { duplicating = name }
                     item("Save to file…") { exporting = name; saver.launch("$name${ScoreLibrary.EXT}") }
-                    HorizontalDivider()
-                    item("Delete", danger = true) { deleting = name }
+                    if (!study) HorizontalDivider()
+                    if (!study) item("Delete", danger = true) { deleting = name }
                 }
             }
         }
@@ -130,9 +133,13 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
             }
         }
         item {
-            FilledTonalButton(onClick = { exercise = true }, shape = SHAPE, modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()) { Text("New exercise") }
+            Row(Modifier.widthIn(max = 640.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { exercise = true }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("New exercise") }
+                OutlinedButton(onClick = { studying = true }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Bach chorales") }
+            }
         }
-        val other = st.scores.filter { it.first != st.scoreName }
+        // (a study score is not in the library, so a score of yours with the same name is listed)
+        val other = st.scores.filter { st.study != null || it.first != st.scoreName }
         item {
             // The open score's file may lag its last edit by the autosave delay, so its details come from the editor
             val cs = MaterialTheme.colorScheme
@@ -148,6 +155,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
         }
     }
     if (exercise) ExerciseDialog(Voice.SOPRANO in st.score.given, onDismiss = { exercise = false }) { level, soprano -> exercise = false; vm.newExercise(level, soprano); onDismiss() }
+    if (studying) StudyPage(st, vm, onDismiss = { studying = false }) { studying = false; onDismiss() }
     if (naming) ScoreDialog("New score", "", Score(), askName = true, action = "Create", onDismiss = { naming = false }) { name, settings ->
         naming = false; vm.newScore(name, settings); onDismiss()
     }
@@ -181,11 +189,42 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     }
 }
 
+/** The bundled Bach chorales: tap one to open it read-only ([onOpen] then closes the pages). */
+@Composable
+private fun StudyPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit, onOpen: () -> Unit) {
+    LaunchedEffect(Unit) { vm.loadStudies() }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    FullScreenPage("Bach chorales", onDismiss) {
+        item {
+            Text("Four-part chorales by J. S. Bach to listen to, check and learn from. They open read-only: duplicate one in Scores to change it.",
+                Modifier.widthIn(max = 640.dp), style = MaterialTheme.typography.bodyMedium, color = muted)
+        }
+        item {
+            Group(null) {
+                if (st.studies.isEmpty()) Text("Loading…", color = muted)
+                st.studies.forEachIndexed { i, s ->
+                    if (i > 0) HorizontalDivider()
+                    Column(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.openStudy(s.id); onOpen() }.padding(horizontal = 4.dp, vertical = 4.dp)) {
+                        Text(s.title.substringBefore(" (BWV"), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            fontWeight = if (s.id == st.study) FontWeight.Bold else FontWeight.Normal)
+                        Text("${s.id} · ${summary(s.score)}", style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+        item {
+            Text("Bach chorales from the BCFB dataset by Yaolong Ju et al., CC BY 4.0, based on the Neue Bach-Ausgabe. Converted for SATB: the continuo part is left out and old modal key signatures are written as modern ones.",
+                Modifier.widthIn(max = 640.dp), style = MaterialTheme.typography.labelSmall, color = muted)
+        }
+    }
+}
+
 /** Rules checked in score [name] only; rules off in Settings are off everywhere, so they are not listed. */
 @Composable
 private fun ScoreRulesPage(name: String, sc: Score, st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
     var info by rememberSaveable { mutableStateOf<Rule?>(null) }
-    info?.let { r -> RuleInfoDialog(r, r.name !in sc.rulesOff, onToggle = { vm.toggleScoreRule(name, r) }) { info = null } }
+    info?.let { r -> RuleInfoDialog(r, r.name !in sc.rulesOff, onToggle = { vm.toggleScoreRule(name, r) },
+        onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null } }
     FullScreenPage("Rules · $name", onDismiss) {
         item {
             Group("Checked in this score") {

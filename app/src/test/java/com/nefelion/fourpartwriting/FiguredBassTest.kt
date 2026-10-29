@@ -39,6 +39,9 @@ class FiguredBassTest {
         assertEquals("F B", names("D3", listOf("#6"), Key(-1, Mode.MINOR)))
         // Natural cancels the key signature: B♭ major, ♮3 over G is B♮
         assertEquals("B D", names("G2", listOf("n"), Key(-2, Mode.MAJOR)))
+        // As in Bach's figures, ♭ and ♯ name a flat or sharp note: ♭ over F in E♭ major is A♭, ♯ over B in E major is D♯
+        assertEquals("A♭ C", names("F3", listOf("b"), Key(-3, Mode.MAJOR)))
+        assertEquals("D♯ F♯", names("B2", listOf("#"), Key(4, Mode.MAJOR)))
     }
 
     private fun score(vararg cols: String) = Score(voices = (0 until 4).map { v ->

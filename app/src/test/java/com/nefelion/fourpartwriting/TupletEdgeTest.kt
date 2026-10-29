@@ -213,6 +213,13 @@ class TupletEdgeTest {
         a.noErrors()
     }
 
+    /** A pickup of a quarter and a last bar of three quarters make up whole bars; a last bar of two does not. */
+    @Test fun lastBarBalancesThePickup() {
+        val sc = linesScore("G4:4 C5:1 E5:2.", "D4:4 G4:1 C5:2.", "B3:4 E4:1 G4:2.", "G2:4 C3:1 C3:2.").copy(pickup = f(1, 4))
+        sc.analysis().lacks(Rule.STRUCTURE)
+        assertTrue(linesScore("G4:4 C5:1 E5:2", "D4:4 G4:1 C5:2", "B3:4 E4:1 G4:2", "G2:4 C3:1 C3:2").copy(pickup = f(1, 4)).analysis().has(Rule.STRUCTURE))
+    }
+
     /** An unfinished tuplet leaves the voices unequal. */
     @Test fun unfinishedTupletIsReported() {
         val a = linesScore("C5:12 D5:12 E5:2.", "G4:1", "E4:1", "C3:1").analysis()

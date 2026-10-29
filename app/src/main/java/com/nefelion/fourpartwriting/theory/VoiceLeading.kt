@@ -176,6 +176,11 @@ object VoiceLeading {
         // The bass on the chord roots at both slices, inside one sequence
         fun bassSeq(a: Int, b: Int) = inSeq(a, b) &&
             slices[a].notes[Voice.BASS.ordinal]?.pc == chords[a].root && slices[b].notes[Voice.BASS.ordinal]?.pc == chords[b].root
+        // A fermata ends a phrase: the next chord starts afresh, so motion, resolution and progression are not checked across it
+        val phraseStart = BooleanArray(slices.size) { i ->
+            i > 0 && V.any { v -> val e = slices[i - 1].eventIndex[v.ordinal]; e >= 0 && e != slices[i].eventIndex[v.ordinal] && score.voice(v)[e].fermata }
+        }
+        fun broken(a: Int, b: Int) = (a + 1..b).any { phraseStart[it] }
         val ncts = harmony.ncts
         val out = mutableListOf<Issue>()
         fun add(sev: Severity, i: Int, rule: Rule, msg: String, vararg n: Pair<Int, Voice>) {
@@ -187,7 +192,8 @@ object VoiceLeading {
         if (lengths.distinct().size > 1)
             add(Severity.WARNING, 0, Rule.STRUCTURE, "Voices have different lengths.")
         val total = score.length
-        if (total > Fraction.ZERO && !score.isBarline(total))
+        // A short last bar that makes up for the pickup is complete
+        if (total > Fraction.ZERO && !score.isBarline(total) && score.barAt(total).end - total != score.pickup)
             add(Severity.WARNING, slices.lastIndex.coerceAtLeast(0), Rule.STRUCTURE, "Last measure is incomplete.")
 
         // The voice sounding the bass of a slice (the bass part may rest)
@@ -245,7 +251,7 @@ object VoiceLeading {
             }
             // Doubling and construction ignore non-chord tones
             val chordSlice = s.copy(notes = V.map { v -> if (isNct(s, v)) null else s.notes[v.ordinal] })
-            val prevI = points.getOrNull(k - 1)
+            val prevI = points.getOrNull(k - 1)?.takeIf { !broken(it, i) }
             val nextI = points.getOrNull(k + 1)
             val prev = prevI?.let { chords[it] }
             if (s.pitches.size >= 3) chordRules(i, chordSlice, chord, prev, nextI?.let { chords[it] }, score.keyAt(s.time), runOf[k] >= 0, ::add)
@@ -325,19 +331,20 @@ object VoiceLeading {
                     add(Severity.WARNING, i, Rule.SPACING, "More than a twelfth between ${vu.label} and B.", i to vu, i to vl)
             }
 
-            if (i > 0) motionRules(i, slices[i - 1], s, inSeq(i - 1, i), bassSeq(i - 1, i), ::add)
+            if (i > 0 && !phraseStart[i]) motionRules(i, slices[i - 1], s, inSeq(i - 1, i), bassSeq(i - 1, i), ::add)
         }
 
         // Leaps: one larger than a fifth turns back by step; two in one direction stay within an octave, not a seventh
         for (v in V) {
             val evs = score.voice(v)
             fun sliceOf(idx: Int) = slices.indexOfFirst { it.eventIndex[v.ordinal] == idx && it.attacked[v.ordinal] }
-            // Notes between rests, a note struck again counted once (it does not end a leap)
+            // Notes between rests and fermatas, a note struck again counted once (it does not end a leap)
             val runs = mutableListOf(mutableListOf<Int>())
             for ((j, e) in evs.withIndex()) {
                 val run = runs.last()
                 if (e.pitch == null) { if (run.isNotEmpty()) runs += mutableListOf<Int>() }
                 else if (run.isEmpty() || evs[run.last()].pitch != e.pitch) run += j
+                if (e.fermata && runs.last().isNotEmpty()) runs += mutableListOf<Int>()
             }
             for (run in runs) for (k in 2 until run.size) {
                 val p0 = evs[run[k - 2]].pitch!!
@@ -379,7 +386,7 @@ object VoiceLeading {
             for (j in 1..evs.size) {
                 val p = evs.getOrNull(j)?.pitch
                 val prev = evs[j - 1].pitch
-                if (p == null || prev == null) { outline(b, j - 1); b = j; dir = 0; continue }
+                if (p == null || prev == null || evs[j - 1].fermata) { outline(b, j - 1); b = j; dir = 0; continue }
                 val d = (p.midi - prev.midi).sign
                 if (d == 0) continue
                 if (dir != 0 && d != dir) { outline(b, j - 1); b = j - 1 }
@@ -568,6 +575,8 @@ object VoiceLeading {
             val up = V[k]; val lo = V[k + 1]
             val upA = a.notes[k]; val loA = a.notes[k + 1]; val upB = b.notes[k]; val loB = b.notes[k + 1]
             if (upA == null || loA == null || upB == null || loB == null) continue
+            // From a unison the voices have no order yet; from a crossing it is already reported
+            if (upA.midi <= loA.midi) continue
             if (loB.midi > upA.midi && moved(lo))
                 add(Severity.ERROR, i, Rule.OVERLAP, "${lo.label} moves above the previous ${up.label} note.", arrayOf(h to up, i to lo))
             if (upB.midi < loA.midi && moved(up))

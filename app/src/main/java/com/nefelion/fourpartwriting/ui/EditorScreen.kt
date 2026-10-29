@@ -198,6 +198,11 @@ fun EditorScreen(vm: EditorViewModel) {
     LaunchedEffect(st.message) {
         st.message?.let { snack.showSnackbar(it); vm.clearMessage() }
     }
+    // Opening a score from a page over the editor (a rule card's Bach example) goes back to the editor; not on rotation
+    var seenOpen by rememberSaveable { mutableIntStateOf(st.openTick) }
+    LaunchedEffect(st.openTick) {
+        if (st.openTick != seenOpen) { seenOpen = st.openTick; settings = false; scores = false }
+    }
     LaunchedEffect(undoable) {
         val m = undoable ?: return@LaunchedEffect
         if (snack.showSnackbar(m, actionLabel = "Undo", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) vm.undo()
@@ -638,6 +643,8 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                 }
                 Text("Music font: Bravura © Steinberg Media Technologies, SIL Open Font License.",
                     style = MaterialTheme.typography.labelSmall, color = muted, textAlign = TextAlign.Center)
+                Text("Bach chorales from the BCFB dataset by Yaolong Ju et al., CC BY 4.0, based on the Neue Bach-Ausgabe.",
+                    style = MaterialTheme.typography.labelSmall, color = muted, textAlign = TextAlign.Center)
             }
         }
     }
@@ -812,6 +819,7 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
         RuleInfoDialog(r, r in st.rules, onToggle = { vm.toggleRule(r) },
             onIgnoreHere = if (i < 0) null else ({ info = null; vm.ignoreIssue(i); onUndoable("Issue ignored") }),
             onIgnoreInScore = { info = null; vm.ignoreRuleInScore(r); onUndoable("${r.label} ignored in this score") },
+            onStudy = { info = null; vm.openStudy(it.study, r, it.bar, it.breaks, it.note) },
         ) { info = null }
     }
     Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
@@ -991,7 +999,8 @@ private fun MidiGroup(st: UiState, vm: EditorViewModel) {
 @Composable
 private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
     var info by rememberSaveable { mutableStateOf<Rule?>(null) }
-    info?.let { r -> RuleInfoDialog(r, r in st.rules, onToggle = { vm.toggleRule(r) }) { info = null } }
+    info?.let { r -> RuleInfoDialog(r, r in st.rules, onToggle = { vm.toggleRule(r) },
+        onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null } }
     FullScreenPage("Rules to check", onDismiss) {
         item {
             Group("Most important first") { for (r in Rule.entries) key(r.name) { RuleRow(r, r in st.rules, onInfo = { info = r }) { vm.toggleRule(r) } } }

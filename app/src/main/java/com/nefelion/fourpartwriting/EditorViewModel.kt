@@ -49,8 +49,14 @@ import kotlin.math.abs
 
 data class UiState(
     val score: Score = EXAMPLE,
-    /** Name of the open score in the library. */
+    /** Name of the open score in the library (for a study score, its title). */
     val scoreName: String = "",
+    /** The open score is the bundled study score with this id ("BWV 13.6"): read-only and never saved. */
+    val study: String? = null,
+    /** The bundled study scores, once the Study page has asked for them. */
+    val studies: List<Study> = emptyList(),
+    /** Bumped when another score opens, so pages over the editor close. */
+    val openTick: Int = 0,
     /** All saved scores (null: file unreadable), most recently changed first. */
     val scores: List<Pair<String, Score?>> = emptyList(),
     val voice: Voice = Voice.SOPRANO,
@@ -143,6 +149,9 @@ data class UiState(
 
 /** Sounding length of written value [d] inside an n:m tuplet [t]. */
 fun tupletLength(d: Duration, t: Pair<Int, Int>?) = if (t == null) d.value else d.value * Fraction.of(t.second.toLong(), t.first.toLong())
+
+/** A bundled study score: [id] is its file name ("BWV 13.6"). */
+data class Study(val id: String, val title: String, val score: Score)
 
 /** Preview notehead: staff, staff position, onset. */
 /** A faded note: the tap preview, or a hint ([voice] colors it; [alter]: an accidental to show). */
@@ -260,7 +269,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             state.collect { st ->
                 // Opening another score is not an edit: nothing to save
                 if (st.scoreName != lastName) { lastName = st.scoreName; last = st.score }
-                if (st.score != last) {
+                if (st.score != last && st.study == null) {
                     last = st.score
                     saveJob?.cancel()
                     // On the main thread (a few KB): a rename or switch can then cancel it without a write racing behind
@@ -295,6 +304,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edited: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice,
         selectedAt: Fraction? = if (selected == s.selected) s.selectedAt else null,
     ): Boolean {
+        if (s.study != null) { msg("Study scores can't be changed. Duplicate it in Scores to get a copy you can edit."); return false }
         // An exercise's given voices stay as they are (naming their chords and fermatas is fine)
         s.score.given.firstOrNull { v -> v in edited.given && edited.voice(v).map { it.copy(chord = null, fermata = false) } != s.score.voice(v).map { it.copy(chord = null, fermata = false) } }?.let { v ->
             msg("The ${v.name.lowercase()} is given in this exercise.")
@@ -871,19 +881,21 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- score library ----------
 
     /** Writes the open score now and drops a pending autosave. */
-    private fun flushScore() { saveJob?.cancel(); library.write(s.scoreName, s.score) }
+    private fun flushScore() { saveJob?.cancel(); if (s.study == null) library.write(s.scoreName, s.score) }
 
     fun refreshScores() = _state.update { it.copy(scores = library.list()) }
 
-    /** Shows [score] as [name], starting fresh: no undo history or selection from the score left behind. */
-    private fun show(name: String, score: Score) {
+    /** Shows [score] as [name] (a study score: [study] is its id), starting fresh: no undo history or selection from the score left behind. */
+    private fun show(name: String, score: Score, study: String? = null) {
         stop()
         historyFile.delete()
         keptOrder.clear()
-        prefs.edit().putString("current", name).apply()
+        // A study score is not in the library: the next start opens the last score of your own
+        if (study == null) prefs.edit().putString("current", name).apply()
         _state.update {
-            it.copy(scoreName = name, score = score, scores = library.list(), undo = emptyList(), redo = emptyList(),
-                selected = null, selectedAt = null, placed = false, analysis = null, quiz = null, focusedIssue = null, reorder = emptyList())
+            it.copy(scoreName = name, score = score, study = study, scores = library.list(), undo = emptyList(), redo = emptyList(),
+                selected = null, selectedAt = null, placed = false, analysis = null, quiz = null, focusedIssue = null, reorder = emptyList(),
+                moving = if (study != null) true else if (it.study != null) false else it.moving, openTick = it.openTick + 1)
         }
         Synth.setTempo(score.qpm)
         checkOrder()
@@ -891,8 +903,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun readScore(name: String) = library.read(name)?.let(Edit::dropEmptyLastBars)
 
+    /** Score [name]: the open study score is not in the library. */
+    private fun scoreOf(name: String) = if (s.study != null && name == s.scoreName) s.score else library.read(name)
+
     fun openScore(name: String) {
-        if (name == s.scoreName) return
+        if (name == s.scoreName && s.study == null) return
         flushScore()
         show(name, readScore(name) ?: return msg("Could not open $name."))
     }
@@ -959,7 +974,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (library.exists(name)) return msg("A score named $name already exists.")
         flushScore()
         if (!library.rename(from, name)) return msg("Could not rename $from.")
-        if (from == s.scoreName) {
+        if (from == s.scoreName && s.study == null) {
             prefs.edit().putString("current", name).apply()
             _state.update { it.copy(scoreName = name) }
         }
@@ -974,14 +989,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val to = ScoreLibrary.clean(newName)
         if (library.exists(to)) return msg("A score named $to already exists.")
         flushScore()
-        val sc = library.read(name) ?: return msg("Could not read $name.")
+        val sc = scoreOf(name) ?: return msg("Could not read $name.")
         if (!library.write(to, sc)) return msg("Could not copy $name.")
         show(to, sc)
     }
 
     /** Deleting the open score opens the most recent other one (or a new empty one). */
     fun deleteScore(name: String) {
-        val open = name == s.scoreName
+        val open = name == s.scoreName && s.study == null
         if (open) saveJob?.cancel() else flushScore()
         if (!library.delete(name)) return msg("Could not delete $name.")
         if (open) {
@@ -994,7 +1009,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Saves a copy of a score to a file the user picked (to back up or share). */
     fun exportScoreFile(name: String, uri: Uri) = viewModelScope.launch {
         flushScore()
-        val text = library.read(name)?.let { ScoreCodec.encode(it, name) }
+        val text = scoreOf(name)?.let { ScoreCodec.encode(it, name) }
         val ok = text != null && withContext(Dispatchers.IO) {
             runCatching {
                 getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
@@ -1003,21 +1018,67 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         msg(if (ok) "$name saved to file." else "Could not write the file.")
     }
 
-    /** Adds a .satb file to the library and opens it. */
+    /** Adds a .satb or MusicXML (.musicxml, .xml, .mxl) file to the library and opens it. */
     fun importScoreFile(uri: Uri) = viewModelScope.launch {
         val resolver = getApplication<Application>().contentResolver
         val (fileName, size) = withContext(Dispatchers.IO) { fileInfo(uri) }
-        // A score file is a few KB; refuse anything big before reading it into memory
-        val text = if ((size ?: 0) > 1_000_000) null else withContext(Dispatchers.IO) {
-            runCatching { resolver.openInputStream(uri)!!.use { it.reader().readText() } }.getOrNull()
+        // A score file is a few KB, MusicXML up to a few MB; refuse anything bigger before reading it into memory
+        val bytes = if ((size ?: 0) > 20_000_000) null else withContext(Dispatchers.IO) {
+            runCatching { resolver.openInputStream(uri)!!.use { it.readBytes() } }.getOrNull()
         }
-        val sc = text?.let(ScoreCodec::decode) ?: return@launch msg("${fileName ?: "That file"} is not a SATB score.")
+        val text = bytes?.toString(Charsets.UTF_8)
+        val satb = text?.let(ScoreCodec::decode)
+        val xml = if (satb == null && bytes != null) withContext(Dispatchers.Default) { MusicXml.read(bytes) } else null
+        val sc = satb ?: xml?.score ?: return@launch msg("${fileName ?: "That file"} is not a SATB or MusicXML score.")
         flushScore()
         // The name saved inside the file, else the file's name
-        val name = library.freeName(ScoreCodec.title(text) ?: fileName?.substringBeforeLast('.')?.ifBlank { null } ?: "Imported")
+        val title = if (satb != null) ScoreCodec.title(text) else xml?.title
+        val name = library.freeName(title ?: fileName?.substringBeforeLast('.')?.ifBlank { null } ?: "Imported")
         if (!library.write(name, sc)) return@launch msg("Could not save the score.")
         show(name, Edit.dropEmptyLastBars(sc))
-        msg("Opened $name.")
+        msg(listOfNotNull("Opened $name.", xml?.note).joinToString(" "))
+    }
+
+    // ---------- study scores ----------
+
+    private fun readStudy(id: String): Study? = runCatching {
+        val text = getApplication<Application>().assets.open("study/$id.satb").use { it.reader().readText() }
+        ScoreCodec.decode(text)?.let { Study(id, ScoreCodec.title(text) ?: id, it) }
+    }.getOrNull()
+
+    /** Fills [UiState.studies], by BWV number. */
+    fun loadStudies() {
+        if (s.studies.isNotEmpty()) return
+        viewModelScope.launch {
+            val list = withContext(Dispatchers.IO) {
+                getApplication<Application>().assets.list("study").orEmpty().filter { it.endsWith(".satb") }.mapNotNull { readStudy(it.removeSuffix(".satb")) }
+            }
+            // "BWV 13.6" before "BWV 102.7": by work, then movement
+            fun num(id: String) = id.removePrefix("BWV ").split(".").map { it.toIntOrNull() ?: 0 }
+            _state.update { it.copy(studies = list.sortedWith(compareBy({ num(it.id)[0] }, { num(it.id).getOrElse(1) { 0 } }))) }
+        }
+    }
+
+    /**
+     * Opens study score [id] read-only. With [rule], at a rule card's spot in bar [bar]: if Bach [breaks] it there, the check opens
+     * on that issue; otherwise the soprano's first note in the bar is selected. [note] is shown as a message.
+     */
+    fun openStudy(id: String, rule: Rule? = null, bar: Int = 0, breaks: Boolean = false, note: String? = null) {
+        val study = readStudy(id) ?: return msg("Could not open $id.")
+        flushScore()
+        val sc = study.score
+        show(study.title, sc, id)
+        if (rule == null) return
+        if (breaks) {
+            // The rule is shown even if it is switched off in Settings
+            val a = VoiceLeading.check(sc, s.rules + rule)
+            val i = a.issues.indexOfFirst { it.rule == rule && sc.barNumber(a.slices[it.slice].time) == bar }
+            _state.update { it.copy(analysis = a, focusedIssue = i.takeIf { i >= 0 }) }
+        } else {
+            val start = sc.bar(bar - if (sc.pickup != null) 0 else 1).start
+            _state.update { it.copy(selected = refAt(sc, Voice.SOPRANO, start), selectedAt = start, followTick = it.followTick + 1) }
+        }
+        note?.let { msg("$id, bar $bar: $it") }
     }
 
     /** Display name and size in bytes of a picked file, when the provider tells them. */

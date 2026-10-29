@@ -49,7 +49,8 @@ object FiguredBass {
         return full.associateWith { n ->
             val step = (bass.step + n - 1) % 7
             val sig = key.sigAlter(step)
-            PitchClass(step, when (acc[n]) { '#' -> sig + 1; 'b' -> sig - 1; 'n' -> 0; else -> sig })
+            // ♯ and ♭ make the note sharp or flat (a flat or sharp already in the key stays single, as in Baroque figures)
+            PitchClass(step, when (acc[n]) { '#' -> minOf(sig + 1, 1); 'b' -> maxOf(sig - 1, -1); 'n' -> 0; else -> sig })
         }
     }
 
