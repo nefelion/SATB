@@ -35,6 +35,7 @@ import com.nefelion.fourpartwriting.theory.Issue
 import com.nefelion.fourpartwriting.theory.Voicer
 import com.nefelion.fourpartwriting.theory.Severity
 import com.nefelion.fourpartwriting.theory.Rule
+import com.nefelion.fourpartwriting.theory.Style
 import com.nefelion.fourpartwriting.theory.VoiceLeading
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -1173,12 +1174,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         refreshScores()
     }
 
-    fun toggleRule(r: Rule) {
-        _state.update {
-            val rules = if (r in it.rules) it.rules - r else it.rules + r
-            it.copy(rules = rules, analysis = it.analysis?.let { _ -> VoiceLeading.check(it.score, rules) }, focusedIssue = null)
-        }
-        prefs.edit().putStringSet("rulesOff", (Rule.entries - s.rules).map { it.name }.toSet()).apply()
+    fun toggleRule(r: Rule) = setRules(if (r in s.rules) s.rules - r else s.rules + r)
+
+    fun setStyle(style: Style) = setRules(style.rules)
+
+    private fun setRules(rules: Set<Rule>) {
+        _state.update { it.copy(rules = rules, analysis = it.analysis?.let { _ -> VoiceLeading.check(it.score, rules) }, focusedIssue = null) }
+        prefs.edit().putStringSet("rulesOff", (Rule.entries - rules).map { it.name }.toSet()).apply()
     }
 
     // ---------- MIDI keyboard ----------
