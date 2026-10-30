@@ -148,7 +148,6 @@ import com.nefelion.fourpartwriting.theory.FiguredBass
 import com.nefelion.fourpartwriting.theory.Rule
 import com.nefelion.fourpartwriting.theory.VoiceLeading
 import com.nefelion.fourpartwriting.theory.Severity
-import com.nefelion.fourpartwriting.theory.Style
 import kotlin.math.roundToInt
 
 private val BASES = listOf(1, 2, 4, 8, 16, 32, 64)
@@ -974,13 +973,6 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
         item { MidiGroup(st, vm) }
         item {
             Group("Rules") {
-                val style = Style.of(st.rules)
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Style", Modifier.weight(1f))
-                    Segmented(Style.entries.map { it.label }, Style.entries.indexOf(style), itemWidth = 120.dp) { vm.setStyle(Style.entries[it]) }
-                }
-                Text(style?.desc ?: "Custom: your own choice of rules.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { rulesOpen = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Rules to check", Modifier.weight(1f))
                     Text("${st.rules.size} of ${Rule.entries.size} on  ›", color = MaterialTheme.colorScheme.primary)

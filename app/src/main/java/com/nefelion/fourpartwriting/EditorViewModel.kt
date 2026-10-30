@@ -37,7 +37,6 @@ import com.nefelion.fourpartwriting.theory.Issue
 import com.nefelion.fourpartwriting.theory.Voicer
 import com.nefelion.fourpartwriting.theory.Severity
 import com.nefelion.fourpartwriting.theory.Rule
-import com.nefelion.fourpartwriting.theory.Style
 import com.nefelion.fourpartwriting.theory.VoiceLeading
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -1309,8 +1308,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleRule(r: Rule) = setRules(if (r in s.rules) s.rules - r else s.rules + r)
-
-    fun setStyle(style: Style) = setRules(style.rules)
 
     private fun setRules(rules: Set<Rule>) {
         _state.update { it.copy(rules = rules).let { st -> st.copy(analysis = st.analysis?.let { VoiceLeading.check(st.score, st.checkRules) }, focusedIssue = null) } }

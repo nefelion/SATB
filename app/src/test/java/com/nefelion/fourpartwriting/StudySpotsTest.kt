@@ -4,8 +4,6 @@ import com.nefelion.fourpartwriting.export.MusicXml
 import com.nefelion.fourpartwriting.model.ScoreCodec
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.IN_BACH
-import com.nefelion.fourpartwriting.theory.Rule
-import com.nefelion.fourpartwriting.theory.Style
 import com.nefelion.fourpartwriting.theory.VoiceLeading
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -47,19 +45,5 @@ class StudySpotsTest {
         assertEquals(sc.time, back.time)
         assertEquals(sc.pickup, back.pickup)
         for (v in Voice.entries) assertEquals(v.name, sc.voice(v).map { it.pitch to it.length }, back.voice(v).map { it.pitch to it.length })
-    }
-
-    /** A style is found again from its rules; one switch more or less is a custom set. */
-    @Test fun styleFromRules() {
-        for (st in Style.entries) assertEquals(st, Style.of(st.rules))
-        assertEquals(null, Style.of(Style.STRICT.rules - Rule.RANGE))
-        assertEquals(null, Style.of(Style.CHORALE.rules + Rule.CROSSING))
-    }
-
-    /** The Bach chorale style reports none of its rules in a chorale that breaks them under the strict one. */
-    @Test fun choraleStyleQuietsBach() {
-        val sc = ScoreCodec.decode(File(dir, "BWV 113.8.satb").readText())!!
-        assertTrue(VoiceLeading.check(sc, Style.STRICT.rules).issues.any { it.rule in Style.CHORALE.off })
-        assertTrue(VoiceLeading.check(sc, Style.CHORALE.rules).issues.none { it.rule in Style.CHORALE.off })
     }
 }

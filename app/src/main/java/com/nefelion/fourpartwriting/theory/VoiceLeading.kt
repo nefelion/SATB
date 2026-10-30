@@ -103,21 +103,6 @@ enum class Rule(val label: String, val desc: String, val why: String, val how: S
         "Write all four voices to the same length and complete the last bar."),
 }
 
-/** Rule presets for the ways teachers differ. A style is the set of rules it switches off. */
-enum class Style(val label: String, val desc: String, val off: Set<Rule>) {
-    STRICT("Strict", "Every rule, as in a harmony class.", emptySet()),
-    // What Bach does freely in his chorales (most of the 84 bundled ones break each of these)
-    CHORALE("Bach chorale", "Allows what Bach does freely: voices moving together, crossing and overlapping, free leaps, direct fifths, cross relations.",
-        setOf(Rule.SIMILAR_MOTION, Rule.LEAPS, Rule.CROSSING, Rule.OVERLAP, Rule.DIRECT, Rule.CROSS_RELATION, Rule.UNEQUAL_FIFTHS));
-
-    val rules get() = Rule.entries.toSet() - off
-
-    companion object {
-        /** The style these rules match, or null for a custom set. */
-        fun of(rules: Set<Rule>) = entries.firstOrNull { it.rules == rules }
-    }
-}
-
 /** A rule violation. [notes] are (slice index, voice) pairs to highlight. */
 data class Issue(
     val severity: Severity,
