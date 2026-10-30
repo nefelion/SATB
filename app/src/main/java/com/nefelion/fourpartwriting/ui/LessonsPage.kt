@@ -17,6 +17,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -102,10 +103,19 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
     var step by rememberSaveable(i) { mutableIntStateOf(0) }
     var picks by rememberSaveable(i) { mutableStateOf(IntArray(l.tasks.size) { -1 }) }
     var info by rememberSaveable { mutableStateOf<Rule?>(null) }
+    var settings by rememberSaveable { mutableStateOf(false) }
     val body = MaterialTheme.typography.bodyMedium
 
     FullScreenPage("${i + 1}. ${l.title}", onDismiss) {
         item { Text(l.idea, Modifier.widthIn(max = 640.dp).fillMaxWidth(), style = body, color = muted) }
+        // This page covers the editor's snackbar, so say here why Play is silent
+        if (!st.soundLoaded) item {
+            Row(Modifier.widthIn(max = 640.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (st.soundLoading) "Loading the sound…" else "No sound yet: load a SoundFont (.sf2) to hear the examples.",
+                    Modifier.weight(1f), style = body, color = MaterialTheme.colorScheme.error)
+                if (!st.soundLoading) TextButton({ settings = true }) { Text("Settings") }
+            }
+        }
 
         item {
             Group("1 · Hear it") {
@@ -226,6 +236,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
         RuleInfoDialog(r, true, onToggle = null,
             onStudy = { info = null; vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null }
     }
+    if (settings) SettingsDialog(st, vm) { settings = false }
 }
 
 /** A bar that fills while one of [scores] plays; invisible otherwise, so the page doesn't jump. */

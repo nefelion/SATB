@@ -109,6 +109,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -151,10 +153,18 @@ import kotlin.math.roundToInt
 
 private val BASES = listOf(1, 2, 4, 8, 16, 32, 64)
 
+/** Messages show on whichever page is on top: full-screen pages are their own windows and would hide the editor's. */
+private val LocalSnack = staticCompositionLocalOf<SnackbarHostState?> { null }
+
 @Composable
 fun EditorScreen(vm: EditorViewModel) {
-    val st by vm.state.collectAsState()
     val snack = remember { SnackbarHostState() }
+    CompositionLocalProvider(LocalSnack provides snack) { Editor(vm, snack) }
+}
+
+@Composable
+private fun Editor(vm: EditorViewModel, snack: SnackbarHostState) {
+    val st by vm.state.collectAsState()
     var settings by rememberSaveable { mutableStateOf(false) }
     var tempoDialog by rememberSaveable { mutableStateOf(false) }
     // Score-wide actions offer Undo; Clear also asks first
@@ -934,7 +944,7 @@ internal fun keyLabel(k: Key) = k.name + when {
 }
 
 @Composable
-private fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
+internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
     val sf2Picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importSf2) }
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
     if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
@@ -1089,19 +1099,22 @@ internal fun FullScreenPage(title: String, onDismiss: () -> Unit, content: andro
             }
         }
         Surface(Modifier.fillMaxSize().clearFocusOnTap(), color = MaterialTheme.colorScheme.surface) {
-            Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
-                Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(56.dp).clickable(onClick = onDismiss).semantics { contentDescription = "Back" },
-                        contentAlignment = Alignment.Center) { Text("←", fontSize = 22.sp) }
-                    Text(title, style = MaterialTheme.typography.titleLarge)
+            Box {
+                Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
+                    Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(56.dp).clickable(onClick = onDismiss).semantics { contentDescription = "Back" },
+                            contentAlignment = Alignment.Center) { Text("←", fontSize = 22.sp) }
+                        Text(title, style = MaterialTheme.typography.titleLarge)
+                    }
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        content = content,
+                    )
                 }
-                LazyColumn(
-                    Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    content = content,
-                )
+                LocalSnack.current?.let { SnackbarHost(it, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing)) }
             }
         }
     }
