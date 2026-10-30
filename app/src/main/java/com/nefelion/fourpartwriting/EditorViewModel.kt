@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.nefelion.fourpartwriting.audio.ChordGather
 import com.nefelion.fourpartwriting.audio.MidiIn
 import com.nefelion.fourpartwriting.audio.Synth
+import com.nefelion.fourpartwriting.audio.Tones
 import com.nefelion.fourpartwriting.engrave.Hit
 import com.nefelion.fourpartwriting.engrave.NOTE_POSITIONS
 import com.nefelion.fourpartwriting.engrave.NoteRef
@@ -97,6 +98,8 @@ data class UiState(
     val playing: Boolean = false,
     /** A lesson passage playing and how much of it has played (0..1). */
     val passage: Pair<Score, Float>? = null,
+    /** Who asked for the piano tones playing (see [EditorViewModel.playTones]), or null. */
+    val tone: String? = null,
     /** Onset of the slice under the playback cursor. */
     val playTime: Fraction? = null,
     val soundLoaded: Boolean = false,
@@ -245,6 +248,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Copy of the SoundFont made by older versions; still used until the user picks a file again. */
     private val sf2 = File(app.filesDir, "piano.sf2")
     private var playJob: Job? = null
+    private var toneJob: Job? = null
     /** Score whose solution was shown: solving it no longer finishes its lesson. shortcut: forgotten on restart, persist it if users game it. */
     private var solutionShown: String? = null
     /** SoundFont load started on app start, and a Play tap waiting for it. */
@@ -1117,6 +1121,20 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Plays modeled piano [tones] for [seconds] (infinite: until stopped), hammers at [hammers], for [tag]; works without a SoundFont.
+     * Held tones already sounding carry on into the new ones (see [Tones.play]).
+     */
+    fun playTones(tag: String, tones: List<Tones.Tone>, seconds: Double, hammers: List<Double>) {
+        Synth.stop(); playJob?.cancel(); toneJob?.cancel()
+        Tones.play(tones, hammers)
+        _state.update { it.copy(playing = false, playTime = null, passage = null, tone = tag) }
+        if (seconds.isFinite()) toneJob = viewModelScope.launch {
+            delay((seconds * 1000).toLong())
+            _state.update { it.copy(tone = null) }
+        }
+    }
+
     /** Opens lesson [i]'s passage read-only with the self-check started: the user finds its mistakes. */
     fun openLessonFind(i: Int) {
         val l = Lessons.ALL[i]
@@ -1320,7 +1338,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         runCatching { midi.connectBluetooth(adapter.getRemoteDevice(addr)) {} }
     }
 
-    override fun onCleared() { midi.stopScan(getApplication()); midi.close() }
+    override fun onCleared() { midi.stopScan(getApplication()); midi.close(); Tones.stop() }
 
     // ---------- sound ----------
 
@@ -1364,7 +1382,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun stop() {
         Synth.stop()
         playJob?.cancel()
-        _state.update { it.copy(playing = false, playTime = null, passage = null) }
+        Tones.stop()
+        toneJob?.cancel()
+        _state.update { it.copy(playing = false, playTime = null, passage = null, tone = null) }
     }
 
     fun importSf2(uri: Uri) = viewModelScope.launch {

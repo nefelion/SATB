@@ -20,6 +20,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -105,23 +106,45 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
     var info by rememberSaveable { mutableStateOf<Rule?>(null) }
     var settings by rememberSaveable { mutableStateOf(false) }
     val body = MaterialTheme.typography.bodyMedium
+    val spots = l.rules.flatMap { r -> IN_BACH[r].orEmpty().map { r to it } }
+    // Steps are numbered by what this lesson has
+    val sections = listOfNotNull("A note is many notes".takeIf { l.lab }, "What it means".takeIf { l.lab }, "Hear it".takeIf { l.hear != null },
+        "Why".takeIf { l.why != null }, "Watch it done".takeIf { l.watch != null }, "Try it", "Find it yourself",
+        "In Bach's chorales".takeIf { spots.isNotEmpty() }, "Use it")
+    fun section(name: String) = "${sections.indexOf(name) + 1} · $name"
+    // Closing the lesson silences what it plays (the overtone card holds a tone until told otherwise); rotating does not
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    DisposableEffect(i) {
+        onDispose {
+            val activity = generateSequence(ctx) { (it as? android.content.ContextWrapper)?.baseContext }.filterIsInstance<android.app.Activity>().firstOrNull()
+            if (activity?.isChangingConfigurations != true) vm.stop()
+        }
+    }
 
     FullScreenPage("${i + 1}. ${l.title}", onDismiss) {
-        item { Text(l.idea, Modifier.widthIn(max = 640.dp).fillMaxWidth(), style = body, color = muted) }
+        // A lab lesson starts with sound and needs no summary first
+        if (!l.lab) item { Text(l.idea, Modifier.widthIn(max = 640.dp).fillMaxWidth(), style = body, color = muted) }
         // This page covers the editor's snackbar, so say here why Play is silent
         if (!st.soundLoaded) item {
             Row(Modifier.widthIn(max = 640.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (st.soundLoading) "Loading the sound…" else "No sound yet: load a SoundFont (.sf2) to hear the examples.",
-                    Modifier.weight(1f), style = body, color = MaterialTheme.colorScheme.error)
+                // The note card synthesizes its own piano; everything else needs the SoundFont
+                Text(when { st.soundLoading -> "Loading the sound…"; l.lab -> "Step 1 plays its own sound. Load a SoundFont (.sf2) for the rest."
+                    else -> "No sound yet: load a SoundFont (.sf2) to hear the examples." },
+                    Modifier.weight(1f), style = body, color = if (l.lab) muted else MaterialTheme.colorScheme.error)
                 if (!st.soundLoading) TextButton({ settings = true }) { Text("Settings") }
             }
         }
 
-        item {
-            Group("1 · Hear it") {
-                Text(l.hear.question, style = body)
-                val a = if (l.hear.goodFirst) l.hear.good else l.hear.bad
-                val b = if (l.hear.goodFirst) l.hear.bad else l.hear.good
+        if (l.lab) {
+            item { Group(section("A note is many notes")) { NoteBuilder(st, vm) } }
+            item { Group(section("What it means")) { SeriesRules(vm) { info = it } } }
+        }
+
+        l.hear?.let { h -> item {
+            Group(section("Hear it")) {
+                Text(h.question, style = body)
+                val a = if (h.goodFirst) h.good else h.bad
+                val b = if (h.goodFirst) h.bad else h.good
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { vm.playPassage(a) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Play A") }
                     OutlinedButton(onClick = { vm.playPassage(b) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Play B") }
@@ -131,28 +154,27 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
                     for (k in 0..1) FilledTonalButton(onClick = { heard = k }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(if (k == 0) "A" else "B") }
                 }
                 if (heard >= 0) {
-                    val right = (heard == 0) == l.hear.goodFirst
+                    val right = (heard == 0) == h.goodFirst
                     Text(if (right) "Yes." else "Listen again: it's the other one.", fontWeight = FontWeight.Bold, color = if (right) colors.ok else colors.warnText)
-                    Text(l.hear.answer, style = body)
+                    Text(h.answer, style = body)
                     Text("A", style = MaterialTheme.typography.labelLarge); MiniScore(a)
                     Text("B", style = MaterialTheme.typography.labelLarge); MiniScore(b)
                 }
             }
-        }
+        } }
 
-        item {
-            Group("2 · Why") {
-                Text(l.why, style = body)
+        l.why?.let { why -> item {
+            Group(section("Why")) {
+                Text(why, style = body)
                 Text("Checked from now on (tap for more):", style = MaterialTheme.typography.bodySmall, color = muted)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (r in l.rules) OutlinedButton(onClick = { info = r }, shape = SHAPE) { Text(r.label) }
                 }
             }
-        }
+        } }
 
-        item {
-            Group("3 · Watch it done") {
-                val w = l.watch
+        l.watch?.let { w -> item {
+            Group(section("Watch it done")) {
                 val (counts, caption) = w.steps[step]
                 val now = shown(w.score, counts)
                 val before = if (step > 0) shown(w.score, w.steps[step - 1].first) else Score(voices = List(4) { emptyList() })
@@ -168,10 +190,10 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
                 }
                 Progress(st, now)
             }
-        }
+        } }
 
         item {
-            Group("4 · Try it") {
+            Group(section("Try it")) {
                 l.tasks.forEachIndexed { k, t ->
                     if (k > 0) HorizontalDivider()
                     Text("${k + 1}. ${t.prompt}", style = body)
@@ -201,15 +223,14 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
         }
 
         item {
-            Group("5 · Find it yourself") {
+            Group(section("Find it yourself")) {
                 Text("Spot this lesson's mistakes in a short passage.", style = body)
                 FilledTonalButton(onClick = { vm.openLessonFind(i) }, shape = SHAPE) { Text("Open the passage") }
             }
         }
 
-        val spots = l.rules.flatMap { r -> IN_BACH[r].orEmpty().map { r to it } }
         if (spots.isNotEmpty()) item {
-            Group("6 · In Bach's chorales") {
+            Group(section("In Bach's chorales")) {
                 Text("Where Bach keeps or bends these rules. Tap to open.", style = body)
                 for ((r, spot) in spots) Column(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.openStudy(spot.study, r, spot.bar, spot.breaks, spot.note) }.padding(4.dp)) {
                     Text("${r.label}: ${spot.study}, bar ${spot.bar} · ${if (spot.breaks) "breaks it" else "keeps it"}", style = MaterialTheme.typography.labelLarge,
@@ -219,7 +240,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
         }
 
         item {
-            Group("7 · Use it") {
+            Group(section("Use it")) {
                 Text(l.apply, style = body)
                 Text("Solve one with no rule breaks to finish the lesson.",
                     style = MaterialTheme.typography.bodySmall, color = muted)
@@ -241,7 +262,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
 
 /** A bar that fills while one of [scores] plays; invisible otherwise, so the page doesn't jump. */
 @Composable
-private fun Progress(st: UiState, vararg scores: Score) {
+internal fun Progress(st: UiState, vararg scores: Score) {
     val p = st.passage?.takeIf { it.first in scores }?.second
     LinearProgressIndicator(progress = { p ?: 0f }, modifier = Modifier.fillMaxWidth().alpha(if (p == null) 0f else 1f))
 }
@@ -254,7 +275,7 @@ private fun shown(score: Score, counts: String) = score.copy(voices = Voice.entr
  * (the whole passage, whose size the drawing keeps, so it does not jump while notes appear).
  */
 @Composable
-private fun MiniScore(score: Score, colors: Map<NoteRef, Color> = emptyMap(), frame: Score = score) {
+internal fun MiniScore(score: Score, colors: Map<NoteRef, Color> = emptyMap(), frame: Score = score) {
     val sc = LocalScoreColors.current
     val bravura = rememberBravura()
     val paints = remember(bravura) { Paints(bravura) }

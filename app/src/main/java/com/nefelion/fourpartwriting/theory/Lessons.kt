@@ -8,22 +8,25 @@ import com.nefelion.fourpartwriting.model.Voice
 
 /**
  * A guided lesson on one idea of voice leading, in seven steps: hear it, why, watch it done, try it,
- * find it in a passage, see it in Bach, apply it in an exercise. LessonsTest checks every passage against the checker.
+ * find it in a passage, see it in Bach, apply it in an exercise. A [lab] lesson shows the overtone cards
+ * instead of the first three. LessonsTest checks every passage against the checker.
  */
 class Lesson(
     val title: String,
     /** One line on the lessons list. */
     val idea: String,
-    val hear: Hear,
-    val why: String,
+    val hear: Hear?,
+    val why: String?,
     /** Rules this lesson adds; a lesson's check uses these and those of the lessons before it. */
     val rules: List<Rule>,
-    val watch: Watch,
+    val watch: Watch?,
     val tasks: List<Task>,
     /** A passage with mistakes of this lesson to find yourself, and the message shown with it. */
     val find: Score, val findNote: String,
     /** What the exercise asks for, and its chords (names as in [Exercises]). */
     val apply: String, val chords: Set<String>,
+    /** Shows the overtone cards (a note built from its partials, then what that means for voicing). */
+    val lab: Boolean = false,
 )
 
 /** Two versions of a passage to play; [goodFirst]: version A is the good one. [answer] explains the difference. */
@@ -54,14 +57,42 @@ object Lessons {
     /** The rules a score of lesson [i] is checked with. */
     fun rulesUpTo(i: Int): Set<Rule> = BASE + ALL.take(i + 1).flatMap { it.rules }
 
-    /** Whole-note chords "S A T B", one per bar of 4/4, in C major. */
-    private fun chords(vararg cs: String) = Score(voices = Voice.entries.map { v ->
-        cs.map { c -> c.split(" ")[v.ordinal].let { Event(Fraction.of(1, 1), if (it == "r") null else Pitch.parse(it)) } }
+    /** Chords "S A T B" in C major, whole notes (one per bar of 4/4) unless [len] says otherwise. */
+    private fun chords(vararg cs: String, len: Fraction = Fraction.of(1, 1)) = Score(voices = Voice.entries.map { v ->
+        cs.map { c -> c.split(" ")[v.ordinal].let { Event(len, if (it == "r") null else Pitch.parse(it)) } }
     })
 
     private fun opt(note: String, v: Verdict, text: String) = Option(Pitch.parse(note), v, text)
 
     val ALL: List<Lesson> = listOf(
+        Lesson(
+            title = "The sound inside a note",
+            idea = "What you really hear when one note plays.",
+            hear = null, why = null, watch = null,
+            rules = listOf(Rule.DOUBLING, Rule.SPACING, Rule.SIX_FOUR),
+            tasks = listOf(
+                Task("C major over C3. Which alto note?", chords("E5 C5 G4 C3"), Voice.ALTO, listOf(
+                    opt("C5", Verdict.BEST, "The root, overtone 4 of the bass."),
+                    opt("G4", Verdict.OK, "The fifth, overtone 3: fine."),
+                    opt("E5", Verdict.WRONG, "E is already overtone 5 of the bass: now it takes over."),
+                )),
+                Task("A minor (A, C, E). Which tenor note?", chords("C5 E4 A3 A2"), Voice.TENOR, listOf(
+                    opt("A3", Verdict.BEST, "The root, overtone 2 of the bass."),
+                    opt("C4", Verdict.OK, "Fine in minor: C is not among A's overtones."),
+                    opt("C3", Verdict.WRONG, "Over an octave below the alto: close at the top, not wide."),
+                )),
+                Task("C major over G (a ⁶₄), then G major. Which alto note?", chords("E5 C5 G4 G3", "D5 B4 G4 G3", len = Fraction.of(1, 2)), Voice.ALTO, listOf(
+                    opt("B4", Verdict.BEST, "C falls to B, overtone 5 of G: the chord rests."),
+                    opt("C5", Verdict.WRONG, "Still a fourth over the bass, and no third."),
+                    opt("D5", Verdict.WRONG, "No third."),
+                )),
+            ),
+            find = chords("E5 G4 E4 C3", "F5 A4 C4 F3", "C5 G4 E4 G3", "C5 A4 E3 A2"),
+            findNote = "Three chords go against the overtones. Tap a note in each, then Reveal.",
+            apply = "Add soprano, alto and tenor over I, IV and V: root doubled, wide at the bottom, close at the top.",
+            chords = setOf("I", "IV", "V"),
+            lab = true,
+        ),
         Lesson(
             title = "One chord, four singers",
             idea = "Three notes, four voices: what to double, where each voice goes.",
@@ -72,7 +103,7 @@ object Lessons {
             ),
             why = "Four voices, three notes: one note is doubled. The root is the usual choice; the fifth works too. " +
                 "Keep the third: it makes the chord major or minor. Keep soprano, alto and tenor within an octave of each other.",
-            rules = listOf(Rule.MISSING_THIRD, Rule.DOUBLING, Rule.SPACING, Rule.RANGE, Rule.CROSSING),
+            rules = listOf(Rule.MISSING_THIRD, Rule.RANGE, Rule.CROSSING),
             watch = Watch(chords("D5 G4 B3 G3"), listOf(
                 "0001" to "Bass first: G, the root of G major (G, B, D).",
                 "1001" to "Soprano: any chord note. Here D.",

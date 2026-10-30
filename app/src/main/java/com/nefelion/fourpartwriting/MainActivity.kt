@@ -71,5 +71,5 @@ class MainActivity : ComponentActivity() {
 
     // The audio stream only runs while the app is visible.
     override fun onStart() { super.onStart(); Synth.start() }
-    override fun onStop() { vm.saveNow(); Synth.close(); super.onStop() }
+    override fun onStop() { vm.saveNow(); if (!isChangingConfigurations) vm.stop(); Synth.close(); super.onStop() }
 }

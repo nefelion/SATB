@@ -20,3 +20,4 @@ local.properties
 *.sf2
 *.stackdump
 keystore.properties
+copySATB.bat
