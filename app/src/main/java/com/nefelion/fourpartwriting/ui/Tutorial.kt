@@ -90,12 +90,7 @@ fun Tutorial(onDone: () -> Unit) {
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { if (!last) TextButton(onClick = onDone) { Text("Skip") } }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    repeat(pages.size) { i ->
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(
-                            if (i == pager.currentPage) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline))
-                    }
-                }
+                Dots(pages.size, pager.currentPage)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                     Button(onClick = { if (last) onDone() else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }) {
                         Text(if (last) "Start writing" else "Next")
@@ -103,6 +98,15 @@ fun Tutorial(onDone: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** One dot per page, the [current] one filled with the primary color. */
+@Composable
+internal fun Dots(count: Int, current: Int) = Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    repeat(count) { i ->
+        Box(Modifier.size(8.dp).clip(CircleShape).background(
+            if (i == current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline))
     }
 }
 

@@ -4,7 +4,14 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -14,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -22,6 +28,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -60,14 +68,18 @@ import com.nefelion.fourpartwriting.theory.Rule
 import com.nefelion.fourpartwriting.theory.Verdict
 import com.nefelion.fourpartwriting.theory.VoiceLeading
 import com.nefelion.fourpartwriting.ui.theme.LocalScoreColors
+import kotlinx.coroutines.launch
 
-/** One lesson's steps on a page; [header] shows its number and title, [onNext] opens the next lesson. Choices stay on rotation. */
+/**
+ * One lesson as swipeable steps with Back / Next below, like the welcome pages; [header] shows its number and title,
+ * [onNext] opens the next lesson. It opens on the step it was left on. Choices stay on rotation.
+ */
 @Composable
 internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Composable RowScope.() -> Unit, onNext: () -> Unit, onDismiss: () -> Unit) {
     val l = Lessons.ALL[i]
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val colors = LocalScoreColors.current
-    // Keyed by lesson, so the next lesson starts fresh
+    // Kept here, not in a step: the pager drops steps out of view
     var heard by rememberSaveable(i) { mutableIntStateOf(-1) }
     var step by rememberSaveable(i) { mutableIntStateOf(0) }
     var picks by rememberSaveable(i) { mutableStateOf(IntArray(l.tasks.size) { -1 }) }
@@ -76,11 +88,6 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
     var replacing by rememberSaveable { mutableStateOf(false) }
     val body = MaterialTheme.typography.bodyMedium
     val spots = l.rules.flatMap { r -> IN_BACH[r].orEmpty().map { r to it } }
-    // Steps are numbered by what this lesson has
-    val sections = listOfNotNull("A note is many notes".takeIf { l.lab }, "What it means".takeIf { l.lab }, "Hear it".takeIf { l.hear != null },
-        "Why".takeIf { l.why != null }, "Watch it done".takeIf { l.watch != null }, "Try it", "Find it yourself",
-        "In Bach's chorales".takeIf { spots.isNotEmpty() }, "Use it")
-    fun section(name: String) = "${sections.indexOf(name) + 1} · $name"
     // Closing the lesson silences what it plays (the overtone card holds a tone until told otherwise); rotating does not
     val ctx = androidx.compose.ui.platform.LocalContext.current
     DisposableEffect(i) {
@@ -90,140 +97,145 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
         }
     }
 
-    Page("${i + 1}. ${l.title}", onDismiss, header) {
-        // A lab lesson starts with sound and needs no summary first
-        if (!l.lab) item { Text(l.idea, Modifier.widthIn(max = 640.dp).fillMaxWidth(), style = body, color = muted) }
-        // This page covers the editor's snackbar, so say here why Play is silent
-        if (!st.canPlay) item {
-            Row(Modifier.widthIn(max = 640.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                // The note card synthesizes its own sound; everything else needs the chosen instrument
-                Text(when { st.soundLoading -> "Loading the sound…"; l.lab -> "Step 1 plays its own sound. Load a SoundFont (.sf2) or pick the built-in piano for the rest."
-                    else -> "No sound yet: load a SoundFont (.sf2) or pick the built-in piano to hear the examples." },
-                    Modifier.weight(1f), style = body, color = if (l.lab) muted else MaterialTheme.colorScheme.error)
-                if (!st.soundLoading) TextButton({ settings = true }) { Text("Settings") }
-            }
-        }
-
+    // The steps this lesson has, each a title and its content
+    val steps = buildList<Pair<String, @Composable ColumnScope.() -> Unit>> {
         if (l.lab) {
-            item { Group(section("A note is many notes")) { NoteBuilder(st, vm) } }
-            item { Group(section("What it means")) { SeriesRules(vm) { info = it } } }
+            add("A note is many notes" to { NoteBuilder(st, vm) })
+            add("What it means" to { SeriesRules(vm) { info = it } })
         }
 
-        l.hear?.let { h -> item {
-            Group(section("Hear it")) {
-                Text(h.question, style = body)
-                val a = if (h.goodFirst) h.good else h.bad
-                val b = if (h.goodFirst) h.bad else h.good
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { vm.playPassage(a) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Play A") }
-                    OutlinedButton(onClick = { vm.playPassage(b) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Play B") }
-                }
-                Progress(st, a, b)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (k in 0..1) FilledTonalButton(onClick = { heard = k }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(if (k == 0) "A" else "B") }
-                }
-                if (heard >= 0) {
-                    val right = (heard == 0) == h.goodFirst
-                    Text(if (right) "Yes." else "Listen again: it's the other one.", fontWeight = FontWeight.Bold, color = if (right) colors.ok else colors.warnText)
-                    Text(h.answer, style = body)
-                    Text("A", style = MaterialTheme.typography.labelLarge); MiniScore(a)
-                    Text("B", style = MaterialTheme.typography.labelLarge); MiniScore(b)
+        l.hear?.let { h -> add("Hear it" to {
+            Text(h.question, style = body)
+            val a = if (h.goodFirst) h.good else h.bad
+            val b = if (h.goodFirst) h.bad else h.good
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { vm.playPassage(a) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Play A") }
+                OutlinedButton(onClick = { vm.playPassage(b) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Play B") }
+            }
+            Progress(st, a, b)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (k in 0..1) FilledTonalButton(onClick = { heard = k }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(if (k == 0) "A" else "B") }
+            }
+            if (heard >= 0) {
+                val right = (heard == 0) == h.goodFirst
+                Text(if (right) "Yes." else "Listen again: it's the other one.", fontWeight = FontWeight.Bold, color = if (right) colors.ok else colors.warnText)
+                Text(h.answer, style = body)
+                Text("A", style = MaterialTheme.typography.labelLarge); MiniScore(a)
+                Text("B", style = MaterialTheme.typography.labelLarge); MiniScore(b)
+            }
+        }) }
+
+        l.why?.let { why -> add("Why" to {
+            Text(why, style = body)
+            Text("Checked from now on (tap for more):", style = MaterialTheme.typography.bodySmall, color = muted)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (r in l.rules) OutlinedButton(onClick = { info = r }, shape = SHAPE) { Text(r.label) }
+            }
+        }) }
+
+        l.watch?.let { w -> add("Watch it done" to {
+            val (counts, caption) = w.steps[step]
+            val now = shown(w.score, counts)
+            val before = if (step > 0) shown(w.score, w.steps[step - 1].first) else Score(voices = List(4) { emptyList() })
+            // The notes this step adds, in the "right" color
+            val added = Voice.entries.flatMap { v -> (before.voice(v).size until now.voice(v).size).map { NoteRef(v, it) } }
+            MiniScore(now, added.associateWith { colors.ok }, frame = w.score)
+            Text("Step ${step + 1} of ${w.steps.size}", style = MaterialTheme.typography.labelLarge, color = muted)
+            Text(caption, style = body, minLines = 3)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { step-- }, enabled = step > 0, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Back") }
+                OutlinedButton(onClick = { vm.playPassage(now) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Play") }
+                FilledTonalButton(onClick = { step++ }, enabled = step < w.steps.lastIndex, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Next") }
+            }
+            Progress(st, now)
+        }) }
+
+        // One step per task
+        l.tasks.forEachIndexed { k, t -> add((if (l.tasks.size > 1) "Try it (${k + 1} of ${l.tasks.size})" else "Try it") to {
+            Text(t.prompt, style = body)
+            val pick = t.options.getOrNull(picks[k])
+            val verdictColor = when (pick?.verdict) { Verdict.BEST -> colors.ok; Verdict.OK -> colors.warnNote; Verdict.WRONG -> colors.errorNote; null -> Color.Unspecified }
+            val target = NoteRef(t.voice, t.score.voice(t.voice).lastIndex)
+            MiniScore(if (pick == null) t.open else t.with(pick.note), if (pick == null) emptyMap() else mapOf(target to verdictColor), frame = t.score)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                t.options.forEachIndexed { o, opt ->
+                    val choose = { picks = picks.copyOf().also { it[k] = o }; vm.playPassage(t.with(opt.note)) }
+                    if (picks[k] == o) Button(onClick = choose, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(opt.note.name) }
+                    else OutlinedButton(onClick = choose, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(opt.note.name) }
                 }
             }
-        } }
-
-        l.why?.let { why -> item {
-            Group(section("Why")) {
-                Text(why, style = body)
-                Text("Checked from now on (tap for more):", style = MaterialTheme.typography.bodySmall, color = muted)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (r in l.rules) OutlinedButton(onClick = { info = r }, shape = SHAPE) { Text(r.label) }
+            Progress(st, t.score, *t.options.map { t.with(it.note) }.toTypedArray())
+            if (pick != null) {
+                Text(when (pick.verdict) { Verdict.BEST -> "Best"; Verdict.OK -> "Works, but not the best"; Verdict.WRONG -> "Not this one" },
+                    fontWeight = FontWeight.Bold, color = when (pick.verdict) { Verdict.BEST -> colors.ok; Verdict.OK -> colors.warnText; Verdict.WRONG -> colors.errorText })
+                Text(pick.text, style = body)
+                if (pick.verdict != Verdict.BEST) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { vm.playPassage(t.with(pick.note)) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Yours") }
+                    OutlinedButton(onClick = { vm.playPassage(t.score) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ The best") }
                 }
             }
-        } }
+        }) }
 
-        l.watch?.let { w -> item {
-            Group(section("Watch it done")) {
-                val (counts, caption) = w.steps[step]
-                val now = shown(w.score, counts)
-                val before = if (step > 0) shown(w.score, w.steps[step - 1].first) else Score(voices = List(4) { emptyList() })
-                // The notes this step adds, in the "right" color
-                val added = Voice.entries.flatMap { v -> (before.voice(v).size until now.voice(v).size).map { NoteRef(v, it) } }
-                MiniScore(now, added.associateWith { colors.ok }, frame = w.score)
-                Text("Step ${step + 1} of ${w.steps.size}", style = MaterialTheme.typography.labelLarge, color = muted)
-                Text(caption, style = body, minLines = 3)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { step-- }, enabled = step > 0, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Back") }
-                    OutlinedButton(onClick = { vm.playPassage(now) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Play") }
-                    FilledTonalButton(onClick = { step++ }, enabled = step < w.steps.lastIndex, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Next") }
-                }
-                Progress(st, now)
+        add("Find it yourself" to {
+            Text("Spot this lesson's mistakes in a short passage.", style = body)
+            FilledTonalButton(onClick = { vm.openLessonFind(i) }, shape = SHAPE) { Text("Open the passage") }
+        })
+
+        if (spots.isNotEmpty()) add("In Bach's chorales" to {
+            Text("Where Bach keeps or bends these rules. Tap to open.", style = body)
+            for ((r, spot) in spots) Column(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.openStudy(spot.study, r, spot.bar, spot.breaks, spot.note) }.padding(4.dp)) {
+                Text("${r.label}: ${spot.study}, bar ${spot.bar} · ${if (spot.breaks) "breaks it" else "keeps it"}", style = MaterialTheme.typography.labelLarge,
+                    color = if (spot.breaks) colors.warnText else colors.ok)
             }
-        } }
+        })
 
-        item {
-            Group(section("Try it")) {
-                l.tasks.forEachIndexed { k, t ->
-                    if (k > 0) HorizontalDivider()
-                    Text("${k + 1}. ${t.prompt}", style = body)
-                    val pick = t.options.getOrNull(picks[k])
-                    val verdictColor = when (pick?.verdict) { Verdict.BEST -> colors.ok; Verdict.OK -> colors.warnNote; Verdict.WRONG -> colors.errorNote; null -> Color.Unspecified }
-                    val target = NoteRef(t.voice, t.score.voice(t.voice).lastIndex)
-                    MiniScore(if (pick == null) t.open else t.with(pick.note), if (pick == null) emptyMap() else mapOf(target to verdictColor), frame = t.score)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        t.options.forEachIndexed { o, opt ->
-                            val choose = { picks = picks.copyOf().also { it[k] = o }; vm.playPassage(t.with(opt.note)) }
-                            if (picks[k] == o) Button(onClick = choose, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(opt.note.name) }
-                            else OutlinedButton(onClick = choose, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(opt.note.name) }
-                        }
-                    }
-                    Progress(st, t.score, *t.options.map { t.with(it.note) }.toTypedArray())
-                    if (pick != null) {
-                        Text(when (pick.verdict) { Verdict.BEST -> "Best"; Verdict.OK -> "Works, but not the best"; Verdict.WRONG -> "Not this one" },
-                            fontWeight = FontWeight.Bold, color = when (pick.verdict) { Verdict.BEST -> colors.ok; Verdict.OK -> colors.warnText; Verdict.WRONG -> colors.errorText })
-                        Text(pick.text, style = body)
-                        if (pick.verdict != Verdict.BEST) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { vm.playPassage(t.with(pick.note)) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Yours") }
-                            OutlinedButton(onClick = { vm.playPassage(t.score) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ The best") }
-                        }
-                    }
-                }
+        add("Use it" to {
+            Text(l.apply, style = body)
+            Text("Solve one with no rule breaks to finish the lesson.",
+                style = MaterialTheme.typography.bodySmall, color = muted)
+            if (i in st.lessonsDone) Text("✓ Lesson done", fontWeight = FontWeight.Bold, color = colors.ok)
+            // One exercise per lesson: your work on it is kept until you ask for a new one
+            if (i in st.lessonSaved) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { vm.openLessonExercise(i) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Continue exercise") }
+                OutlinedButton(onClick = { replacing = true }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("New exercise") }
+            } else Button(onClick = { vm.openLessonExercise(i) }, shape = SHAPE) { Text("Start exercise") }
+        })
+    }
+
+    val pager = rememberPagerState(remember(i) { vm.lessonStep(i).coerceIn(0, steps.lastIndex) }) { steps.size }
+    LaunchedEffect(pager.currentPage) { vm.setLessonStep(i, pager.currentPage) }
+    val scope = rememberCoroutineScope()
+    val p = pager.currentPage
+    val last = p == steps.lastIndex
+
+    PageFrame("${i + 1}. ${l.title}", onDismiss, header) {
+        // This page covers the editor's snackbar, so say here why Play is silent
+        if (!st.canPlay) Row(Modifier.padding(horizontal = 16.dp).widthIn(max = 640.dp).fillMaxWidth().align(Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+            // The note card synthesizes its own sound; everything else needs the chosen instrument
+            Text(when { st.soundLoading -> "Loading the sound…"; l.lab -> "Step 1 plays its own sound. Load a SoundFont (.sf2) or pick the built-in piano for the rest."
+                else -> "No sound yet: load a SoundFont (.sf2) or pick the built-in piano to hear the examples." },
+                Modifier.weight(1f), style = body, color = if (l.lab) muted else MaterialTheme.colorScheme.error)
+            if (!st.soundLoading) TextButton({ settings = true }) { Text("Settings") }
+        }
+        HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.Top) { k ->
+            val (title, content) = steps[k]
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                // A lab lesson starts with sound and needs no summary first
+                if (k == 0 && !l.lab) Text(l.idea, Modifier.widthIn(max = 640.dp).fillMaxWidth(), style = body, color = muted)
+                Group("${k + 1} · $title", content = content)
             }
         }
-
-        item {
-            Group(section("Find it yourself")) {
-                Text("Spot this lesson's mistakes in a short passage.", style = body)
-                FilledTonalButton(onClick = { vm.openLessonFind(i) }, shape = SHAPE) { Text("Open the passage") }
-            }
-        }
-
-        if (spots.isNotEmpty()) item {
-            Group(section("In Bach's chorales")) {
-                Text("Where Bach keeps or bends these rules. Tap to open.", style = body)
-                for ((r, spot) in spots) Column(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.openStudy(spot.study, r, spot.bar, spot.breaks, spot.note) }.padding(4.dp)) {
-                    Text("${r.label}: ${spot.study}, bar ${spot.bar} · ${if (spot.breaks) "breaks it" else "keeps it"}", style = MaterialTheme.typography.labelLarge,
-                        color = if (spot.breaks) colors.warnText else colors.ok)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { if (p > 0) TextButton({ scope.launch { pager.animateScrollToPage(p - 1) } }) { Text("Back") } }
+            Dots(steps.size, p)
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                when {
+                    !last -> Button({ scope.launch { pager.animateScrollToPage(p + 1) } }) { Text("Next") }
+                    i < Lessons.ALL.lastIndex -> Button(onNext, enabled = !locked(i + 1, st.lessonsDone, st.allUnlocked)) { Text("Next lesson") }
+                    else -> Button(onDismiss) { Text("Done") }
                 }
             }
-        }
-
-        item {
-            Group(section("Use it")) {
-                Text(l.apply, style = body)
-                Text("Solve one with no rule breaks to finish the lesson.",
-                    style = MaterialTheme.typography.bodySmall, color = muted)
-                if (i in st.lessonsDone) Text("✓ Lesson done", fontWeight = FontWeight.Bold, color = colors.ok)
-                // One exercise per lesson: your work on it is kept until you ask for a new one
-                if (i in st.lessonSaved) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { vm.openLessonExercise(i) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Continue exercise") }
-                    OutlinedButton(onClick = { replacing = true }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("New exercise") }
-                } else Button(onClick = { vm.openLessonExercise(i) }, shape = SHAPE) { Text("Start exercise") }
-            }
-        }
-
-        if (i < Lessons.ALL.lastIndex) item {
-            FilledTonalButton(onClick = onNext, enabled = !locked(i + 1, st.lessonsDone, st.allUnlocked), shape = SHAPE) { Text("Next lesson: ${Lessons.ALL[i + 1].title}") }
         }
     }
     info?.let { r ->

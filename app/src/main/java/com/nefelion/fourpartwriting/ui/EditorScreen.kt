@@ -1109,7 +1109,20 @@ internal fun FullScreenPage(title: String, onDismiss: () -> Unit, content: andro
 /** A page with a back arrow and [title] over a list; [header] replaces the plain title (a lesson's shared badge). */
 @Composable
 internal fun Page(title: String, onBack: () -> Unit, header: (@Composable RowScope.() -> Unit)? = null,
-                  content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+                  content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) = PageFrame(title, onBack, header) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        content = content,
+    )
+}
+
+/** [Page]'s frame (back arrow and title) around any [body]. */
+@Composable
+internal fun PageFrame(title: String, onBack: () -> Unit, header: (@Composable RowScope.() -> Unit)? = null,
+                       body: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     Surface(Modifier.fillMaxSize().clearFocusOnTap(), color = MaterialTheme.colorScheme.surface) {
         Box {
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -1118,13 +1131,7 @@ internal fun Page(title: String, onBack: () -> Unit, header: (@Composable RowSco
                         contentAlignment = Alignment.Center) { Text("←", fontSize = 22.sp) }
                     if (header != null) header() else Text(title, style = MaterialTheme.typography.titleLarge)
                 }
-                LazyColumn(
-                    Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    content = content,
-                )
+                body()
             }
             LocalSnack.current?.let { SnackbarHost(it, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing)) }
         }

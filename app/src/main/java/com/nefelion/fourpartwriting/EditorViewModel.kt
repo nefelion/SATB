@@ -692,6 +692,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putBoolean("tutorialSeen", true).apply()
     }
 
+    /** The step lesson [i] was last on, so it opens there again. */
+    fun lessonStep(i: Int) = prefs.getInt("lessonStep$i", 0)
+    fun setLessonStep(i: Int, step: Int) = prefs.edit().putInt("lessonStep$i", step).apply()
+
     fun unlockAllLessons() {
         _state.update { it.copy(allUnlocked = true) }
         prefs.edit().putBoolean("allUnlocked", true).apply()
