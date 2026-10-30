@@ -264,7 +264,8 @@ private fun phase(t: Float, a: Float, b: Float) = ((t - a) / (b - a)).coerceIn(0
  */
 @Composable
 fun RuleInfoDialog(
-    rule: Rule, enabled: Boolean, onToggle: () -> Unit,
+    /** [onToggle] null: the rule can't be switched off here (a lesson's score). */
+    rule: Rule, enabled: Boolean, onToggle: (() -> Unit)?,
     onIgnoreHere: (() -> Unit)? = null, onIgnoreInScore: (() -> Unit)? = null,
     onStudy: ((BachSpot) -> Unit)? = null,
     onDismiss: () -> Unit,
@@ -294,7 +295,8 @@ fun RuleInfoDialog(
                         Text("›", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onToggle == null) Text("Always checked in lessons.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Check this rule", Modifier.weight(1f))
                     Switch(checked = enabled, onCheckedChange = { onToggle() })
                 }

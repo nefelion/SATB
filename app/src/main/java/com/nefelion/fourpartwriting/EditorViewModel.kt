@@ -88,6 +88,8 @@ data class UiState(
     val focusedIssue: Int? = null,
     /** A check whose results stay hidden while the user marks the notes they think are wrong. */
     val quiz: Quiz? = null,
+    /** Title and text of a note shown over the score until closed (a Bach spot, a lesson's task). */
+    val note: Pair<String, String>? = null,
     /** ✓ asks the user to find the mistakes first. */
     val selfCheck: Boolean = true,
     /** Lessons (indexes into Lessons.ALL) whose exercise has been solved. */
@@ -307,6 +309,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private val s get() = _state.value
     private fun msg(m: String) = _state.update { it.copy(message = m) }
     fun clearMessage() = _state.update { it.copy(message = null) }
+    fun closeNote() = _state.update { it.copy(note = null) }
 
     /** Applies a score edit with undo; re-runs the check if results are shown. False when refused. */
     private fun edit(
@@ -903,7 +906,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (study == null) prefs.edit().putString("current", name).apply()
         _state.update {
             it.copy(scoreName = name, score = score, study = study, scores = library.list(), undo = emptyList(), redo = emptyList(),
-                selected = null, selectedAt = null, placed = false, analysis = null, quiz = null, focusedIssue = null, reorder = emptyList(),
+                selected = null, selectedAt = null, placed = false, analysis = null, quiz = null, focusedIssue = null, reorder = emptyList(), note = null,
                 moving = if (study != null) true else if (it.study != null) false else it.moving, openTick = it.openTick + 1)
         }
         Synth.setTempo(score.qpm)
@@ -1088,7 +1091,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             val start = sc.bar(bar - if (sc.pickup != null) 0 else 1).start
             _state.update { it.copy(selected = refAt(sc, Voice.SOPRANO, start), selectedAt = start, followTick = it.followTick + 1) }
         }
-        note?.let { msg("$id, bar $bar: $it") }
+        note?.let { n -> _state.update { it.copy(note = "$id, bar $bar · ${rule.label}, ${if (breaks) "bent" else "kept"}" to n) } }
     }
 
     // ---------- lessons ----------
@@ -1106,8 +1109,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         flushScore()
         val sc = l.find.copy(lesson = i)
         show("Lesson ${i + 1}: find the mistakes", sc, "Lesson ${i + 1}")
-        _state.update { it.copy(quiz = Quiz(VoiceLeading.check(sc, it.checkRules))) }
-        msg(l.findNote)
+        _state.update { it.copy(quiz = Quiz(VoiceLeading.check(sc, it.checkRules)), note = "Find the mistakes" to l.findNote) }
     }
 
     /** A new exercise with lesson [i]'s chords, checked with its rules. */

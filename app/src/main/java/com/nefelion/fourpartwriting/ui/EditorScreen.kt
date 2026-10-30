@@ -177,7 +177,8 @@ fun EditorScreen(vm: EditorViewModel) {
             HorizontalDivider()
             if (st.score.given.isNotEmpty()) {
                 item("Show a solution", false) { vm.showSolution() }
-                item("New exercise", false) { exercise = true }
+                // In a lesson exercise: another one of the same lesson
+                item("New exercise", false) { st.score.lesson?.let(vm::newLessonExercise) ?: run { exercise = true } }
                 HorizontalDivider()
             }
             item("Hint", false) { vm.hint() }
@@ -236,6 +237,7 @@ fun EditorScreen(vm: EditorViewModel) {
                         edges = edges,
                     )
                     if (st.reorder.isNotEmpty()) ReorderPrompt(st, vm, Modifier.align(Alignment.TopCenter).padding(8.dp))
+                    st.note?.let { NoteCard(it, vm::closeNote, Modifier.align(Alignment.BottomCenter).padding(8.dp)) }
                 }
                 if (st.quiz?.revealed == false) QuizBar(st, vm, safe.only(WindowInsetsSides.Horizontal))
                 st.analysis?.let { IssuesStrip(st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide, onUndoable = { undoable = it }) }
@@ -373,6 +375,20 @@ private fun ReorderPrompt(st: UiState, vm: EditorViewModel, modifier: Modifier) 
                 style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
             TextButton(onClick = vm::keepOrder) { Text("Dismiss") }
             FilledTonalButton(onClick = vm::reorderVoices) { Text("Reorder S A T B") }
+        }
+    }
+}
+
+/** A note over the score that stays until closed: a Bach spot's explanation, a lesson's task. */
+@Composable
+private fun NoteCard(note: Pair<String, String>, onClose: () -> Unit, modifier: Modifier) {
+    Surface(modifier.widthIn(max = 560.dp), shape = RoundedCornerShape(14.dp), tonalElevation = 6.dp, shadowElevation = 6.dp) {
+        Column(Modifier.padding(start = 14.dp, end = 4.dp, bottom = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(note.first, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                TextButton(onClick = onClose) { Text("Close") }
+            }
+            Text(note.second, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 10.dp))
         }
     }
 }
@@ -812,9 +828,11 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
     info?.let { key ->
         val r = Rule.valueOf(key.substringBefore('@'))
         val i = a.issues.indexOfFirst { VoiceLeading.ignoreKey(it, a.slices) == key }
-        RuleInfoDialog(r, r in st.rules, onToggle = { vm.toggleRule(r) },
-            onIgnoreHere = if (i < 0) null else ({ info = null; vm.ignoreIssue(i); onUndoable("Issue ignored") }),
-            onIgnoreInScore = { info = null; vm.ignoreRuleInScore(r); onUndoable("${r.label} ignored in this score") },
+        // A lesson's rules are locked: no switching off, no ignoring
+        val lesson = st.score.lesson != null
+        RuleInfoDialog(r, r in st.rules, onToggle = if (lesson) null else ({ vm.toggleRule(r) }),
+            onIgnoreHere = if (i < 0 || lesson) null else ({ info = null; vm.ignoreIssue(i); onUndoable("Issue ignored") }),
+            onIgnoreInScore = if (lesson) null else ({ info = null; vm.ignoreRuleInScore(r); onUndoable("${r.label} ignored in this score") }),
             onStudy = { info = null; vm.openStudy(it.study, r, it.bar, it.breaks, it.note) },
         ) { info = null }
     }
@@ -1013,8 +1031,8 @@ private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
 
 /** Rule name and one-line description, an ⓘ button for the animated example, and its switch. */
 @Composable
-internal fun RuleRow(r: Rule, checked: Boolean, onInfo: () -> Unit, onToggle: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(onClick = onToggle).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+internal fun RuleRow(r: Rule, checked: Boolean, onInfo: () -> Unit, locked: Boolean = false, onToggle: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(enabled = !locked, onClick = onToggle).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(r.label)
             Text(r.desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1022,7 +1040,7 @@ internal fun RuleRow(r: Rule, checked: Boolean, onInfo: () -> Unit, onToggle: ()
         }
         Box(Modifier.size(48.dp).clip(CircleShape).clickable(onClick = onInfo).semantics { contentDescription = "About ${r.label}" },
             contentAlignment = Alignment.Center) { Text("ⓘ", fontSize = 22.sp, color = MaterialTheme.colorScheme.primary) }
-        Switch(checked = checked, onCheckedChange = { onToggle() })
+        Switch(checked = checked, onCheckedChange = { onToggle() }, enabled = !locked)
     }
 }
 

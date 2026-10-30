@@ -257,16 +257,20 @@ private fun StudyPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit, o
 @Composable
 private fun ScoreRulesPage(name: String, sc: Score, st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
     var info by rememberSaveable { mutableStateOf<Rule?>(null) }
-    info?.let { r -> RuleInfoDialog(r, r.name !in sc.rulesOff, onToggle = { vm.toggleScoreRule(name, r) },
+    val locked = sc.lesson != null
+    info?.let { r -> RuleInfoDialog(r, locked || r.name !in sc.rulesOff, onToggle = if (locked) null else ({ vm.toggleScoreRule(name, r) }),
         onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null } }
     FullScreenPage("Rules · $name", onDismiss) {
         item {
             Group("Checked in this score") {
-                for (r in Rule.entries.filter { it in st.rules }) key(r.name) {
-                    RuleRow(r, r.name !in sc.rulesOff, onInfo = { info = r }) { vm.toggleScoreRule(name, r) }
+                // A lesson's score is checked with the rules taught so far, whatever Settings say
+                val rules = sc.lesson?.let(Lessons::rulesUpTo) ?: st.rules
+                for (r in Rule.entries.filter { it in rules }) key(r.name) {
+                    RuleRow(r, locked || r.name !in sc.rulesOff, onInfo = { info = r }, locked = locked) { vm.toggleScoreRule(name, r) }
                 }
-                if (st.rules.size < Rule.entries.size) Text("Rules switched off in Settings are not checked in any score.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val note = if (sc.lesson != null) "A lesson's score checks the rules taught up to that lesson. They can't be switched off."
+                    else if (st.rules.size < Rule.entries.size) "Rules switched off in Settings are not checked in any score." else null
+                note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
     }

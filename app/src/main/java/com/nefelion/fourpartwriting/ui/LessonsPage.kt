@@ -219,7 +219,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
         }
     }
     info?.let { r ->
-        RuleInfoDialog(r, r in st.rules, onToggle = { vm.toggleRule(r) },
+        RuleInfoDialog(r, true, onToggle = null,
             onStudy = { info = null; vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null }
     }
 }

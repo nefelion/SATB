@@ -35,15 +35,15 @@ enum class Rule(val label: String, val desc: String, val why: String, val how: S
     MISSING_VOICE("Missing voice", "Every voice should sound in every chord.",
         "Four-part writing needs four lines; a gap thins the harmony and breaks a melody.",
         "Write a note in every voice for every chord; tie or repeat a note instead of resting."),
-    MISSING_THIRD("Missing third", "Every chord needs its third.",
+    MISSING_THIRD("Missing third", "A chord sounds full with its third.",
         "The third decides major or minor; without it the chord sounds empty and its quality is unclear.",
         "Place the third first, then fill the other voices; drop the fifth if a note must go."),
     UNRECOGNIZED("Chord", "The notes should form a recognizable chord.",
         "Each sonority should have a clear harmonic function; an unclear chord leaves the listener without bearings.",
         "Decide the chord first, then voice it; mark passing notes so the chord stays clear."),
-    DOUBLING("Doubling", "Never double the leading tone or the seventh; in major triads double the root.",
+    DOUBLING("Doubling", "Avoid doubling the leading tone or the seventh; in major triads the root is the usual note to double.",
         "A doubled tendency tone must resolve the same way in both voices, which makes parallel octaves; the root is the most stable note to reinforce.",
-        "Choose the doubled note before voicing: the root in root position, never a tendency tone."),
+        "Choose the doubled note before voicing: often the root in root position, rarely a tendency tone."),
     LEADING_TONE("Leading tone", "In V–I the leading tone rises by step to the tonic.",
         "The leading tone sits a half step below the tonic and the ear expects it to rise; leaving it hanging weakens the cadence.",
         "Before writing V, see which voice holds the leading tone and leave it a step below the tonic of the next chord."),
@@ -164,7 +164,8 @@ object VoiceLeading {
     }
 
     fun check(score: Score, rules: Set<Rule> = Rule.entries.toSet()): Analysis {
-        val enabled = rules.filterTo(HashSet()) { it.name !in score.rulesOff }
+        // A lesson's rules are locked: no rule switched off or issue ignored in the score counts
+        val enabled = rules.filterTo(HashSet()) { score.lesson != null || it.name !in score.rulesOff }
         val slices = score.slices()
         val harmony = HarmonyAnalyzer.analyze(score, slices)
         val points = harmony.points
@@ -460,7 +461,7 @@ object VoiceLeading {
         }
 
         // Errors first, then warnings; each by position in the score (slices are in time order)
-        out.removeAll { ignoreKey(it, slices) in score.ignored }
+        if (score.lesson == null) out.removeAll { ignoreKey(it, slices) in score.ignored }
         // Around a key change, the chord on each side is also read in the other key (faint under its numeral):
         // the last one before it when it belongs to both keys (the pivot, "G: IV"), and the first one after it ("C: V/V")
         val shown = chords.toMutableList()
