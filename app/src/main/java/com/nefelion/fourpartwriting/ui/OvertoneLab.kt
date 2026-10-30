@@ -1,5 +1,6 @@
 package com.nefelion.fourpartwriting.ui
 
+import android.content.res.Configuration
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.animation.AnimatedContent
@@ -11,7 +12,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +49,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -79,32 +79,35 @@ private val PIANO = Overtones.A4_PIANO
 /** The drawings put partial 1 at the top. */
 private val TOP = PIANO[0].amp
 
-/** Step 0 is silent; steps 1 to 8 strike partials 1 to k; step 9 strikes all of them. */
+/** Step 0 is silent; steps 1 to 8 strike partials 1 to k; step 9 strikes all of them; [BEEP] strikes 440 Hz again just before;
+ * [START] is step 1 opening a build. */
 private const val STEPS = 9
+private const val BEEP = 10
+private const val START = 11
 private const val TAG = "note"
 
 /** Seconds between strikes while building, and how long the last one rings. Exact as Floats: the drawing's clock is one. */
 private const val GAP = 1.0
 private const val RING = 3.5
 
-/** Role of partials 1 to 8 of A: 0 root, 1 third, 2 fifth, 3 none (the flat G). */
-private val ROLE = listOf(0, 0, 2, 0, 1, 2, 3, 0)
-
 /** Staff positions (diatonic, E4 = 30) the first 8 partials are written at: 3 and 4 under 8va, 5 to 8 under 15ma. */
 private val WRITTEN = listOf(33, 40, 37, 40, 35, 37, 39, 40)
 
-private val CAPTIONS = listOf(
-    "The A above middle C vibrates 440 times a second: 440 Hz. Tap to hear just that.",
-    "If A were one frequency, 440 Hz, it would sound like this: a thin beep.",
-    "Add 2 × 440 Hz: A5, an octave up.",
-    "3 ×: E6, a fifth higher.",
-    "4 ×: A6, another octave.",
-    "5 ×: C♯7, a major third.",
-    "6 ×: E7. Together, an A major chord.",
-    "7 ×: a G, a little flat. No piano key matches it.",
-    "8 ×: A7, already faint: the felt hammer softens the high ones.",
-    "…and a few more, ever fainter. All of them at once: a piano. Still one A.",
-)
+/** Names of partials 2 to 8, listed as they join while building. */
+private val NAMES = listOf("A5", "E6", "A6", "C♯7", "E7", "G7 (a little flat)", "A7")
+
+/** What step [k] says; the steps of a build share one caption that lists the partials so far. */
+private fun caption(k: Int) = when (k) {
+    0 -> "A4 is tuned to 440 Hz. Tap to hear just that frequency."
+    1 -> "If the note were only that one frequency, it would sound like this: a thin beep. But instruments don't sound like that."
+    STEPS -> "And the real A, played on the piano."
+    BEEP -> "Once more, just 440 Hz."
+    else -> "A real note has more inside. Listen as more frequencies join 440 Hz, one by one" +
+        (if (k == START) "." else ": " + NAMES.take(k - 1).joinToString(", ") + ".")
+}
+
+/** Seconds before the first 440 Hz, so the spectrum has appeared first. */
+private const val LEAD = 1.5
 
 /**
  * What the note card plays and draws: the hammer strikes ([time] in seconds, step), each with the partials of its step,
@@ -127,21 +130,17 @@ private class Plan(val strikes: List<Pair<Double, Int>>, val length: Double) {
 
     companion object {
         /** Partials struck in step [k]. */
-        fun count(k: Int) = if (k == STEPS) PIANO.size else k
+        fun count(k: Int) = when (k) { STEPS -> PIANO.size; BEEP, START -> 1; else -> k }
 
         /** Step [k] struck once (none for 0). */
-        fun at(k: Int) = Plan(if (k == 0) emptyList() else listOf(0.0 to k), RING)
+        fun at(k: Int, after: Double = 0.0) = Plan(if (k == 0) emptyList() else listOf(after to k), after + RING)
 
-        /** Steps [from] to the last, one strike each; a breath before the whole note. */
-        fun build(from: Int) = (from..STEPS).mapIndexed { j, k -> j * GAP + (if (k == STEPS) 0.5 else 0.0) to k }
+        /** Steps 1 to 8, one strike each, then 440 Hz alone and the whole note, each let ring a little longer. */
+        fun build() = (1..8).map { (it - 1) * GAP to if (it == 1) START else it }
+            .let { s -> s.last().first.let { t -> s + listOf(t + 1.5 to BEEP, t + 3.0 to STEPS) } }
             .let { Plan(it, it.last().first + RING) }
     }
 }
-
-/** Root, third, fifth and other partials, in the lesson's colors. */
-@Composable
-private fun roleColors() = listOf(MaterialTheme.colorScheme.primary, LocalScoreColors.current.warnNote,
-    MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.outline)
 
 /** Whole-note chords, one per bar, from voicings "S A T B". */
 private fun chords(vararg voicings: String) = Score(voices = voicings.map(Overtones::parse).let { cs ->
@@ -153,45 +152,59 @@ private fun loudness(level: Double) = ((20 * log10(level.coerceAtLeast(1e-6)) + 
 
 /**
  * A4 built up from one partial to a piano, struck again with each partial added: staff, spectrum and sound move together.
- * The first tap strikes the first partial; the next builds on it.
+ * Opens on A alone on the staff; the first tap strikes 440 Hz and shows the spectrum; once it has died away, the next
+ * builds the whole note from 440 Hz up. Built, either can be struck again.
  */
 @Composable
 internal fun NoteBuilder(st: UiState, vm: EditorViewModel) {
     var shown by rememberSaveable { mutableIntStateOf(0) }
+    var built by rememberSaveable { mutableStateOf(false) }
     var plan by remember { mutableStateOf(Plan.at(shown)) }
     // Seconds into the plan, as heard from the speaker
     var e by remember { mutableFloatStateOf(0f) }
-    fun play(p: Plan) { plan = p; vm.playTones(TAG, p.tones(), p.length) }
+    // From 0: the clock still holds where the last plan settled
+    fun play(p: Plan) { plan = p; e = 0f; vm.playTones(TAG, p.tones(), p.length) }
     val playing = st.tone == TAG
     LaunchedEffect(playing) {
         if (playing) while (true) withFrameNanos { e = Tones.elapsed().toFloat() }
         else {
             shown = plan.step(e.toDouble())
+            if (shown == STEPS) built = true
             // Settles back to the last strike's first moment
             plan.strikes.lastOrNull()?.let { (t, _) -> animate(e, t.toFloat(), animationSpec = tween(600)) { v, _ -> e = v } }
         }
     }
     val k by remember(playing) { derivedStateOf { if (playing) plan.step(e.toDouble()) else shown } }
-    val building = playing && plan.strikes.size > 1
 
-    SeriesStaff { i -> (if (plan.sounds(i, e.toDouble())) 1f else 0f) to loudness(plan.level(i, e.toDouble()) / TOP) }
-    Spectrum { i -> plan.level(i, e.toDouble()) / TOP }
-    // The old caption fades out before the new one fades in, so quick steps never overlap
-    AnimatedContent(k, transitionSpec = { fadeIn(tween(150, delayMillis = 120)) togetherWith fadeOut(tween(120)) }, label = "caption") {
-        Text(CAPTIONS[it], style = MaterialTheme.typography.bodyLarge, minLines = 2)
-    }
-    Button({ play(when (k) { 0 -> Plan.at(1); 1 -> Plan.build(2); else -> Plan.build(1) }) }, shape = SHAPE, enabled = !building, modifier = Modifier.fillMaxWidth()) {
-        Text(when { building -> "Listen…"; k == 0 -> "▶ Play A, 440 Hz"; k == STEPS -> "▶ Build it again"; else -> "▶ Build the note" })
-    }
-    AnimatedVisibility(k >= 6) {
-        val colors = roleColors()
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            for ((r, name) in listOf(0 to "Root A", 2 to "Fifth E", 1 to "Third C♯")) Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(10.dp).background(colors[r], CircleShape))
-                Text(" $name ×${ROLE.take(minOf(k, 8)).count { it == r }}", style = MaterialTheme.typography.labelLarge)
-            }
+    // Before anything plays, the written A alone
+    val staff = @Composable { SeriesStaff { i -> if (k == 0) (if (i == 0) 1f to 1f else 0f to 0f) else (if (plan.sounds(i, e.toDouble())) 1f else 0f) to loudness(plan.level(i, e.toDouble()) / TOP) } }
+    val spectrum = @Composable { AnimatedVisibility(k > 0 || playing) { Spectrum { i -> plan.level(i, e.toDouble()) / TOP } } }
+    // The old caption fades out before the new one fades in; a build's steps share one, growing in place
+    val text = @Composable {
+        AnimatedContent(if (k in 2..8) START else k, transitionSpec = { fadeIn(tween(150, delayMillis = 120)) togetherWith fadeOut(tween(120)) }, label = "caption") {
+            Text(caption(if (it == START) k else it), style = MaterialTheme.typography.bodyLarge)
         }
     }
+    val buttons = @Composable { Box {
+    if (built) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton({ play(Plan.at(BEEP)) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ 440 Hz") }
+        Button({ play(Plan.at(STEPS)) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Piano A") }
+    }
+    // Gone while it sounds: building waits until the first 440 Hz has died away
+    else AnimatedVisibility(!playing) {
+        Button({ play(if (k == 0) Plan.at(1, LEAD) else Plan.build()) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) {
+            Text(if (k == 0) "▶ Play 440 Hz" else "▶ Build the real note")
+        }
+    }
+    } }
+
+    // Landscape: staff and caption beside the spectrum and buttons, so all of it fits on the screen
+    if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { staff(); text() }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { spectrum(); buttons() }
+        }
+    else { staff(); spectrum(); text(); buttons() }
 }
 
 /**
@@ -202,7 +215,7 @@ internal fun NoteBuilder(st: UiState, vm: EditorViewModel) {
 private fun SeriesStaff(state: (Int) -> Pair<Float, Float>) {
     val bravura = rememberBravura()
     val ink = MaterialTheme.colorScheme.onSurface
-    val colors = roleColors()
+    val accent = MaterialTheme.colorScheme.primary
     val glyph = remember(bravura) { Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = bravura } }
     val italic = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC) } }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -244,7 +257,7 @@ private fun SeriesStaff(state: (Int) -> Pair<Float, Float>) {
                     val x = hx(i)
                     val ledgers = (if (d <= 28) (28 downTo d) else if (d >= 40) (40..d) else IntRange.EMPTY).filter { it % 2 == 0 }
                     for (l in ledgers) drawLine(ink.copy(alpha = alpha), Offset(x - 0.4f * s, y(l)), Offset(x + headW + 0.4f * s, y(l)), 0.16f * s)
-                    glyph.color = colors[ROLE[i]].copy(alpha = alpha).toArgb()
+                    glyph.color = accent.copy(alpha = alpha).toArgb()
                     if (i == 4) nc.drawText(Smufl.SHARP.toString(), x - 1.3f * s, y(d), glyph)
                     nc.drawText(Smufl.HEAD_WHOLE.toString(), x, y(d), glyph)
                 }
@@ -259,7 +272,6 @@ private fun Spectrum(level: (Int) -> Double) {
     val a = MaterialTheme.colorScheme.primary
     val grid = MaterialTheme.colorScheme.outlineVariant
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val colors = roleColors()
     val tm = rememberTextMeasurer()
     val logs = remember { PIANO.map { log10(it.hz) } }
     Canvas(Modifier.fillMaxWidth().height(150.dp)) {
@@ -290,7 +302,7 @@ private fun Spectrum(level: (Int) -> Double) {
         fill.lineTo(size.width, h); fill.close()
         drawPath(fill, Brush.verticalGradient(listOf(a.copy(alpha = 0.45f), a.copy(alpha = 0.04f)), 0f, h))
         drawPath(line, a, style = Stroke(1.5.dp.toPx()))
-        for (j in 0 until 8) if (v[j] > 1e-3) drawCircle(colors[ROLE[j]], 3.5.dp.toPx(), Offset(x(logs[j]), y(20 * log10(v[j]))))
+        for (j in 0 until 8) if (v[j] > 1e-3) drawCircle(a, 3.5.dp.toPx(), Offset(x(logs[j]), y(20 * log10(v[j]))))
     }
 }
 

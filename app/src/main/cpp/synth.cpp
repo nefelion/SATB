@@ -10,6 +10,7 @@
 #include <android/log.h>
 #include <jni.h>
 #include <algorithm>
+#include <ctime>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -28,6 +29,7 @@ size_t nextEv = 0;
 double mpos = 0;      // whole notes since play() started
 double tempo = 80;    // quarter notes per minute
 bool playing = false;
+int64_t endWritten = -1;  // frames written when the score's last note was rendered; -1 once heard or stopped
 bool usePiano = true;  // the modeled piano, else the SoundFont
 
 bool ready() { return usePiano || sf; }
@@ -66,7 +68,7 @@ aaudio_data_callback_result_t onAudio(AAudioStream*, void*, void* data, int32_t 
     if (frames > done) render(out + done * 2, frames - done);
     if (playing) {
         mpos += frames * wholePerFrame;
-        if (nextEv >= events.size()) playing = false;
+        if (nextEv >= events.size()) { playing = false; endWritten = AAudioStream_getFramesWritten(stream) + frames; }
     }
     return AAUDIO_CALLBACK_RESULT_CONTINUE;
 }
@@ -118,7 +120,7 @@ Java_com_nefelion_fourpartwriting_audio_Synth_nativeClose(JNIEnv*, jobject) {
     AAudioStream* s;
     {
         std::lock_guard<std::mutex> lock(mx);
-        s = stream; stream = nullptr; playing = false;
+        s = stream; stream = nullptr; playing = false; endWritten = -1;
         allOff();
     }
     if (s) { AAudioStream_requestStop(s); AAudioStream_close(s); }
@@ -132,7 +134,7 @@ static jboolean install(tsf* f) {
     tsf* old;
     {
         std::lock_guard<std::mutex> lock(mx);
-        old = sf; sf = f; playing = false;
+        old = sf; sf = f; playing = false; endWritten = -1;
     }
     if (old) tsf_close(old);
     return JNI_TRUE;
@@ -178,7 +180,7 @@ JNIEXPORT void JNICALL
 Java_com_nefelion_fourpartwriting_audio_Synth_nativeUsePiano(JNIEnv*, jobject, jboolean on) {
     std::lock_guard<std::mutex> lock(mx);
     allOff();
-    playing = false;
+    playing = false; endWritten = -1;
     usePiano = on;
 }
 
@@ -195,7 +197,7 @@ Java_com_nefelion_fourpartwriting_audio_Synth_nativePlay(JNIEnv* env, jobject, j
         return x.t < y.t || (x.t == y.t && x.on < y.on);  // note-offs first at equal times
     });
     allOff();
-    nextEv = 0; mpos = 0; playing = ready() && !events.empty();
+    nextEv = 0; mpos = 0; playing = ready() && !events.empty(); endWritten = -1;
 }
 
 /** Quarter notes per minute; takes effect at once, also during playback. */
@@ -208,15 +210,30 @@ Java_com_nefelion_fourpartwriting_audio_Synth_nativeSetTempo(JNIEnv*, jobject, j
 JNIEXPORT void JNICALL
 Java_com_nefelion_fourpartwriting_audio_Synth_nativeStop(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(mx);
-    playing = false;
+    playing = false; endWritten = -1;
     allOff();
 }
 
-/** Whole notes played since play(), or -1 when idle. */
+// Frames the speaker has played by now, from the stream's last timestamp; -1 if it has none yet. Caller holds mx.
+double heardFrames() {
+    int64_t pos, ns;
+    if (!stream || AAudioStream_getTimestamp(stream, CLOCK_MONOTONIC, &pos, &ns) != AAUDIO_OK) return -1;
+    timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return pos + ((t.tv_sec * 1e9 + t.tv_nsec) - ns) * sampleRate / 1e9;
+}
+
+/** Whole notes heard since play() (rendered ones minus those still in the output buffer), or -1 when idle. */
 JNIEXPORT jdouble JNICALL
 Java_com_nefelion_fourpartwriting_audio_Synth_nativePosition(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(mx);
-    return playing ? mpos : -1.0;
+    if (!playing && endWritten < 0) return -1.0;
+    double heard = heardFrames();
+    if (heard < 0) return playing ? mpos : -1.0;
+    // The score is rendered to its end: idle once the speaker has played that far
+    int64_t written = playing ? AAudioStream_getFramesWritten(stream) : endWritten;
+    if (!playing && heard >= written) { endWritten = -1; return -1.0; }
+    return std::max(0.0, mpos - std::max(0.0, written - heard) * tempo / (240.0 * sampleRate));
 }
 
 JNIEXPORT jint JNICALL

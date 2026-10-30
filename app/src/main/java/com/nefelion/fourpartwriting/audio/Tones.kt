@@ -2,6 +2,7 @@ package com.nefelion.fourpartwriting.audio
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioTimestamp
 import android.media.AudioTrack
 import com.nefelion.fourpartwriting.theory.Overtones
 import kotlin.math.PI
@@ -80,16 +81,21 @@ object Tones {
 
     /** Seconds the current schedule has been heard (the speaker lags behind rendering). */
     fun elapsed(): Double = synchronized(lock) {
-        val head = track?.playbackHeadPosition?.toLong() ?: return 0.0
-        maxOf(0.0, (head - origin).toDouble() / RATE)
+        val t = track ?: return 0.0
+        // What the speaker has played: the head only says what the mixer took, a buffer or more earlier
+        val heard = if (t.getTimestamp(stamp)) stamp.framePosition + (System.nanoTime() - stamp.nanoTime) * RATE / 1e9
+            else t.playbackHeadPosition.toDouble()
+        maxOf(0.0, (heard - origin) / RATE)
     }
+    private val stamp = AudioTimestamp()
 
     private fun start() {
         val size = maxOf(AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT), BLOCK * 4)
         val t = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
             .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-            .setTransferMode(AudioTrack.MODE_STREAM).setBufferSizeInBytes(size).build()
+            .setTransferMode(AudioTrack.MODE_STREAM).setBufferSizeInBytes(size)
+            .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY).build()
         track = t; clock = 0; origin = 0; running = true
         t.play()
         Thread({ loop(t) }, "tones").apply { priority = Thread.MAX_PRIORITY }.start()
