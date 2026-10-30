@@ -24,12 +24,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,30 +60,32 @@ import androidx.compose.ui.unit.sp
 import com.nefelion.fourpartwriting.EditorViewModel
 import com.nefelion.fourpartwriting.audio.Tones
 import com.nefelion.fourpartwriting.UiState
+import com.nefelion.fourpartwriting.engrave.NoteRef
 import com.nefelion.fourpartwriting.engrave.Smufl
 import com.nefelion.fourpartwriting.model.Event
 import com.nefelion.fourpartwriting.model.Fraction
+import com.nefelion.fourpartwriting.model.Interval
 import com.nefelion.fourpartwriting.model.Pitch
 import com.nefelion.fourpartwriting.model.Score
+import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Overtones
 import com.nefelion.fourpartwriting.theory.Rule
 import com.nefelion.fourpartwriting.ui.theme.LocalScoreColors
-import kotlin.math.PI
-import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.log10
 import kotlin.math.roundToInt
 
-private val A4 = Pitch.parse("A4")
-private val PIANO = Overtones.piano(A4.midi)
+private val PIANO = Overtones.A4_PIANO
+/** The drawings put partial 1 at the top. */
+private val TOP = PIANO[0].amp
 
-/** Steps 1 to 8 add partials 1 to 8; step 9 adds all the rest and strikes the whole note. */
+/** Step 0 is silent; steps 1 to 8 strike partials 1 to k; step 9 strikes all of them. */
 private const val STEPS = 9
 private const val TAG = "note"
-private const val NEVER = Double.POSITIVE_INFINITY
 
-/** Seconds the held partials take to die away before the hammer strikes. */
-private const val DECAY = 1.0
+/** Seconds between strikes while building, and how long the last one rings. Exact as Floats: the drawing's clock is one. */
+private const val GAP = 1.0
+private const val RING = 3.5
 
 /** Role of partials 1 to 8 of A: 0 root, 1 third, 2 fifth, 3 none (the flat G). */
 private val ROLE = listOf(0, 0, 2, 0, 1, 2, 3, 0)
@@ -96,6 +94,7 @@ private val ROLE = listOf(0, 0, 2, 0, 1, 2, 3, 0)
 private val WRITTEN = listOf(33, 40, 37, 40, 35, 37, 39, 40)
 
 private val CAPTIONS = listOf(
+    "The A above middle C vibrates 440 times a second: 440 Hz. Tap to hear just that.",
     "If A were one frequency, 440 Hz, it would sound like this: a thin beep.",
     "Add 2 × 440 Hz: A5, an octave up.",
     "3 ×: E6, a fifth higher.",
@@ -103,40 +102,39 @@ private val CAPTIONS = listOf(
     "5 ×: C♯7, a major third.",
     "6 ×: E7. Together, an A major chord.",
     "7 ×: a G, a little flat. No piano key matches it.",
-    "8 ×: A7. Quiet on a piano: the hammer strikes near its still point.",
-    "…dozens more, ever fainter, then the hammer strikes them all at once: a piano. Still one A.",
+    "8 ×: A7, already faint: the felt hammer softens the high ones.",
+    "…and a few more, ever fainter. All of them at once: a piano. Still one A.",
 )
 
 /**
- * What the note card plays and draws: when each partial of [PIANO] joins, held steady, and when the hammer
- * strikes the whole note ([hit]), over [length] seconds (infinite: held until the next step). Sound, staff and spectrum all read it.
+ * What the note card plays and draws: the hammer strikes ([time] in seconds, step), each with the partials of its step,
+ * damping the strike before; the last rings until [length]. Sound, staff and spectrum all read it.
  */
-private class Plan(val join: List<Double>, val hit: Double?, val length: Double) {
-    fun step(e: Double) = if (hit != null && e >= hit) STEPS else join.count { it <= e }.let { if (it > 8) STEPS else maxOf(it, 1) }
+private class Plan(val strikes: List<Pair<Double, Int>>, val length: Double) {
+    private fun last(e: Double) = strikes.lastOrNull { it.first <= e }
+    fun step(e: Double) = last(e)?.second ?: 0
 
-    /** How far partial [i] has swelled in at [e] seconds: 0 before it joins, 1 a quarter second later; one sounding from the start is there at once. */
-    fun presence(i: Int, e: Double) = if ((hit != null && e >= hit) || join[i] == 0.0) 1.0 else ((e - join[i]) / 0.25).coerceIn(0.0, 1.0)
+    /** Whether partial [i] sounds at [e] seconds. */
+    fun sounds(i: Int, e: Double) = i < count(step(e))
 
-    /** Strength of partial [i] at [e] seconds; held ones die away smoothly just before the hammer. */
-    fun level(i: Int, e: Double) = when {
-        hit != null && e >= hit -> Tones.STRIKE * PIANO[i].level(e - hit)
-        hit != null && e >= hit - DECAY -> PIANO[i].amp * presence(i, e) * 0.5 * (1 + cos(PI * (e - hit + DECAY) / DECAY))
-        else -> PIANO[i].amp * presence(i, e)
-    }
+    /** Strength of partial [i] at [e] seconds: struck at the last strike, fading as on the piano. */
+    fun level(i: Int, e: Double) = last(e)?.let { (t, k) -> if (i < count(k)) PIANO[i].level(e - t) else 0.0 } ?: 0.0
 
-    /** The held partials; the strike is the modeled piano's (see [EditorViewModel.playTones]). */
-    fun tones() = PIANO.indices.filter { join[it] < length }.map {
-        if (hit == null) Tones.Tone(PIANO[it], join[it], end = length)
-        else Tones.Tone(PIANO[it], join[it], end = hit - DECAY, release = DECAY)
+    fun tones() = strikes.withIndex().flatMap { (j, s) ->
+        val end = strikes.getOrNull(j + 1)?.first ?: length
+        PIANO.take(count(s.second)).map { Tones.Tone(it, s.first, end) }
     }
 
     companion object {
-        /** The partials of step [k] held until the next step. */
-        fun hold(k: Int) = Plan(PIANO.map { if (k == STEPS || it.n <= k) 0.0 else NEVER }, null, NEVER)
+        /** Partials struck in step [k]. */
+        fun count(k: Int) = if (k == STEPS) PIANO.size else k
 
-        /** Partials 2 to 8 join the held first one, the rest rush in, then the hammer strikes. */
-        val BUILD: Plan = PIANO.map { if (it.n <= 8) (it.n - 1) * 0.7 else 7 * 0.7 + 0.5 + (it.n - 9) * 0.04 }
-            .let { join -> (join.max() + 0.6 + DECAY).let { hit -> Plan(join, hit, hit + 3.5) } }
+        /** Step [k] struck once (none for 0). */
+        fun at(k: Int) = Plan(if (k == 0) emptyList() else listOf(0.0 to k), RING)
+
+        /** Steps [from] to the last, one strike each; a breath before the whole note. */
+        fun build(from: Int) = (from..STEPS).mapIndexed { j, k -> j * GAP + (if (k == STEPS) 0.5 else 0.0) to k }
+            .let { Plan(it, it.last().first + RING) }
     }
 }
 
@@ -154,43 +152,37 @@ private fun chords(vararg voicings: String) = Score(voices = voicings.map(Overto
 private fun loudness(level: Double) = ((20 * log10(level.coerceAtLeast(1e-6)) + 40) / 40).coerceIn(0.0, 1.0).toFloat()
 
 /**
- * A4 built up from one partial to a piano: staff, spectrum and sound move together.
- * Opening the lesson holds the first partial until Build adds the rest to it.
+ * A4 built up from one partial to a piano, struck again with each partial added: staff, spectrum and sound move together.
+ * The first tap strikes the first partial; the next builds on it.
  */
 @Composable
 internal fun NoteBuilder(st: UiState, vm: EditorViewModel) {
-    var shown by rememberSaveable { mutableIntStateOf(1) }
-    var greeted by rememberSaveable { mutableStateOf(false) }
-    var plan by remember { mutableStateOf(Plan.hold(shown)) }
+    var shown by rememberSaveable { mutableIntStateOf(0) }
+    var plan by remember { mutableStateOf(Plan.at(shown)) }
     // Seconds into the plan, as heard from the speaker
     var e by remember { mutableFloatStateOf(0f) }
-    fun play(p: Plan) { plan = p; vm.playTones(TAG, p.tones(), p.length, p.hit, A4.midi) }
-    LaunchedEffect(Unit) { if (!greeted) { greeted = true; play(Plan.hold(1)) } }
+    fun play(p: Plan) { plan = p; vm.playTones(TAG, p.tones(), p.length) }
     val playing = st.tone == TAG
     LaunchedEffect(playing) {
         if (playing) while (true) withFrameNanos { e = Tones.elapsed().toFloat() }
         else {
             shown = plan.step(e.toDouble())
-            // A struck note settles back to its first moment
-            plan.hit?.let { h -> animate(e, h.toFloat(), animationSpec = tween(600)) { v, _ -> e = v } }
+            // Settles back to the last strike's first moment
+            plan.strikes.lastOrNull()?.let { (t, _) -> animate(e, t.toFloat(), animationSpec = tween(600)) { v, _ -> e = v } }
         }
     }
     val k by remember(playing) { derivedStateOf { if (playing) plan.step(e.toDouble()) else shown } }
-    val building = playing && plan === Plan.BUILD
+    val building = playing && plan.strikes.size > 1
 
-    // Both scaled so the strike's first moment is the top
-    SeriesStaff { i -> plan.presence(i, e.toDouble()).toFloat() to loudness(plan.level(i, e.toDouble()) / Tones.STRIKE) }
-    Spectrum { i -> plan.level(i, e.toDouble()) / Tones.STRIKE }
+    SeriesStaff { i -> (if (plan.sounds(i, e.toDouble())) 1f else 0f) to loudness(plan.level(i, e.toDouble()) / TOP) }
+    Spectrum { i -> plan.level(i, e.toDouble()) / TOP }
     // The old caption fades out before the new one fades in, so quick steps never overlap
     AnimatedContent(k, transitionSpec = { fadeIn(tween(150, delayMillis = 120)) togetherWith fadeOut(tween(120)) }, label = "caption") {
-        Text(CAPTIONS[it - 1], style = MaterialTheme.typography.bodyLarge, minLines = 2)
+        Text(CAPTIONS[it], style = MaterialTheme.typography.bodyLarge, minLines = 2)
     }
-    Button({ play(Plan.BUILD) }, shape = SHAPE, enabled = !building, modifier = Modifier.fillMaxWidth()) {
-        Text(when { building -> "Listen…"; shown == STEPS -> "▶ Build it again"; else -> "▶ Build the note" })
+    Button({ play(when (k) { 0 -> Plan.at(1); 1 -> Plan.build(2); else -> Plan.build(1) }) }, shape = SHAPE, enabled = !building, modifier = Modifier.fillMaxWidth()) {
+        Text(when { building -> "Listen…"; k == 0 -> "▶ Play A, 440 Hz"; k == STEPS -> "▶ Build it again"; else -> "▶ Build the note" })
     }
-    // With the built-in piano chosen, the strike already is it
-    if (!st.piano) TextButton({ vm.playPassage(Score(voices = listOf(listOf(Event(Fraction.of(1, 1), A4))) + List(3) { listOf(Event(Fraction.of(1, 1), null)) })) },
-        modifier = Modifier.fillMaxWidth()) { Text("▶ The SoundFont, for comparison") }
     AnimatedVisibility(k >= 6) {
         val colors = roleColors()
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -302,53 +294,39 @@ private fun Spectrum(level: (Int) -> Double) {
     }
 }
 
-/** What the series means for voicing: one tab per rule, a good and a bad C major chord side by side. */
+/** One voicing habit the series explains: a good and a bad C major chord side by side, the note they differ in colored. */
 @Composable
-internal fun SeriesRules(vm: EditorViewModel, onRule: (Rule) -> Unit) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    val all = Overtones.COMPARE
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        all.forEachIndexed { i, c -> SegmentedButton(tab == i, { tab = i }, SegmentedButtonDefaults.itemShape(i, all.size)) { Text(c.tab) } }
+internal fun SeriesCard(c: Overtones.Compare, vm: EditorViewModel, onRule: (Rule) -> Unit) {
+    Text(c.head, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    Text(c.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val differ = remember(c) { Overtones.parse(c.good).zip(Overtones.parse(c.bad)).withIndex().filter { it.value.first != it.value.second }.map { it.index } }
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Side(c.good, true, c.rule, differ, vm, Modifier.weight(1f))
+        Side(c.bad, false, c.rule, differ, vm, Modifier.weight(1f))
     }
-    AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
-        val c = all[t]
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(c.head, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(c.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Side(c.good, true, c.rule, vm, Modifier.weight(1f))
-                Side(c.bad, false, c.rule, vm, Modifier.weight(1f))
-            }
-            c.resolve?.let { r ->
-                OutlinedButton({ vm.playPassage(chords(c.bad, r)) },
-                    shape = SHAPE, modifier = Modifier.fillMaxWidth()) { Text("▶ ✗, then where it wants to go") }
-            }
-            TextButton({ onRule(c.rule) }) { Text("${c.rule.label} rule ›") }
-        }
-    }
+    OutlinedButton({ vm.playPassage(chords(c.good, c.bad)) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) { Text("▶ Both: ✓, then ✗") }
+    TextButton({ onRule(c.rule) }) { Text("${c.rule.label} rule ›") }
 }
 
-/** One voicing card: verdict, chord, the meter that tells the two apart, play. */
+/** One voicing card: verdict, chord with the [differ] voices colored, what tells the two apart, play. */
 @Composable
-private fun Side(voicing: String, good: Boolean, rule: Rule, vm: EditorViewModel, modifier: Modifier) {
+private fun Side(voicing: String, good: Boolean, rule: Rule, differ: List<Int>, vm: EditorViewModel, modifier: Modifier) {
     val sc = LocalScoreColors.current
     val notes = remember(voicing) { Overtones.parse(voicing) }
     val tint = if (good) sc.ok else sc.errorNote
-    val (fraction, caption) = remember(voicing, rule) {
-        when (rule) {
-            Rule.DOUBLING -> Overtones.shares(notes, listOf("C", "E", "G").map { Pitch.parse(it + "4").pc })[1]
-                .let { it to "Third: ${(it * 100).roundToInt()}% of the sound" }
-            Rule.SPACING -> Overtones.roughness(notes).let { r -> (r / 1.6).coerceIn(0.03, 1.0) to "Rubbing: ${if (r < 0.6) "low" else "high"}" }
-            else -> notes.dropLast(1).count { Overtones.inSeries(notes.last(), it) }.let { it / 3.0 to "$it of 3 in the bass's overtones" }
-        }
+    val fact = remember(voicing, rule) {
+        if (rule == Rule.DOUBLING) "Third: ${(Overtones.shares(notes, listOf("C", "E", "G").map { Pitch.parse(it + "4").pc })[1] * 100).roundToInt()}% of the sound"
+        // Gaps between neighboring voices, from the bass up
+        else "Gaps: " + notes.reversed().zipWithNext { lo, up -> ordinal(Interval.between(lo, up).number) }.joinToString(" · ")
     }
     Surface(modifier, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.5.dp, tint.copy(alpha = 0.6f))) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (good) "✓ Like this" else "✗ Not this", style = MaterialTheme.typography.labelLarge, color = if (good) sc.ok else sc.errorText)
-            MiniScore(remember(voicing) { chords(voicing) })
-            LinearProgressIndicator(progress = { fraction.toFloat() }, color = tint, modifier = Modifier.fillMaxWidth())
-            Text(caption, style = MaterialTheme.typography.bodySmall, minLines = 2)
-            OutlinedButton({ vm.playPassage(chords(voicing)) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) { Text("▶") }
+            MiniScore(remember(voicing) { chords(voicing) }, differ.associate { NoteRef(Voice.entries[it], 0) to tint })
+            Text(fact, style = MaterialTheme.typography.bodySmall, minLines = 2)
+            OutlinedButton({ vm.playPassage(chords(voicing)) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) { Text("▶ Play") }
         }
     }
 }
+
+private fun ordinal(n: Int) = "$n" + when { n % 100 in 11..13 -> "th"; n % 10 == 1 -> "st"; n % 10 == 2 -> "nd"; n % 10 == 3 -> "rd"; else -> "th" }

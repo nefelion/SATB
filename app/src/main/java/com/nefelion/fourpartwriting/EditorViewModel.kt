@@ -1167,19 +1167,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * Plays held partials [tones] for [seconds] (infinite: until stopped), for [tag], and strikes [key] on the modeled piano
-     * at [strike] seconds; works without a SoundFont. Held tones already sounding carry on into the new ones (see [Tones.play]).
-     */
-    fun playTones(tag: String, tones: List<Tones.Tone>, seconds: Double, strike: Double?, key: Int) {
+    /** Plays struck partials [tones] for [seconds], for [tag]; works without a SoundFont. */
+    fun playTones(tag: String, tones: List<Tones.Tone>, seconds: Double) {
         Synth.stop(); playJob?.cancel(); toneJob?.cancel()
         Tones.play(tones, seconds)
         _state.update { it.copy(playing = false, playTime = null, passage = null, tone = tag) }
-        if (seconds.isFinite()) toneJob = viewModelScope.launch {
+        toneJob = viewModelScope.launch {
             // Timed by the speaker, as the lesson's drawing is
-            if (strike != null) { while (Tones.elapsed() < strike) delay(5); Synth.strike(key, 80) }
             delay(((seconds - Tones.elapsed()) * 1000).toLong().coerceAtLeast(0))
-            Synth.strike(key, 0)
             _state.update { it.copy(tone = null) }
         }
     }

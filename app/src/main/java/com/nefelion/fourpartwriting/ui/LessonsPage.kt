@@ -64,6 +64,7 @@ import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.IN_BACH
 import com.nefelion.fourpartwriting.theory.Lesson
 import com.nefelion.fourpartwriting.theory.Lessons
+import com.nefelion.fourpartwriting.theory.Overtones
 import com.nefelion.fourpartwriting.theory.Rule
 import com.nefelion.fourpartwriting.theory.Verdict
 import com.nefelion.fourpartwriting.theory.VoiceLeading
@@ -97,11 +98,50 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
         }
     }
 
+    // One task: its passage with the note to pick, the options, and what the pick says
+    val task: @Composable ColumnScope.(Int) -> Unit = { k ->
+        val t = l.tasks[k]
+        Text(t.prompt, style = body)
+        val pick = t.options.getOrNull(picks[k])
+        val verdictColor = when (pick?.verdict) { Verdict.BEST -> colors.ok; Verdict.OK -> colors.warnNote; Verdict.WRONG -> colors.errorNote; null -> Color.Unspecified }
+        val target = NoteRef(t.voice, t.score.voice(t.voice).lastIndex)
+        MiniScore(if (pick == null) t.open else t.with(pick.note), if (pick == null) emptyMap() else mapOf(target to verdictColor), frame = t.score)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            t.options.forEachIndexed { o, opt ->
+                val choose = { picks = picks.copyOf().also { it[k] = o }; vm.playPassage(t.with(opt.note)) }
+                val label: @Composable RowScope.() -> Unit = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(opt.note.name)
+                        t.role(opt.note)?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
+                if (picks[k] == o) Button(onClick = choose, shape = SHAPE, modifier = Modifier.weight(1f), content = label)
+                else OutlinedButton(onClick = choose, shape = SHAPE, modifier = Modifier.weight(1f), content = label)
+            }
+        }
+        Progress(st, t.score, *t.options.map { t.with(it.note) }.toTypedArray())
+        if (pick != null) {
+            Text(when (pick.verdict) { Verdict.BEST -> "Best"; Verdict.OK -> "Works, but not the best"; Verdict.WRONG -> "Not this one" },
+                fontWeight = FontWeight.Bold, color = when (pick.verdict) { Verdict.BEST -> colors.ok; Verdict.OK -> colors.warnText; Verdict.WRONG -> colors.errorText })
+            Text(pick.text, style = body)
+            if (pick.verdict != Verdict.BEST) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { vm.playPassage(t.with(pick.note)) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Yours") }
+                OutlinedButton(onClick = { vm.playPassage(t.score) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ The best") }
+            }
+        }
+    }
+
     // The steps this lesson has, each a title and its content
     val steps = buildList<Pair<String, @Composable ColumnScope.() -> Unit>> {
         if (l.lab) {
             add("A note is many notes" to { NoteBuilder(st, vm) })
-            add("What it means" to { SeriesRules(vm) { info = it } })
+            Overtones.COMPARE.forEachIndexed { k, c -> add(c.title to {
+                if (k == 0) Text("Four voices sing each chord: soprano, alto, tenor and bass, from high to low. " +
+                    "In C3 or E5, the number is the octave; C4 is middle C.", style = MaterialTheme.typography.bodySmall, color = muted)
+                SeriesCard(c, vm) { info = it }
+                Text("Try it", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                task(k)
+            }) }
         }
 
         l.hear?.let { h -> add("Hear it" to {
@@ -150,36 +190,8 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
             Progress(st, now)
         }) }
 
-        // One step per task
-        l.tasks.forEachIndexed { k, t -> add((if (l.tasks.size > 1) "Try it (${k + 1} of ${l.tasks.size})" else "Try it") to {
-            Text(t.prompt, style = body)
-            val pick = t.options.getOrNull(picks[k])
-            val verdictColor = when (pick?.verdict) { Verdict.BEST -> colors.ok; Verdict.OK -> colors.warnNote; Verdict.WRONG -> colors.errorNote; null -> Color.Unspecified }
-            val target = NoteRef(t.voice, t.score.voice(t.voice).lastIndex)
-            MiniScore(if (pick == null) t.open else t.with(pick.note), if (pick == null) emptyMap() else mapOf(target to verdictColor), frame = t.score)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                t.options.forEachIndexed { o, opt ->
-                    val choose = { picks = picks.copyOf().also { it[k] = o }; vm.playPassage(t.with(opt.note)) }
-                    if (picks[k] == o) Button(onClick = choose, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(opt.note.name) }
-                    else OutlinedButton(onClick = choose, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(opt.note.name) }
-                }
-            }
-            Progress(st, t.score, *t.options.map { t.with(it.note) }.toTypedArray())
-            if (pick != null) {
-                Text(when (pick.verdict) { Verdict.BEST -> "Best"; Verdict.OK -> "Works, but not the best"; Verdict.WRONG -> "Not this one" },
-                    fontWeight = FontWeight.Bold, color = when (pick.verdict) { Verdict.BEST -> colors.ok; Verdict.OK -> colors.warnText; Verdict.WRONG -> colors.errorText })
-                Text(pick.text, style = body)
-                if (pick.verdict != Verdict.BEST) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { vm.playPassage(t.with(pick.note)) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Yours") }
-                    OutlinedButton(onClick = { vm.playPassage(t.score) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ The best") }
-                }
-            }
-        }) }
-
-        add("Find it yourself" to {
-            Text("Spot this lesson's mistakes in a short passage.", style = body)
-            FilledTonalButton(onClick = { vm.openLessonFind(i) }, shape = SHAPE) { Text("Open the passage") }
-        })
+        // One step per task; a lab lesson puts each task under its card instead
+        if (!l.lab) l.tasks.forEachIndexed { k, _ -> add((if (l.tasks.size > 1) "Try it (${k + 1} of ${l.tasks.size})" else "Try it") to { task(k) }) }
 
         if (spots.isNotEmpty()) add("In Bach's chorales" to {
             Text("Where Bach keeps or bends these rules. Tap to open.", style = body)
@@ -189,7 +201,9 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
             }
         })
 
-        add("Use it" to {
+        add("Practice" to {
+            Text("First, find this lesson's mistakes in a short passage.", style = body)
+            FilledTonalButton(onClick = { vm.openLessonFind(i) }, shape = SHAPE) { Text("Find the mistakes") }
             Text(l.apply, style = body)
             Text("Solve one with no rule breaks to finish the lesson.",
                 style = MaterialTheme.typography.bodySmall, color = muted)
@@ -210,11 +224,10 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
 
     PageFrame("${i + 1}. ${l.title}", onDismiss, header) {
         // This page covers the editor's snackbar, so say here why Play is silent
-        if (!st.canPlay) Row(Modifier.padding(horizontal = 16.dp).widthIn(max = 640.dp).fillMaxWidth().align(Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-            // The note card synthesizes its own sound; everything else needs the chosen instrument
-            Text(when { st.soundLoading -> "Loading the sound…"; l.lab -> "Step 1 plays its own sound. Load a SoundFont (.sf2) or pick the built-in piano for the rest."
-                else -> "No sound yet: load a SoundFont (.sf2) or pick the built-in piano to hear the examples." },
-                Modifier.weight(1f), style = body, color = if (l.lab) muted else MaterialTheme.colorScheme.error)
+        // Not in a lab lesson: its note card plays its own sound
+        if (!st.canPlay && !l.lab) Row(Modifier.padding(horizontal = 16.dp).widthIn(max = 640.dp).fillMaxWidth().align(Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (st.soundLoading) "Loading the sound…" else "No sound yet: load a SoundFont (.sf2) or pick the built-in piano to hear the examples.",
+                Modifier.weight(1f), style = body, color = MaterialTheme.colorScheme.error)
             if (!st.soundLoading) TextButton({ settings = true }) { Text("Settings") }
         }
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.Top) { k ->

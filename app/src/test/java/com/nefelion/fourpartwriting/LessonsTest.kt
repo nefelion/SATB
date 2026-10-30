@@ -44,12 +44,12 @@ class LessonsTest {
     }
 
     @Test fun findHasItsMistakes() {
-        val want = listOf(setOf(Rule.DOUBLING, Rule.SPACING, Rule.SIX_FOUR), setOf(Rule.MISSING_THIRD, Rule.SPACING), setOf(Rule.MELODIC, Rule.LEAPS, Rule.OVERLAP))
+        val want = listOf(setOf(Rule.DOUBLING, Rule.SPACING), setOf(Rule.MISSING_THIRD, Rule.SPACING), setOf(Rule.MELODIC, Rule.LEAPS, Rule.OVERLAP))
         Lessons.ALL.forEachIndexed { i, l ->
             val got = issues(l.find, i)
             assertEquals("lesson $i find", want[i], got.map { it.rule }.toSet())
             // Lesson 3's bass leap is both a seventh and a leap not turned back
-            assertEquals("lesson $i find", listOf(3, 2, 3)[i], got.size)
+            assertEquals("lesson $i find", listOf(2, 2, 3)[i], got.size)
         }
     }
 

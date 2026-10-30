@@ -4,6 +4,7 @@ import com.nefelion.fourpartwriting.model.Event
 import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.Pitch
 import com.nefelion.fourpartwriting.model.Score
+import com.nefelion.fourpartwriting.theory.Lessons
 import com.nefelion.fourpartwriting.theory.Overtones
 import com.nefelion.fourpartwriting.theory.Rule
 import com.nefelion.fourpartwriting.theory.VoiceLeading
@@ -28,30 +29,32 @@ class OvertonesTest {
         assertEquals(1, bad.withIndex().maxBy { it.value }.index)
     }
 
-    @Test fun lowAndCloseRubs() = with(cmp(Rule.SPACING)) {
-        assertTrue(Overtones.roughness(Overtones.parse(good)) < 0.5)
-        assertTrue(Overtones.roughness(Overtones.parse(bad)) > 1.2)
+    /** Each "not this" breaks its own rule, differs from "like this" in one voice, and has a task under it. */
+    @Test fun badVoicingsBreakTheirRule() {
+        assertEquals(Overtones.COMPARE.size, Lessons.ALL[0].tasks.size)
+        Overtones.COMPARE.forEach { c ->
+            assertEquals(c.title, 1, Overtones.parse(c.good).zip(Overtones.parse(c.bad)).count { it.first != it.second })
+            val issues = VoiceLeading.check(chord(c.bad), Lessons.rulesUpTo(0)).issues
+            assertTrue(c.title + ": " + issues, issues.isNotEmpty() && issues.all { it.rule == c.rule })
+        }
     }
 
-    @Test fun sixFourLeavesTheBassSeries() = with(cmp(Rule.SIX_FOUR)) {
-        fun inSeries(v: String) = Overtones.parse(v).let { n -> n.dropLast(1).count { Overtones.inSeries(n.last(), it) } }
-        assertEquals(3, inSeries(good))
-        assertEquals(1, inSeries(bad))
-    }
-
-    @Test fun pianoModel() {
-        val p = Overtones.piano(Pitch.parse("C4").midi)
-        val f0 = p[0].hz
-        // A stiff string runs sharp up high, high partials fade faster, and the 8th sits near the hammer's still point
-        assertTrue(p[9].hz > 10 * f0 * 1.005)
+    /** The measured A4 says what the captions say. */
+    @Test fun measuredPiano() {
+        val p = Overtones.A4_PIANO
+        assertEquals((1..p.size).toList(), p.map { it.n })
+        // A stiff string runs sharp up high, high partials fade faster, and the 9th sits near the hammer's still point
+        assertTrue(p[9].hz > 10 * p[0].hz * 1.005)
         assertTrue(p[9].level(0.5) / p[9].amp < p[0].level(0.5) / p[0].amp)
-        assertTrue(p[7].amp < p[6].amp && p[7].amp < p[8].amp)
-        assertTrue(p.all { it.hz < 10_000 } && p.size > 20)
+        assertTrue(p[8].amp < p[7].amp && p[8].amp < p[9].amp)
+        // Partial 1 is the strongest: the drawings put it at the top
+        assertTrue(p.drop(1).all { it.amp < p[0].amp })
     }
 
     /** A "like this" voicing breaks no rule (the final cadence aside: it is one chord). */
     @Test fun goodVoicingsAreClean() = Overtones.COMPARE.forEach { c ->
-        val sc = Score(voices = Overtones.parse(c.good).map { listOf(Event(Fraction.of(1, 1), it)) })
-        assertEquals(c.tab, emptyList<Any>(), VoiceLeading.check(sc, Rule.entries.toSet() - Rule.CADENCE).issues.map { it.message })
+        assertEquals(c.title, emptyList<Any>(), VoiceLeading.check(chord(c.good), Rule.entries.toSet() - Rule.CADENCE).issues.map { it.message })
     }
+
+    private fun chord(v: String) = Score(voices = Overtones.parse(v).map { listOf(Event(Fraction.of(1, 1), it)) })
 }

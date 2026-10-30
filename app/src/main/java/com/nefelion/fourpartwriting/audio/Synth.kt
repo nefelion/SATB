@@ -18,8 +18,6 @@ object Synth {
     fun loadFd(fd: Int) = nativeLoadFd(fd).also { loaded = loaded || it }
     fun noteOn(midi: Int, vel: Int = 90) = nativeNote(midi, vel)
     fun noteOff(midi: Int) = nativeNote(midi, 0)
-    /** Strikes ([vel] > 0) or releases [midi] on the modeled piano, whichever instrument is chosen. */
-    fun strike(midi: Int, vel: Int) = nativeStrike(midi, vel)
     /** Sustain pedal of the modeled piano. */
     fun sustain(down: Boolean) = nativeSustain(down)
     /** Plays the built-in modeled piano ([on]) or the loaded SoundFont. */
@@ -63,7 +61,6 @@ object Synth {
     private external fun nativeLoad(path: String): Boolean
     private external fun nativeLoadFd(fd: Int): Boolean
     private external fun nativeNote(key: Int, vel: Int)
-    private external fun nativeStrike(key: Int, vel: Int)
     private external fun nativeSustain(down: Boolean)
     private external fun nativeUsePiano(on: Boolean)
     private external fun nativePlay(events: DoubleArray)

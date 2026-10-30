@@ -36,13 +36,6 @@ void render(float* out, int frames) {
     if (usePiano) { piano::render(out, frames); return; }
     if (sf) tsf_render_float(sf, out, frames, 0);
     else std::fill(out, out + frames * 2, 0.0f);
-    // The overtone lesson strikes the modeled piano even while a SoundFont plays
-    static float mix[512];
-    for (int at = 0; at < frames; at += 256) {
-        int n = std::min(256, frames - at);
-        piano::render(mix, n);
-        for (int i = 0; i < 2 * n; i++) out[2 * at + i] += mix[i];
-    }
 }
 
 void note(int key, int vel) {
@@ -172,13 +165,6 @@ JNIEXPORT void JNICALL
 Java_com_nefelion_fourpartwriting_audio_Synth_nativeNote(JNIEnv*, jobject, jint key, jint vel) {
     std::lock_guard<std::mutex> lock(mx);
     note(key, vel);
-}
-
-// Plays the modeled piano whichever instrument is chosen (vel 0 = release).
-JNIEXPORT void JNICALL
-Java_com_nefelion_fourpartwriting_audio_Synth_nativeStrike(JNIEnv*, jobject, jint key, jint vel) {
-    std::lock_guard<std::mutex> lock(mx);
-    if (vel > 0) piano::noteOn(key, vel / 127.0f); else piano::noteOff(key);
 }
 
 JNIEXPORT void JNICALL
