@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -26,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -63,7 +65,7 @@ internal fun LessonsPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     FullScreenPage("Lessons", onDismiss) {
         item {
-            Text("Short lessons on how voices move. Each one lets you hear the idea, see it done, try it, find it in a passage, meet it in Bach and use it in an exercise.",
+            Text("Short lessons on how voices move: hear it, see it, try it.",
                 Modifier.widthIn(max = 640.dp), style = MaterialTheme.typography.bodyMedium, color = muted)
         }
         item {
@@ -82,7 +84,7 @@ internal fun LessonsPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit
             }
         }
         item {
-            Text("More lessons will follow: independent voices, notes that pull, the bass line and cadences.",
+            Text("More lessons coming.",
                 Modifier.widthIn(max = 640.dp), style = MaterialTheme.typography.bodySmall, color = muted)
         }
     }
@@ -114,6 +116,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
                     OutlinedButton(onClick = { vm.playPassage(a) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Play A") }
                     OutlinedButton(onClick = { vm.playPassage(b) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Play B") }
                 }
+                Progress(st, a, b)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (k in 0..1) FilledTonalButton(onClick = { heard = k }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(if (k == 0) "A" else "B") }
                 }
@@ -130,7 +133,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
         item {
             Group("2 · Why") {
                 Text(l.why, style = body)
-                Text("Rules that follow from it (tap one for its card):", style = MaterialTheme.typography.bodySmall, color = muted)
+                Text("Checked from now on (tap for more):", style = MaterialTheme.typography.bodySmall, color = muted)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (r in l.rules) OutlinedButton(onClick = { info = r }, shape = SHAPE) { Text(r.label) }
                 }
@@ -153,6 +156,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
                     OutlinedButton(onClick = { vm.playPassage(now) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Play") }
                     FilledTonalButton(onClick = { step++ }, enabled = step < w.steps.lastIndex, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Next") }
                 }
+                Progress(st, now)
             }
         }
 
@@ -172,6 +176,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
                             else OutlinedButton(onClick = choose, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(opt.note.name) }
                         }
                     }
+                    Progress(st, t.score, *t.options.map { t.with(it.note) }.toTypedArray())
                     if (pick != null) {
                         Text(when (pick.verdict) { Verdict.BEST -> "Best"; Verdict.OK -> "Works, but not the best"; Verdict.WRONG -> "Not this one" },
                             fontWeight = FontWeight.Bold, color = when (pick.verdict) { Verdict.BEST -> colors.ok; Verdict.OK -> colors.warnText; Verdict.WRONG -> colors.errorText })
@@ -187,7 +192,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
 
         item {
             Group("5 · Find it yourself") {
-                Text("A short passage with mistakes of this lesson opens in the editor. Tap the notes you think are wrong, then Reveal to see what you found.", style = body)
+                Text("Spot this lesson's mistakes in a short passage.", style = body)
                 FilledTonalButton(onClick = { vm.openLessonFind(i) }, shape = SHAPE) { Text("Open the passage") }
             }
         }
@@ -195,11 +200,10 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
         val spots = l.rules.flatMap { r -> IN_BACH[r].orEmpty().map { r to it } }
         if (spots.isNotEmpty()) item {
             Group("6 · In Bach's chorales") {
-                Text("Real music follows these rules, and sometimes bends them for a reason. Tap a spot to open it at that bar.", style = body)
+                Text("Where Bach keeps or bends these rules. Tap to open.", style = body)
                 for ((r, spot) in spots) Column(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.openStudy(spot.study, r, spot.bar, spot.breaks, spot.note) }.padding(4.dp)) {
                     Text("${r.label}: ${spot.study}, bar ${spot.bar} · ${if (spot.breaks) "breaks it" else "keeps it"}", style = MaterialTheme.typography.labelLarge,
                         color = if (spot.breaks) colors.warnText else colors.ok)
-                    Text(spot.note, style = MaterialTheme.typography.bodySmall, color = muted)
                 }
             }
         }
@@ -207,7 +211,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
         item {
             Group("7 · Use it") {
                 Text(l.apply, style = body)
-                Text("The check uses the rules of this lesson and the ones before. Solve one exercise with no rule breaks to finish the lesson.",
+                Text("Solve one with no rule breaks to finish the lesson.",
                     style = MaterialTheme.typography.bodySmall, color = muted)
                 if (i in st.lessonsDone) Text("✓ Lesson done", fontWeight = FontWeight.Bold, color = colors.ok)
                 FilledTonalButton(onClick = { vm.newLessonExercise(i) }, shape = SHAPE) { Text("New exercise") }
@@ -222,6 +226,13 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
         RuleInfoDialog(r, true, onToggle = null,
             onStudy = { info = null; vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null }
     }
+}
+
+/** A bar that fills while one of [scores] plays; invisible otherwise, so the page doesn't jump. */
+@Composable
+private fun Progress(st: UiState, vararg scores: Score) {
+    val p = st.passage?.takeIf { it.first in scores }?.second
+    LinearProgressIndicator(progress = { p ?: 0f }, modifier = Modifier.fillMaxWidth().alpha(if (p == null) 0f else 1f))
 }
 
 /** [score] with only the first n notes of each voice, n from the "SATB" digits [counts]. */

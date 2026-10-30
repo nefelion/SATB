@@ -64,101 +64,88 @@ object Lessons {
     val ALL: List<Lesson> = listOf(
         Lesson(
             title = "One chord, four singers",
-            idea = "Three notes, four voices: which note to double and where each voice goes.",
+            idea = "Three notes, four voices: what to double, where each voice goes.",
             hear = Hear(
-                "Which version sounds fuller? Listen to the first and the last chord.",
-                good = chords("C5 G4 E4 C3", "C5 A4 F4 F3", "B4 G4 D4 G3", "C5 G4 E4 C3"),
-                bad = chords("C5 G4 G4 C3", "C5 A4 F4 F3", "B4 G4 D4 G3", "C5 G4 C4 C3"),
-                goodFirst = false,
-                answer = "B. The two differ only in the tenor, in the first and last chord: in A it sings G and C, in B it sings E, the third of C major. " +
-                    "Without E those chords have only C and G, which sounds open and hollow: you can't tell major from minor.",
+                "Which chord sounds fuller?",
+                good = chords("C5 G4 E4 C3"), bad = chords("C5 G4 C4 C3"), goodFirst = false,
+                answer = "B. Only the tenor differs: in B it sings E, the third. Without the third, a chord sounds hollow.",
             ),
-            why = "Four voices share a chord of three notes, so one note sounds twice. Which one you double colors the chord. " +
-                "Doubling the root is the most common choice and sounds settled. Doubling the fifth is common too. " +
-                "Bach also doubles the third, more often in minor chords and in chords not in root position; in a major chord in root position it can stand out a little. " +
-                "The third tells major from minor, so a chord without it sounds hollow; when a note has to go, it is usually the fifth. " +
-                "Soprano, alto and tenor mostly stay within an octave of each other, so the chord blends; the bass often lies further down. " +
-                "Each voice sings in its own range, soprano on top and bass at the bottom.",
+            why = "Four voices, three notes: one note is doubled. The root is the usual choice; the fifth works too. " +
+                "Keep the third: it makes the chord major or minor. Keep soprano, alto and tenor within an octave of each other.",
             rules = listOf(Rule.MISSING_THIRD, Rule.DOUBLING, Rule.SPACING, Rule.RANGE, Rule.CROSSING),
             watch = Watch(chords("D5 G4 B3 G3"), listOf(
-                "0001" to "Start with the bass. Here it is G, the root of the G major chord (G, B, D).",
-                "1001" to "Then the soprano, the melody on top. Any note of the chord in its range works; here D, the fifth.",
-                "1011" to "The third, B, makes the chord major. The tenor takes it.",
-                "1111" to "Four voices, three notes: one sounds twice. Here the alto doubles the root, G, and sits close to soprano and tenor. D, the fifth, would work there too.",
+                "0001" to "Bass first: G, the root of G major (G, B, D).",
+                "1001" to "Soprano: any chord note. Here D.",
+                "1011" to "Tenor: B, the third. It makes the chord major.",
+                "1111" to "Alto: G, a doubled root. D would work too.",
             )),
             tasks = listOf(
-                Task("The tenor is missing. Which note completes the F major chord (F, A, C)?", chords("C5 A4 F4 F3"), Voice.TENOR, listOf(
-                    opt("F4", Verdict.BEST, "F doubles the root: the chord sounds full and settled."),
-                    opt("C4", Verdict.OK, "Doubling the fifth works well too. The chord sounds a little lighter than with the root doubled."),
-                    opt("A3", Verdict.OK, "This doubles the third, A, which the alto already sings. Bach does it at times, but in a major chord in root position the doubled third stands out a little."),
-                    opt("F3", Verdict.WRONG, "The root again, but now the tenor sings the bass's note, more than an octave under the alto: a hole opens in the middle of the chord."),
+                Task("F major (F, A, C). Which tenor note?", chords("C5 A4 F4 F3"), Voice.TENOR, listOf(
+                    opt("F4", Verdict.BEST, "Doubles the root: full and settled."),
+                    opt("C4", Verdict.OK, "Doubles the fifth: fine, a bit lighter."),
+                    opt("A3", Verdict.OK, "Doubles the third: possible, but it stands out a little."),
+                    opt("F3", Verdict.WRONG, "Over an octave below the alto: a hole in the middle."),
                 )),
-                Task("The tenor is missing in this G major chord (G, B, D). Which note?", chords("D5 G4 B3 G2"), Voice.TENOR, listOf(
-                    opt("B3", Verdict.BEST, "B, the third, makes the chord major. Now every note of the chord sounds."),
-                    opt("D4", Verdict.WRONG, "Only G and D: without its third the chord sounds hollow, neither major nor minor."),
-                    opt("G3", Verdict.WRONG, "Three G's and a D: the third, B, is missing, so the chord sounds bare."),
+                Task("G major (G, B, D). Which tenor note?", chords("D5 G4 B3 G2"), Voice.TENOR, listOf(
+                    opt("B3", Verdict.BEST, "The third: now the chord is complete."),
+                    opt("D4", Verdict.WRONG, "No third: the chord sounds hollow."),
+                    opt("G3", Verdict.WRONG, "No third: the chord sounds hollow."),
                 )),
-                Task("The tenor is missing in this C major chord (C, E, G). Which note?", chords("E5 G4 C4 C3"), Voice.TENOR, listOf(
-                    opt("C4", Verdict.BEST, "C doubles the root, and alto and tenor stay close: the chord blends."),
-                    opt("G3", Verdict.OK, "Fine: alto and tenor are still within an octave, and the fifth is doubled instead of the root."),
-                    opt("E3", Verdict.WRONG, "More than an octave between alto and tenor: the middle of the chord sounds thin, as if it came apart. A gap like this can pass for a moment, but here a closer note fits."),
+                Task("C major (C, E, G). Which tenor note?", chords("E5 G4 C4 C3"), Voice.TENOR, listOf(
+                    opt("C4", Verdict.BEST, "Doubles the root, close to the alto."),
+                    opt("G3", Verdict.OK, "Doubles the fifth: fine."),
+                    opt("E3", Verdict.WRONG, "Over an octave below the alto: a hole in the middle."),
                 )),
-                Task("The alto is missing in this G major chord (G, B, D). Which note?", chords("D5 G4 B3 G2"), Voice.ALTO, listOf(
-                    opt("G4", Verdict.BEST, "G sits between soprano and tenor and doubles the root."),
-                    opt("D4", Verdict.OK, "Also good: D sits between soprano and tenor and doubles the fifth. The root G then sounds only in the bass."),
-                    opt("G5", Verdict.WRONG, "G5 is above the soprano and high for an alto. The ear would take it for the melody."),
+                Task("G major (G, B, D). Which alto note?", chords("D5 G4 B3 G2"), Voice.ALTO, listOf(
+                    opt("G4", Verdict.BEST, "Doubles the root, between soprano and tenor."),
+                    opt("D4", Verdict.OK, "Doubles the fifth: fine."),
+                    opt("G5", Verdict.WRONG, "Above the soprano: it would sound like the melody."),
                 )),
             ),
             find = chords("E5 G4 C4 C3", "F5 A4 C4 F3", "D5 G4 D4 G2", "C5 G4 E3 C3"),
-            findNote = "Two chords here break a rule of this lesson. Tap a note of each, then Reveal. Stuck? Ask which bars to look in.",
-            apply = "Write soprano, alto and tenor over the given bass. Every chord is I, IV or V in root position, so each bass note is the root of its chord. " +
-                "Voice each chord well; how chords connect comes in the next lesson.",
+            findNote = "Two chords break this lesson's rules. Tap a note in each, then Reveal.",
+            apply = "Add soprano, alto and tenor over the bass. Each bass note is the root of I, IV or V.",
             chords = setOf("I", "IV", "V"),
         ),
         Lesson(
             title = "Two chords: hold and step",
-            idea = "Each voice is a melody: shared notes can stay, the others move to a near note.",
+            idea = "Each voice is a melody: hold shared notes, step to near ones.",
             hear = Hear(
-                "Soprano and bass are the same in both. In which version do the middle voices flow better?",
-                good = chords("C5 G4 E4 C3", "C5 A4 F4 F3", "B4 G4 D4 G3", "C5 G4 E4 C3"),
-                bad = chords("C5 E4 G3 C3", "C5 C4 A3 F3", "B4 G4 D4 G3", "C5 G4 E4 C3"),
+                "Which middle voices flow better?",
+                good = chords("C5 G4 E4 C3", "C5 A4 F4 F3", "B4 G4 D4 G3"),
+                bad = chords("C5 E4 G3 C3", "C5 C4 A3 F3", "B4 G4 D4 G3"),
                 goodFirst = true,
-                answer = "A. Melody, bass and chords are the same in both; only alto and tenor differ. In A they hold a note or move by step. " +
-                    "In B the alto falls to C and then leaps up a fifth, and the tenor climbs past the note the alto just sang. " +
-                    "None of these leaps is wrong by itself, but together they make the middle restless and harder to follow.",
+                answer = "A. Only alto and tenor differ. In A they hold or step; in B they jump around.",
             ),
-            why = "Each voice is a melody. Between two chords, a voice can often keep a note both chords share, a common tone, while the others move to a near note of the new chord, often by step. " +
-                "The bass moves more freely and often leaps from root to root. Smooth inner voices are easy to sing and let the melody and bass stand out. " +
-                "Leaps are part of good lines too, and give them life. Some are harder to sing, such as sevenths and augmented intervals, " +
-                "and a voice that moves past the note its neighbor just sang (an overlap) blurs which line is which.",
+            why = "Each voice is a melody. Between chords, a voice can hold a shared note; the others move to a near note, often by step. " +
+                "The bass may leap. Sevenths and augmented leaps are hard to sing.",
             rules = listOf(Rule.MELODIC, Rule.LEAPS, Rule.OVERLAP),
             watch = Watch(chords("G4 E4 C4 C3", "A4 F4 C4 F3"), listOf(
-                "1112" to "C major to F major. The bass moves from root to root, C to F. Now the upper voices.",
-                "1122" to "C is in both chords, so the tenor can keep it: a common tone, held.",
-                "1222" to "E moves to F, the nearest note of F major: one step up.",
-                "2222" to "G moves to A, also one step. Each upper voice held or stepped, and the new chord has its third and a doubled root.",
+                "1112" to "C major to F major. The bass leaps C to F.",
+                "1122" to "C is in both chords: the tenor holds it.",
+                "1222" to "E steps up to F.",
+                "2222" to "G steps up to A. Every upper voice held or stepped.",
             )),
             tasks = listOf(
-                Task("C major to F major. Which note for the tenor?", chords("E5 G4 C4 C3", "F5 A4 C4 F3"), Voice.TENOR, listOf(
-                    opt("C4", Verdict.BEST, "C is in both chords: the tenor simply holds it."),
-                    opt("F4", Verdict.OK, "F is a note of the chord, but the tenor leaps a fourth when C was there to hold."),
-                    opt("A3", Verdict.WRONG, "A leap down, and the third, A, now sounds twice (alto and tenor), while C was there to hold."),
+                Task("C major to F major. Which tenor note?", chords("E5 G4 C4 C3", "F5 A4 C4 F3"), Voice.TENOR, listOf(
+                    opt("C4", Verdict.BEST, "Holds the shared C."),
+                    opt("F4", Verdict.OK, "Fine, but it leaps when C could stay."),
+                    opt("A3", Verdict.WRONG, "Leaps, and doubles the third."),
                 )),
-                Task("F major to G major: no note is shared. Which note for the tenor?", chords("A4 F4 C4 F3", "G4 D4 B3 G3"), Voice.TENOR, listOf(
-                    opt("B3", Verdict.BEST, "C down to B: one step, against the rising bass. And B is the third the chord needs."),
-                    opt("D4", Verdict.WRONG, "C up to D is a step too, but D is already in the alto and the chord has no third, B."),
-                    opt("G3", Verdict.WRONG, "A leap down a fourth onto the bass's note, and the chord still has no third."),
+                Task("F major to G major, no shared note. Which tenor note?", chords("A4 F4 C4 F3", "G4 D4 B3 G3"), Voice.TENOR, listOf(
+                    opt("B3", Verdict.BEST, "Steps down to the third."),
+                    opt("D4", Verdict.WRONG, "A step, but the chord has no third."),
+                    opt("G3", Verdict.WRONG, "A leap, and the chord has no third."),
                 )),
-                Task("A minor to F major: two notes are shared. Which note for the alto?", chords("C5 E4 A3 A2", "C5 F4 A3 F2"), Voice.ALTO, listOf(
-                    opt("F4", Verdict.BEST, "E to F: one step up. Soprano and tenor hold the shared notes, C and A."),
-                    opt("C4", Verdict.OK, "C is a note of the chord, but the alto leaps a third when F was a step away, and the root F then sounds only in the bass."),
-                    opt("A4", Verdict.WRONG, "A leap of a fourth, and it doubles A, the third, which the tenor already sings."),
+                Task("A minor to F major. Which alto note?", chords("C5 E4 A3 A2", "C5 F4 A3 F2"), Voice.ALTO, listOf(
+                    opt("F4", Verdict.BEST, "Steps up; the others hold."),
+                    opt("C4", Verdict.OK, "Fine, but it leaps when F was a step away."),
+                    opt("A4", Verdict.WRONG, "Leaps, and doubles the third."),
                 )),
             ),
             find = chords("G4 E4 C4 C3", "A4 F4 C4 F3", "G4 D4 B3 G2", "C5 G4 E4 C3"),
-            findNote = "Two spots here break rules of this lesson. Tap a note of each, then Reveal. Stuck? Ask which bars to look in.",
-            apply = "Write soprano, alto and tenor over the given bass. The chords are I, ii, IV, V and vi in root position. " +
-                "From chord to chord, try holding the shared notes and moving the other voices to a near note.",
+            findNote = "Two spots break this lesson's rules. Tap a note in each, then Reveal.",
+            apply = "Add soprano, alto and tenor over the bass (I, ii, IV, V, vi). Hold shared notes, step to near ones.",
             chords = setOf("I", "ii", "IV", "V", "vi"),
         ),
     )

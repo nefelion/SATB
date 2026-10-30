@@ -95,6 +95,8 @@ data class UiState(
     /** Lessons (indexes into Lessons.ALL) whose exercise has been solved. */
     val lessonsDone: Set<Int> = emptySet(),
     val playing: Boolean = false,
+    /** A lesson passage playing and how much of it has played (0..1). */
+    val passage: Pair<Score, Float>? = null,
     /** Onset of the slice under the playback cursor. */
     val playTime: Fraction? = null,
     val soundLoaded: Boolean = false,
@@ -1100,7 +1102,19 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun playPassage(score: Score) {
         if (!s.soundLoaded) return msg(if (loadJob?.isActive == true) "Loading the sound… try again in a moment." else "Load a SoundFont (.sf2) in Settings to play.")
         stop()
-        Synth.play(score)
+        // Lesson chords are whole notes: a brisk tempo, so a chord lasts about a second
+        Synth.play(score.copy(tempo = 180))
+        val len = score.length.toDouble()
+        _state.update { it.copy(passage = score to 0f) }
+        playJob = viewModelScope.launch {
+            delay(50)
+            while (true) {
+                val whole = Synth.position() ?: break
+                _state.update { it.copy(passage = score to (whole / len).toFloat().coerceIn(0f, 1f)) }
+                delay(30)
+            }
+            _state.update { it.copy(passage = null) }
+        }
     }
 
     /** Opens lesson [i]'s passage read-only with the self-check started: the user finds its mistakes. */
@@ -1350,7 +1364,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun stop() {
         Synth.stop()
         playJob?.cancel()
-        _state.update { it.copy(playing = false, playTime = null) }
+        _state.update { it.copy(playing = false, playTime = null, passage = null) }
     }
 
     fun importSf2(uri: Uri) = viewModelScope.launch {
