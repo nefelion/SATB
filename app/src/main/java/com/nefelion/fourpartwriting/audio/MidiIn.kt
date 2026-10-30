@@ -19,11 +19,12 @@ import java.util.UUID
 
 /**
  * Listens to every connected MIDI keyboard: USB ones at once, Bluetooth ones once connected with [connectBluetooth].
- * [onNote] gets (note, true) for Note On and (note, false) for Note Off, on the main thread.
+ * [onNote] gets (note, velocity 1..127) for Note On and (note, 0) for Note Off, [onPedal] the sustain pedal; both on the main thread.
  */
 class MidiIn(
     context: Context,
-    private val onNote: (Int, Boolean) -> Unit,
+    private val onNote: (Int, Int) -> Unit,
+    private val onPedal: (Boolean) -> Unit,
     /** Names of the connected keyboards, whenever they change. */
     private val onDevices: (List<String>) -> Unit,
 ) {
@@ -51,8 +52,12 @@ class MidiIn(
                 if (i + len > end) return
                 if (kind == 0x90 || kind == 0x80) {
                     val note = msg[i].toInt() and 0x7F
-                    val on = kind == 0x90 && msg[i + 1].toInt() and 0x7F > 0 // velocity 0 = off
-                    main.post { onNote(note, on) }
+                    val vel = if (kind == 0x90) msg[i + 1].toInt() and 0x7F else 0 // velocity 0 = off
+                    main.post { onNote(note, vel) }
+                }
+                if (kind == 0xB0 && msg[i].toInt() and 0x7F == 64) { // sustain pedal: 64 and up is down
+                    val down = msg[i + 1].toInt() and 0x7F >= 64
+                    main.post { onPedal(down) }
                 }
                 i += len
             }

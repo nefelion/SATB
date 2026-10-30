@@ -102,6 +102,8 @@ data class UiState(
     val tone: String? = null,
     /** Onset of the slice under the playback cursor. */
     val playTime: Fraction? = null,
+    /** The built-in modeled piano plays, not the SoundFont. */
+    val piano: Boolean = true,
     val soundLoaded: Boolean = false,
     /** A SoundFont is being read (on app start or after a pick). */
     val soundLoading: Boolean = false,
@@ -131,6 +133,8 @@ data class UiState(
     /** Movement mode (tap the active voice button): taps only select notes, nothing is added. */
     val moving: Boolean = false,
 ) {
+    /** Some instrument is ready to play: the built-in piano, or a loaded SoundFont. */
+    val canPlay: Boolean get() = piano || soundLoaded
     /** Rules the open score is checked with: a lesson's own, whatever is switched off in Settings. */
     val checkRules: Set<Rule> get() = score.lesson?.let(Lessons::rulesUpTo) ?: rules
     /** Voice shown on the caret and voice buttons: while dragging, the dragged note's voice, not the next input voice. */
@@ -198,6 +202,8 @@ private fun chorale(vararg chords: String): List<List<Event>> {
     }
 }
 
+private const val NO_SOUND = "Load a SoundFont (.sf2) in Settings, or switch to the built-in piano."
+
 /** A short phrase in C major (I IV V I | vi ii6 Cad6/4 V7 | I) so the first screen shows music. */
 val EXAMPLE = Score(
     voices = chorale(
@@ -240,6 +246,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             lessonsDone = prefs.getStringSet("lessonsDone", emptySet())!!.mapNotNull { it.toIntOrNull() }.toSet(),
             dark = prefs.getBoolean("dark", app.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES),
             soundName = prefs.getString("sf2Name", null),
+            piano = prefs.getBoolean("piano", true),
             voice = Voice.entries.getOrElse(prefs.getInt("voice", 0)) { Voice.SOPRANO },
             duration = runCatching { Duration(prefs.getInt("durBase", 4), prefs.getInt("durDots", 0)) }.getOrDefault(Duration(4)),
         )
@@ -257,7 +264,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private var saveJob: Job? = null
 
     /** MIDI keyboard: keys pressed together (held until all are released) arrive as one chord. */
-    private val midi = MidiIn(app, { n, on -> midiKey(n, on) }, { names ->
+    private val midi = MidiIn(app, { n, vel -> midiKey(n, vel) }, Synth::sustain, { names ->
         midiChord.reset() // a keyboard unplugged mid-chord never sends its key releases
         _state.update { it.copy(midiDevices = names) }
     })
@@ -269,6 +276,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     init {
+        Synth.usePiano(s.piano)
         reconnectMidi()
         val savedUri = prefs.getString("sf2Uri", null)?.let(Uri::parse)
         if (savedUri != null || sf2.exists()) loadJob = viewModelScope.launch(Dispatchers.IO) {
@@ -1104,7 +1112,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Plays a lesson's [score] (no cursor: it is not the open score). */
     fun playPassage(score: Score) {
-        if (!s.soundLoaded) return msg(if (loadJob?.isActive == true) "Loading the sound… try again in a moment." else "Load a SoundFont (.sf2) in Settings to play.")
+        if (!s.canPlay) return msg(if (loadJob?.isActive == true) "Loading the sound… try again in a moment." else NO_SOUND)
         stop()
         // Lesson chords are whole notes: a brisk tempo, so a chord lasts about a second
         Synth.play(score.copy(tempo = 180))
@@ -1122,15 +1130,18 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Plays modeled piano [tones] for [seconds] (infinite: until stopped), hammers at [hammers], for [tag]; works without a SoundFont.
-     * Held tones already sounding carry on into the new ones (see [Tones.play]).
+     * Plays held partials [tones] for [seconds] (infinite: until stopped), for [tag], and strikes [key] on the modeled piano
+     * at [strike] seconds; works without a SoundFont. Held tones already sounding carry on into the new ones (see [Tones.play]).
      */
-    fun playTones(tag: String, tones: List<Tones.Tone>, seconds: Double, hammers: List<Double>) {
+    fun playTones(tag: String, tones: List<Tones.Tone>, seconds: Double, strike: Double?, key: Int) {
         Synth.stop(); playJob?.cancel(); toneJob?.cancel()
-        Tones.play(tones, hammers)
+        Tones.play(tones, seconds)
         _state.update { it.copy(playing = false, playTime = null, passage = null, tone = tag) }
         if (seconds.isFinite()) toneJob = viewModelScope.launch {
-            delay((seconds * 1000).toLong())
+            // Timed by the speaker, as the lesson's drawing is
+            if (strike != null) { while (Tones.elapsed() < strike) delay(5); Synth.strike(key, 80) }
+            delay(((seconds - Tones.elapsed()) * 1000).toLong().coerceAtLeast(0))
+            Synth.strike(key, 0)
             _state.update { it.copy(tone = null) }
         }
     }
@@ -1262,9 +1273,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- MIDI keyboard ----------
 
-    private fun midiKey(n: Int, on: Boolean) {
+    private fun midiKey(n: Int, vel: Int) {
+        val on = vel > 0
         // Sound follows the keys, so a silent controller can be played like an instrument
-        if (s.soundLoaded && !s.playing) if (on) Synth.noteOn(n) else Synth.noteOff(n)
+        if (s.canPlay && !s.playing) if (on) Synth.noteOn(n, vel) else Synth.noteOff(n)
         // A locked voice takes each key as it goes down, so legato playing stays a melody (its release is a stray one to the gatherer)
         val notes = (if (on && s.locked != null) listOf(n) else null) ?: midiChord.key(n, on) ?: return
         muted = true
@@ -1346,7 +1358,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private var muted = false
 
     private fun preview(p: Pitch) {
-        if (!s.soundLoaded || s.playing || muted) return
+        if (!s.canPlay || s.playing || muted) return
         Synth.noteOn(p.midi)
         viewModelScope.launch { delay(450); Synth.noteOff(p.midi) }
     }
@@ -1356,13 +1368,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         // A second tap while waiting cancels the wait
         if (waitJob?.isActive == true) { waitJob?.cancel(); return }
         val loading = loadJob
-        if (!s.soundLoaded && loading?.isActive == true) {
+        if (!s.canPlay && loading?.isActive == true) {
             msg("Loading the sound… playback starts when it is ready.")
             // Clear waitJob first, or togglePlay sees an active wait and cancels it
             waitJob = viewModelScope.launch { loading.join(); waitJob = null; togglePlay() }
             return
         }
-        if (!s.soundLoaded) { msg("Load a SoundFont (.sf2) in Settings to play."); return }
+        if (!s.canPlay) { msg(NO_SOUND); return }
         val score = s.score
         val onsets = score.slices().map { it.time }
         if (onsets.isEmpty()) return
@@ -1398,6 +1410,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             loadSf2(uri) // on failure the native side keeps the previous font
         }
         if (ok) {
+            setPiano(false) // a SoundFont just picked is the one to hear
             prefs.edit().putString("sf2Uri", uri.toString()).putString("sf2Name", name).apply()
             if (old != null && old != uri.toString()) releaseSf2(old)
             sf2.delete() // free the copy older versions kept
@@ -1406,6 +1419,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(soundLoaded = it.soundLoaded || ok, soundLoading = false, soundName = if (ok) name else it.soundName,
                 message = if (ok) "SoundFont loaded: ${name ?: "file"}" else "Could not read ${name ?: "that file"} as a SoundFont (.sf2).")
         }
+    }
+
+    /** Plays the built-in modeled piano ([on]) or the SoundFont. */
+    fun setPiano(on: Boolean) {
+        stop()
+        Synth.usePiano(on)
+        _state.update { it.copy(piano = on) }
+        prefs.edit().putBoolean("piano", on).apply()
     }
 
     /** Loads the SoundFont straight from the user's file through its file descriptor, without a copy. */

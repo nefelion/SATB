@@ -1,8 +1,9 @@
-// SoundFont playback: TinySoundFont renders into an AAudio stream.
+// Playback into an AAudio stream: the built-in modeled piano (piano.cpp) or a SoundFont (TinySoundFont).
 // Scheduled events are applied inside the audio callback at sample-exact times. Event times are
 // musical (whole notes) and turned into frames with the current tempo, so tempo changes apply live.
 #define TSF_IMPLEMENTATION
 #include "tsf.h"
+#include "piano.h"
 
 #include <aaudio/AAudio.h>
 #include <unistd.h>
@@ -27,10 +28,31 @@ size_t nextEv = 0;
 double mpos = 0;      // whole notes since play() started
 double tempo = 80;    // quarter notes per minute
 bool playing = false;
+bool usePiano = true;  // the modeled piano, else the SoundFont
+
+bool ready() { return usePiano || sf; }
 
 void render(float* out, int frames) {
+    if (usePiano) { piano::render(out, frames); return; }
     if (sf) tsf_render_float(sf, out, frames, 0);
     else std::fill(out, out + frames * 2, 0.0f);
+    // The overtone lesson strikes the modeled piano even while a SoundFont plays
+    static float mix[512];
+    for (int at = 0; at < frames; at += 256) {
+        int n = std::min(256, frames - at);
+        piano::render(mix, n);
+        for (int i = 0; i < 2 * n; i++) out[2 * at + i] += mix[i];
+    }
+}
+
+void note(int key, int vel) {
+    if (usePiano) { if (vel > 0) piano::noteOn(key, vel / 127.0f); else piano::noteOff(key); }
+    else if (sf) { if (vel > 0) tsf_note_on(sf, 0, key, vel / 127.0f); else tsf_note_off(sf, 0, key); }
+}
+
+void allOff() {
+    piano::allOff();
+    if (sf) tsf_note_off_all(sf);
 }
 
 aaudio_data_callback_result_t onAudio(AAudioStream*, void*, void* data, int32_t frames) {
@@ -38,15 +60,14 @@ aaudio_data_callback_result_t onAudio(AAudioStream*, void*, void* data, int32_t 
     std::lock_guard<std::mutex> lock(mx);
     int done = 0;
     const double wholePerFrame = tempo / (240.0 * sampleRate);
-    while (playing && sf && nextEv < events.size()) {
+    while (playing && ready() && nextEv < events.size()) {
         const Ev& e = events[nextEv];
         // Note-offs 10 ms early, so repeated notes are re-attacked
         double f = (e.t - mpos) / wholePerFrame - (e.on ? 0.0 : sampleRate / 100.0);
         if (f >= frames) break;
         int at = std::max(static_cast<int>(f), done);
         if (at > done) { render(out + done * 2, at - done); done = at; }
-        if (e.on) tsf_note_on(sf, 0, e.key, e.on / 127.0f);
-        else tsf_note_off(sf, 0, e.key);
+        note(e.key, e.on);
         nextEv++;
     }
     if (frames > done) render(out + done * 2, frames - done);
@@ -84,6 +105,7 @@ bool openStream() {
     AAudioStreamBuilder_delete(b);
     if (r != AAUDIO_OK) { LOGE("openStream: %s", AAudio_convertResultToText(r)); stream = nullptr; return false; }
     sampleRate = AAudioStream_getSampleRate(stream);
+    piano::init(sampleRate);  // set up once per rate; the stream does not run yet
     if (sf) tsf_set_output(sf, TSF_STEREO_INTERLEAVED, sampleRate, -6.0f);
     AAudioStream_requestStart(stream);
     return true;
@@ -104,7 +126,7 @@ Java_com_nefelion_fourpartwriting_audio_Synth_nativeClose(JNIEnv*, jobject) {
     {
         std::lock_guard<std::mutex> lock(mx);
         s = stream; stream = nullptr; playing = false;
-        if (sf) tsf_note_off_all(sf);
+        allOff();
     }
     if (s) { AAudioStream_requestStop(s); AAudioStream_close(s); }
 }
@@ -149,9 +171,29 @@ Java_com_nefelion_fourpartwriting_audio_Synth_nativeLoadFd(JNIEnv*, jobject, jin
 JNIEXPORT void JNICALL
 Java_com_nefelion_fourpartwriting_audio_Synth_nativeNote(JNIEnv*, jobject, jint key, jint vel) {
     std::lock_guard<std::mutex> lock(mx);
-    if (!sf) return;
-    if (vel > 0) tsf_note_on(sf, 0, key, vel / 127.0f);
-    else tsf_note_off(sf, 0, key);
+    note(key, vel);
+}
+
+// Plays the modeled piano whichever instrument is chosen (vel 0 = release).
+JNIEXPORT void JNICALL
+Java_com_nefelion_fourpartwriting_audio_Synth_nativeStrike(JNIEnv*, jobject, jint key, jint vel) {
+    std::lock_guard<std::mutex> lock(mx);
+    if (vel > 0) piano::noteOn(key, vel / 127.0f); else piano::noteOff(key);
+}
+
+JNIEXPORT void JNICALL
+Java_com_nefelion_fourpartwriting_audio_Synth_nativeSustain(JNIEnv*, jobject, jboolean down) {
+    std::lock_guard<std::mutex> lock(mx);
+    piano::sustain(down);
+}
+
+// Switches between the modeled piano and the SoundFont, silencing both.
+JNIEXPORT void JNICALL
+Java_com_nefelion_fourpartwriting_audio_Synth_nativeUsePiano(JNIEnv*, jobject, jboolean on) {
+    std::lock_guard<std::mutex> lock(mx);
+    allOff();
+    playing = false;
+    usePiano = on;
 }
 
 // events: flat [time in whole notes, key, velocity(0 = off)] triples.
@@ -166,8 +208,8 @@ Java_com_nefelion_fourpartwriting_audio_Synth_nativePlay(JNIEnv* env, jobject, j
     std::stable_sort(events.begin(), events.end(), [](const Ev& x, const Ev& y) {
         return x.t < y.t || (x.t == y.t && x.on < y.on);  // note-offs first at equal times
     });
-    if (sf) tsf_note_off_all(sf);
-    nextEv = 0; mpos = 0; playing = sf && !events.empty();
+    allOff();
+    nextEv = 0; mpos = 0; playing = ready() && !events.empty();
 }
 
 /** Quarter notes per minute; takes effect at once, also during playback. */
@@ -181,7 +223,7 @@ JNIEXPORT void JNICALL
 Java_com_nefelion_fourpartwriting_audio_Synth_nativeStop(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(mx);
     playing = false;
-    if (sf) tsf_note_off_all(sf);
+    allOff();
 }
 
 /** Whole notes played since play(), or -1 when idle. */

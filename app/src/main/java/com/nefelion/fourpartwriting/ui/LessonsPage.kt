@@ -125,11 +125,11 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
         // A lab lesson starts with sound and needs no summary first
         if (!l.lab) item { Text(l.idea, Modifier.widthIn(max = 640.dp).fillMaxWidth(), style = body, color = muted) }
         // This page covers the editor's snackbar, so say here why Play is silent
-        if (!st.soundLoaded) item {
+        if (!st.canPlay) item {
             Row(Modifier.widthIn(max = 640.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                // The note card synthesizes its own piano; everything else needs the SoundFont
-                Text(when { st.soundLoading -> "Loading the sound…"; l.lab -> "Step 1 plays its own sound. Load a SoundFont (.sf2) for the rest."
-                    else -> "No sound yet: load a SoundFont (.sf2) to hear the examples." },
+                // The note card synthesizes its own sound; everything else needs the chosen instrument
+                Text(when { st.soundLoading -> "Loading the sound…"; l.lab -> "Step 1 plays its own sound. Load a SoundFont (.sf2) or pick the built-in piano for the rest."
+                    else -> "No sound yet: load a SoundFont (.sf2) or pick the built-in piano to hear the examples." },
                     Modifier.weight(1f), style = body, color = if (l.lab) muted else MaterialTheme.colorScheme.error)
                 if (!st.soundLoading) TextButton({ settings = true }) { Text("Settings") }
             }

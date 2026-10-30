@@ -124,11 +124,11 @@ private class Plan(val join: List<Double>, val hit: Double?, val length: Double)
         else -> PIANO[i].amp * presence(i, e)
     }
 
+    /** The held partials; the strike is the modeled piano's (see [EditorViewModel.playTones]). */
     fun tones() = PIANO.indices.filter { join[it] < length }.map {
-        if (hit == null) Tones.Tone(PIANO[it], join[it], held = true, end = length)
-        else Tones.Tone(PIANO[it], join[it], held = true, end = hit - DECAY, release = DECAY)
-    } +
-        (hit?.let { Tones.strike(PIANO, it, end = length) } ?: emptyList())
+        if (hit == null) Tones.Tone(PIANO[it], join[it], end = length)
+        else Tones.Tone(PIANO[it], join[it], end = hit - DECAY, release = DECAY)
+    }
 
     companion object {
         /** The partials of step [k] held until the next step. */
@@ -164,7 +164,7 @@ internal fun NoteBuilder(st: UiState, vm: EditorViewModel) {
     var plan by remember { mutableStateOf(Plan.hold(shown)) }
     // Seconds into the plan, as heard from the speaker
     var e by remember { mutableFloatStateOf(0f) }
-    fun play(p: Plan) { plan = p; vm.playTones(TAG, p.tones(), p.length, listOfNotNull(p.hit)) }
+    fun play(p: Plan) { plan = p; vm.playTones(TAG, p.tones(), p.length, p.hit, A4.midi) }
     LaunchedEffect(Unit) { if (!greeted) { greeted = true; play(Plan.hold(1)) } }
     val playing = st.tone == TAG
     LaunchedEffect(playing) {
@@ -188,8 +188,9 @@ internal fun NoteBuilder(st: UiState, vm: EditorViewModel) {
     Button({ play(Plan.BUILD) }, shape = SHAPE, enabled = !building, modifier = Modifier.fillMaxWidth()) {
         Text(when { building -> "Listen…"; shown == STEPS -> "▶ Build it again"; else -> "▶ Build the note" })
     }
-    TextButton({ vm.playPassage(Score(voices = listOf(listOf(Event(Fraction.of(1, 1), A4))) + List(3) { listOf(Event(Fraction.of(1, 1), null)) })) },
-        modifier = Modifier.fillMaxWidth()) { Text("▶ A sampled piano, for comparison") }
+    // With the built-in piano chosen, the strike already is it
+    if (!st.piano) TextButton({ vm.playPassage(Score(voices = listOf(listOf(Event(Fraction.of(1, 1), A4))) + List(3) { listOf(Event(Fraction.of(1, 1), null)) })) },
+        modifier = Modifier.fillMaxWidth()) { Text("▶ The SoundFont, for comparison") }
     AnimatedVisibility(k >= 6) {
         val colors = roleColors()
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {

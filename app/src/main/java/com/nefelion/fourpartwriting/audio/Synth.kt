@@ -4,7 +4,7 @@ import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.Voice
 
-/** JNI bridge to the native TinySoundFont + AAudio synth (src/main/cpp/synth.cpp). */
+/** JNI bridge to the native synth (src/main/cpp/synth.cpp): the modeled piano or a SoundFont, played through AAudio. */
 object Synth {
     init { System.loadLibrary("satb") }
 
@@ -18,6 +18,12 @@ object Synth {
     fun loadFd(fd: Int) = nativeLoadFd(fd).also { loaded = loaded || it }
     fun noteOn(midi: Int, vel: Int = 90) = nativeNote(midi, vel)
     fun noteOff(midi: Int) = nativeNote(midi, 0)
+    /** Strikes ([vel] > 0) or releases [midi] on the modeled piano, whichever instrument is chosen. */
+    fun strike(midi: Int, vel: Int) = nativeStrike(midi, vel)
+    /** Sustain pedal of the modeled piano. */
+    fun sustain(down: Boolean) = nativeSustain(down)
+    /** Plays the built-in modeled piano ([on]) or the loaded SoundFont. */
+    fun usePiano(on: Boolean) = nativeUsePiano(on)
     fun stop() = nativeStop()
     /** Whole notes played since playback started, or null when idle. */
     fun position(): Double? = nativePosition().takeIf { it >= 0 }
@@ -57,6 +63,9 @@ object Synth {
     private external fun nativeLoad(path: String): Boolean
     private external fun nativeLoadFd(fd: Int): Boolean
     private external fun nativeNote(key: Int, vel: Int)
+    private external fun nativeStrike(key: Int, vel: Int)
+    private external fun nativeSustain(down: Boolean)
+    private external fun nativeUsePiano(on: Boolean)
     private external fun nativePlay(events: DoubleArray)
     private external fun nativeSetTempo(qpm: Double)
     private external fun nativeStop()

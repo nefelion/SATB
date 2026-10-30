@@ -18,7 +18,8 @@ An Android app for writing four-part (SATB) harmony and checking it against comm
 - 84 Bach chorales to study, with rule cards that point to where Bach keeps or breaks each rule.
 - Figured bass and given soprano exercises: write the other voices around a given bass or melody, check them, or ask for a hint or a full solution.
 - Chord symbols, Roman numerals and named non-chord tones.
-- Playback with any SoundFont (`.sf2`) and export to MusicXML.
+- Built-in modeled piano: plays right away, no SoundFont needed; velocity and sustain pedal from a MIDI keyboard.
+- Playback with any SoundFont (`.sf2`) too, and export to MusicXML.
 
 <img alt="Harmony check: parallel octaves highlighted in the score, with the list of rule breaks and warnings below" src="docs/images/check.png">
 
@@ -30,7 +31,7 @@ Tap a rule break to see the notes involved. The ⓘ button explains the rule wit
 
 Download the APK from the [Releases](../../releases) page, or build it yourself (see below). Requires Android 8.0 (API 26) or newer.
 
-For playback, pick a SoundFont (`.sf2`) file in Settings. None is bundled.
+Playback uses the built-in modeled piano. To use another sound, pick a SoundFont (`.sf2`) file in Settings → Playback; none is bundled.
 
 ## Build
 
