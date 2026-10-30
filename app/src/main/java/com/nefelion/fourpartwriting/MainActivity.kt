@@ -18,7 +18,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import com.nefelion.fourpartwriting.audio.Synth
-import com.nefelion.fourpartwriting.ui.EditorScreen
+import com.nefelion.fourpartwriting.ui.AppRoot
 import com.nefelion.fourpartwriting.ui.ThemePicker
 import com.nefelion.fourpartwriting.ui.Tutorial
 import com.nefelion.fourpartwriting.ui.theme.MyApplicationTheme
@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
             }
             if (!chosen) ThemePicker(st.value, vm::setDark)
             else MyApplicationTheme(dark) {
-                if (!seen) Tutorial(vm::finishTutorial) else EditorScreen(vm)
+                if (!seen) Tutorial(vm::finishTutorial) else AppRoot(vm)
             }
         }
     }

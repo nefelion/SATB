@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -60,42 +61,9 @@ import com.nefelion.fourpartwriting.theory.Verdict
 import com.nefelion.fourpartwriting.theory.VoiceLeading
 import com.nefelion.fourpartwriting.ui.theme.LocalScoreColors
 
-/** The guided lessons, in order; a ✓ marks one whose exercise was solved. Any lesson can be opened. */
+/** One lesson's steps on a page; [header] shows its number and title, [onNext] opens the next lesson. Choices stay on rotation. */
 @Composable
-internal fun LessonsPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
-    var open by rememberSaveable { mutableStateOf<Int?>(null) }
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    FullScreenPage("Lessons", onDismiss) {
-        item {
-            Text("Short lessons on how voices move: hear it, see it, try it.",
-                Modifier.widthIn(max = 640.dp), style = MaterialTheme.typography.bodyMedium, color = muted)
-        }
-        item {
-            Group(null) {
-                Lessons.ALL.forEachIndexed { i, l ->
-                    if (i > 0) HorizontalDivider()
-                    Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { open = i }.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("${i + 1}. ${l.title}", fontWeight = FontWeight.Bold)
-                            Text(l.idea, style = MaterialTheme.typography.bodySmall, color = muted)
-                        }
-                        if (i in st.lessonsDone) Text("✓", Modifier.padding(start = 8.dp), color = LocalScoreColors.current.ok,
-                            style = MaterialTheme.typography.titleLarge)
-                    }
-                }
-            }
-        }
-        item {
-            Text("More lessons coming.",
-                Modifier.widthIn(max = 640.dp), style = MaterialTheme.typography.bodySmall, color = muted)
-        }
-    }
-    open?.let { i -> LessonPage(i, st, vm, onNext = { open = i + 1 }) { open = null } }
-}
-
-/** One lesson's seven steps on a page; [onNext] opens the next lesson. Choices stay on rotation. */
-@Composable
-private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> Unit, onDismiss: () -> Unit) {
+internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Composable RowScope.() -> Unit, onNext: () -> Unit, onDismiss: () -> Unit) {
     val l = Lessons.ALL[i]
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val colors = LocalScoreColors.current
@@ -105,6 +73,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
     var picks by rememberSaveable(i) { mutableStateOf(IntArray(l.tasks.size) { -1 }) }
     var info by rememberSaveable { mutableStateOf<Rule?>(null) }
     var settings by rememberSaveable { mutableStateOf(false) }
+    var replacing by rememberSaveable { mutableStateOf(false) }
     val body = MaterialTheme.typography.bodyMedium
     val spots = l.rules.flatMap { r -> IN_BACH[r].orEmpty().map { r to it } }
     // Steps are numbered by what this lesson has
@@ -121,7 +90,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
         }
     }
 
-    FullScreenPage("${i + 1}. ${l.title}", onDismiss) {
+    Page("${i + 1}. ${l.title}", onDismiss, header) {
         // A lab lesson starts with sound and needs no summary first
         if (!l.lab) item { Text(l.idea, Modifier.widthIn(max = 640.dp).fillMaxWidth(), style = body, color = muted) }
         // This page covers the editor's snackbar, so say here why Play is silent
@@ -245,12 +214,16 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
                 Text("Solve one with no rule breaks to finish the lesson.",
                     style = MaterialTheme.typography.bodySmall, color = muted)
                 if (i in st.lessonsDone) Text("✓ Lesson done", fontWeight = FontWeight.Bold, color = colors.ok)
-                FilledTonalButton(onClick = { vm.newLessonExercise(i) }, shape = SHAPE) { Text("New exercise") }
+                // One exercise per lesson: your work on it is kept until you ask for a new one
+                if (i in st.lessonSaved) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { vm.openLessonExercise(i) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Continue exercise") }
+                    OutlinedButton(onClick = { replacing = true }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("New exercise") }
+                } else Button(onClick = { vm.openLessonExercise(i) }, shape = SHAPE) { Text("Start exercise") }
             }
         }
 
         if (i < Lessons.ALL.lastIndex) item {
-            Button(onClick = onNext, shape = SHAPE) { Text("Next lesson: ${Lessons.ALL[i + 1].title}") }
+            FilledTonalButton(onClick = onNext, shape = SHAPE) { Text("Next lesson: ${Lessons.ALL[i + 1].title}") }
         }
     }
     info?.let { r ->
@@ -258,6 +231,7 @@ private fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, onNext: () -> U
             onStudy = { info = null; vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null }
     }
     if (settings) SettingsDialog(st, vm) { settings = false }
+    if (replacing) ReplaceLessonDialog(i, vm) { replacing = false }
 }
 
 /** A bar that fills while one of [scores] plays; invisible otherwise, so the page doesn't jump. */
@@ -271,15 +245,16 @@ internal fun Progress(st: UiState, vararg scores: Score) {
 private fun shown(score: Score, counts: String) = score.copy(voices = Voice.entries.map { score.voice(it).take(counts[it.ordinal].digitToInt()) })
 
 /**
- * A small static score: [score] drawn with [colors] on some notes and the roman numerals of [frame]
+ * A small static score: [score] drawn with [colors] on some notes and the roman numerals of [frame] (unless not [numerals])
  * (the whole passage, whose size the drawing keeps, so it does not jump while notes appear).
  */
 @Composable
-internal fun MiniScore(score: Score, colors: Map<NoteRef, Color> = emptyMap(), frame: Score = score) {
+internal fun MiniScore(score: Score, colors: Map<NoteRef, Color> = emptyMap(), frame: Score = score, numerals: Boolean = true) {
     val sc = LocalScoreColors.current
     val bravura = rememberBravura()
     val paints = remember(bravura) { Paints(bravura) }
-    val labels = remember(frame) {
+    val labels = remember(frame, numerals) {
+        if (!numerals) return@remember emptyMap()
         val a = VoiceLeading.check(frame)
         if (a.points.isEmpty()) emptyMap() else chordLabels(a).mapValues { ChordLabel("", it.value.roman) }
     }
@@ -289,7 +264,8 @@ internal fun MiniScore(score: Score, colors: Map<NoteRef, Color> = emptyMap(), f
     val w = right - left; val h = bottom - top
     val ink = sc.ink.toArgb(); val nct = sc.nct.toArgb()
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val spDp = min(7.dp, maxWidth / w)
+        // Also fits a bounded height (a card on the main menu)
+        val spDp = min(7.dp, maxWidth / w).let { if (constraints.hasBoundedHeight) min(it, maxHeight / h) else it }
         Canvas(Modifier.size(spDp * w, spDp * h)) {
             val sp = size.width / w
             paints.ink = ink; paints.nct = nct
@@ -323,5 +299,6 @@ private fun bounds(marks: List<com.nefelion.fourpartwriting.engrave.Mark>): List
         is BeamMark -> { xs += m.x1; xs += m.x2; ys += m.y1; ys += m.y2 + m.h }
         is TieMark -> { xs += m.x1; xs += m.x2; ys += m.y - 1f; ys += m.y + 1f }
     }
+    if (xs.isEmpty()) return listOf(0f, 0f, 1f, 1f) // nothing drawn
     return listOf(xs.min() - 0.5f, ys.min() - 0.5f, xs.max() + 0.5f, ys.max() + 0.5f)
 }

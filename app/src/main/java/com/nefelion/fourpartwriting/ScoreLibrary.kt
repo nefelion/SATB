@@ -43,6 +43,21 @@ class ScoreLibrary(private val dir: File) {
     companion object {
         const val EXT = ".satb"
 
+        private val LESSON_COPY = Regex("""Lesson (\d+) exercise( \(\d+\))?""")
+
+        /**
+         * Lesson exercises older versions kept as ordinary scores, to move into their lesson's slot: lesson index to score name.
+         * [names] newest first, so the newest copy of each lesson wins; [lessonOf] reads a score's lesson, which must match its name.
+         */
+        fun slotMoves(names: List<String>, lessonOf: (String) -> Int?): Map<Int, String> {
+            val out = LinkedHashMap<Int, String>()
+            for (n in names) {
+                val i = LESSON_COPY.matchEntire(n)?.groupValues?.get(1)?.toIntOrNull()?.minus(1) ?: continue
+                if (i !in out && lessonOf(n) == i) out[i] = n
+            }
+            return out
+        }
+
         fun clean(name: String): String =
             name.filterNot { it in "/\\:*?\"<>|" || it.isISOControl() }.trim().trimStart('.').take(60).trim().ifEmpty { "Untitled" }
     }

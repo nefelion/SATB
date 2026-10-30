@@ -56,9 +56,15 @@ data class UiState(
     val scoreName: String = "",
     /** The open score is the bundled study score with this id ("BWV 13.6"): read-only and never saved. */
     val study: String? = null,
+    /** The open score is lesson n's saved exercise (index into Lessons.ALL): kept in the lesson, not in the score list. */
+    val slot: Int? = null,
+    /** Lessons that have a saved exercise to continue. */
+    val lessonSaved: Set<Int> = emptySet(),
+    /** Name of the last score of your own (Free Mode reopens it). */
+    val freeName: String = "",
     /** The bundled study scores, once the Study page has asked for them. */
     val studies: List<Study> = emptyList(),
-    /** Bumped when another score opens, so pages over the editor close. */
+    /** Bumped when another score opens, so pages over the editor close and the app goes to the editor. */
     val openTick: Int = 0,
     /** All saved scores (null: file unreadable), most recently changed first. */
     val scores: List<Pair<String, Score?>> = emptyList(),
@@ -91,8 +97,6 @@ data class UiState(
     val quiz: Quiz? = null,
     /** Title and text of a note shown over the score until closed (a Bach spot, a lesson's task). */
     val note: Pair<String, String>? = null,
-    /** ✓ asks the user to find the mistakes first. */
-    val selfCheck: Boolean = true,
     /** Lessons (indexes into Lessons.ALL) whose exercise has been solved. */
     val lessonsDone: Set<Int> = emptySet(),
     val playing: Boolean = false,
@@ -217,6 +221,20 @@ val EXAMPLE = Score(
 class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("satb", Context.MODE_PRIVATE)
     private val library = ScoreLibrary(File(app.filesDir, "scores"))
+    /** One saved exercise per lesson, named [slotName]; never listed with your scores. */
+    private val lessonLib = ScoreLibrary(File(app.filesDir, "lessons")).also { lib ->
+        // Once: older versions kept lesson exercises as ordinary scores; the newest of each lesson moves into its slot
+        if (prefs.getBoolean("slotsMoved", false)) return@also
+        for ((i, name) in ScoreLibrary.slotMoves(library.names()) { library.read(it)?.lesson }) {
+            val sc = library.read(name) ?: continue
+            if (!lib.exists(slotName(i)) && lib.write(slotName(i), sc)) library.delete(name)
+        }
+        prefs.edit().putBoolean("slotsMoved", true).apply()
+    }
+    private fun slotName(i: Int) = "Lesson ${i + 1}"
+    private fun slots() = Lessons.ALL.indices.filter { lessonLib.exists(slotName(it)) }.toSet()
+    /** Where the open score is saved. */
+    private fun libOf(st: UiState) = if (st.slot != null) lessonLib else library
     /** Undo/redo stacks of the open score, written when the app goes to the background. */
     private val historyFile = File(app.filesDir, "history.txt")
     private val history = runCatching { ScoreCodec.decodeHistory(historyFile.readText()) }.getOrNull()
@@ -233,6 +251,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(
         UiState(
             scoreName = startName,
+            freeName = startName,
+            lessonSaved = slots(),
             scores = library.list(),
             score = library.read(startName)?.let(Edit::dropEmptyLastBars) ?: EXAMPLE,
             undo = history?.first.orEmpty(),
@@ -242,7 +262,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             // Until the user picks, start in the phone's current mode
             themeChosen = prefs.contains("dark"),
             tutorialSeen = prefs.getBoolean("tutorialSeen", false),
-            selfCheck = prefs.getBoolean("selfCheck", true),
             lessonsDone = prefs.getStringSet("lessonsDone", emptySet())!!.mapNotNull { it.toIntOrNull() }.toSet(),
             dark = prefs.getBoolean("dark", app.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES),
             soundName = prefs.getString("sf2Name", null),
@@ -258,6 +277,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private var toneJob: Job? = null
     /** Score whose solution was shown: solving it no longer finishes its lesson. shortcut: forgotten on restart, persist it if users game it. */
     private var solutionShown: String? = null
+    /** Key of the open score for [solutionShown]: a lesson's exercise by its lesson, so a score of yours with the same name differs. */
+    private fun shownKey() = s.slot?.let { "lesson:$it" } ?: s.scoreName
     /** SoundFont load started on app start, and a Play tap waiting for it. */
     private var loadJob: Job? = null
     private var waitJob: Job? = null
@@ -290,15 +311,15 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         // Save the score shortly after it changes
         viewModelScope.launch {
             var last = s.score
-            var lastName = s.scoreName
+            var lastName = s.scoreName to s.slot
             state.collect { st ->
                 // Opening another score is not an edit: nothing to save
-                if (st.scoreName != lastName) { lastName = st.scoreName; last = st.score }
+                if (st.scoreName to st.slot != lastName) { lastName = st.scoreName to st.slot; last = st.score }
                 if (st.score != last && st.study == null) {
                     last = st.score
                     saveJob?.cancel()
                     // On the main thread (a few KB): a rename or switch can then cancel it without a write racing behind
-                    saveJob = launch { delay(500); library.write(st.scoreName, st.score) }
+                    saveJob = launch { delay(500); libOf(st).write(st.scoreName, st.score) }
                 }
             }
         }
@@ -907,21 +928,23 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- score library ----------
 
     /** Writes the open score now and drops a pending autosave. */
-    private fun flushScore() { saveJob?.cancel(); if (s.study == null) library.write(s.scoreName, s.score) }
+    private fun flushScore() { saveJob?.cancel(); if (s.study == null) libOf(s).write(s.scoreName, s.score) }
 
     fun refreshScores() = _state.update { it.copy(scores = library.list()) }
 
     /** Shows [score] as [name] (a study score: [study] is its id), starting fresh: no undo history or selection from the score left behind. */
-    private fun show(name: String, score: Score, study: String? = null) {
+    private fun show(name: String, score: Score, study: String? = null, slot: Int? = null, opened: Boolean = true) {
         stop()
         historyFile.delete()
         keptOrder.clear()
-        // A study score is not in the library: the next start opens the last score of your own
-        if (study == null) prefs.edit().putString("current", name).apply()
+        // A study score or lesson exercise is not in the library: the next start (and Free Mode) opens the last score of your own
+        val free = study == null && slot == null
+        if (free) prefs.edit().putString("current", name).apply()
         _state.update {
-            it.copy(scoreName = name, score = score, study = study, scores = library.list(), undo = emptyList(), redo = emptyList(),
+            it.copy(scoreName = name, score = score, study = study, slot = slot, freeName = if (free) name else it.freeName,
+                lessonSaved = slots(), scores = library.list(), undo = emptyList(), redo = emptyList(),
                 selected = null, selectedAt = null, placed = false, analysis = null, quiz = null, focusedIssue = null, reorder = emptyList(), note = null,
-                moving = if (study != null) true else if (it.study != null) false else it.moving, openTick = it.openTick + 1)
+                moving = if (study != null) true else if (it.study != null) false else it.moving, openTick = if (opened) it.openTick + 1 else it.openTick)
         }
         Synth.setTempo(score.qpm)
         checkOrder()
@@ -932,8 +955,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Score [name]: the open study score is not in the library. */
     private fun scoreOf(name: String) = if (s.study != null && name == s.scoreName) s.score else library.read(name)
 
+    /** The open score is one of your own (not a study score or a lesson's exercise). */
+    private val ownOpen get() = s.study == null && s.slot == null
+
     fun openScore(name: String) {
-        if (name == s.scoreName && s.study == null) return
+        if (name == s.scoreName && ownOpen) return
         flushScore()
         show(name, readScore(name) ?: return msg("Could not open $name."))
     }
@@ -967,13 +993,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         if (solved == null) return@launch msg("No solution found for this exercise.")
-        if (s.score == sc) { edit(solved, null); note?.let(::msg); solutionShown = s.scoreName }
+        if (s.score == sc) { edit(solved, null); note?.let(::msg); solutionShown = shownKey() }
     }
 
-    private fun newBlank(wanted: String = "Untitled", sc: Score = blank()) {
+    private fun newBlank(wanted: String = "Untitled", sc: Score = blank(), opened: Boolean = true) {
         val name = library.freeName(wanted)
         if (!library.write(name, sc)) return msg("Could not create a score.")
-        show(name, sc)
+        show(name, sc, opened = opened)
     }
 
     /** Gives score [name] the key, time, tempo, staves and clefs of [settings]. The open score changes as one undo step. */
@@ -1000,7 +1026,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (library.exists(name)) return msg("A score named $name already exists.")
         flushScore()
         if (!library.rename(from, name)) return msg("Could not rename $from.")
-        if (from == s.scoreName && s.study == null) {
+        if (from == s.scoreName && ownOpen) {
             prefs.edit().putString("current", name).apply()
             _state.update { it.copy(scoreName = name) }
         }
@@ -1022,12 +1048,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Deleting the open score opens the most recent other one (or a new empty one). */
     fun deleteScore(name: String) {
-        val open = name == s.scoreName && s.study == null
+        val open = name == s.scoreName && ownOpen
         if (open) saveJob?.cancel() else flushScore()
         if (!library.delete(name)) return msg("Could not delete $name.")
         if (open) {
             val next = library.names().firstNotNullOfOrNull { n -> readScore(n)?.let { n to it } }
-            if (next != null) show(next.first, next.second) else newBlank()
+            // Not an opening: the page you deleted from stays
+            if (next != null) show(next.first, next.second, opened = false) else newBlank(opened = false)
         } else refreshScores()
         msg("$name deleted.")
     }
@@ -1155,13 +1182,37 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(quiz = Quiz(VoiceLeading.check(sc, it.checkRules)), note = "Find the mistakes" to l.findNote) }
     }
 
-    /** A new exercise with lesson [i]'s chords, checked with its rules. */
-    fun newLessonExercise(i: Int) = viewModelScope.launch {
+    /**
+     * Opens lesson [i]'s saved exercise; with [replace] or none saved, a new one with the lesson's chords
+     * (checked with its rules) takes its place.
+     */
+    fun openLessonExercise(i: Int, replace: Boolean = false) = viewModelScope.launch {
+        val name = slotName(i)
+        if (!replace) lessonLib.read(name)?.let(Edit::dropEmptyLastBars)?.let { flushScore(); show(name, it, slot = i); return@launch }
         val ex = withContext(Dispatchers.Default) { Exercises.generate(Exercises.Level.EASY, only = Lessons.ALL[i].chords) }
-            ?: return@launch msg("Could not make an exercise. Try again.")
+            ?.copy(lesson = i) ?: return@launch msg("Could not make an exercise. Try again.")
         flushScore()
-        newBlank("Lesson ${i + 1} exercise", ex.copy(lesson = i))
+        // The replaced one's autosave must not land on top of the new exercise
+        saveJob?.cancel()
+        if (!lessonLib.write(name, ex)) return@launch msg("Could not create the exercise.")
+        if (solutionShown == "lesson:$i") solutionShown = null
+        show(name, ex, slot = i)
         _state.update { it.copy(voice = Voice.SOPRANO) }
+    }
+
+    /** Lesson [i]'s saved exercise has notes of yours (replacing it loses them). */
+    fun lessonHasWork(i: Int): Boolean {
+        val sc = if (s.slot == i) s.score else lessonLib.read(slotName(i)) ?: return false
+        return Voice.entries.any { it !in sc.given && sc.voice(it).any { e -> e.pitch != null } }
+    }
+
+    /** Free Mode: back to the last score of your own, if a lesson's exercise or a study score is open. Stays on the current screen (the caller moves on). */
+    fun openFree() {
+        if (ownOpen) return
+        flushScore()
+        val name = s.freeName.takeIf(library::exists) ?: library.names().firstOrNull()
+        val sc = name?.let(::readScore)
+        if (name != null && sc != null) show(name, sc, opened = false) else newBlank(opened = false)
     }
 
     /** Display name and size in bytes of a picked file, when the provider tells them. */
@@ -1176,12 +1227,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- analysis ----------
 
-    /** ✓ button: check (with [UiState.selfCheck], first let the user find the mistakes), or close the results. */
+    /** ✓ button: check (the user finds the mistakes first), or close the results. */
     fun check() {
         if (s.analysis != null || s.quiz != null) return closeAnalysis()
         toMovement()
         val a = VoiceLeading.check(s.score, s.checkRules)
-        if (s.selfCheck && a.issues.isNotEmpty()) return _state.update { it.copy(quiz = Quiz(a), focusedIssue = null) }
+        if (a.issues.isNotEmpty()) return _state.update { it.copy(quiz = Quiz(a), focusedIssue = null) }
         _state.update { it.copy(analysis = a, focusedIssue = null) }
         solved(a)?.let(::msg)
     }
@@ -1190,7 +1241,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun solved(a: Analysis): String? {
         val sc = s.score
         if (sc.given.isEmpty() || !Voice.entries.all { sc.length(it) == sc.length && sc.voice(it).isNotEmpty() } || a.issues.any { it.severity == Severity.ERROR }) return null
-        val lesson = sc.lesson?.takeIf { solutionShown != s.scoreName }?.let { i ->
+        val lesson = sc.lesson?.takeIf { solutionShown != shownKey() }?.let { i ->
             if (i !in s.lessonsDone) {
                 _state.update { it.copy(lessonsDone = it.lessonsDone + i) }
                 prefs.edit().putStringSet("lessonsDone", s.lessonsDone.map { "$it" }.toSet()).apply()
@@ -1218,11 +1269,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val falseAlarms = q.marked.count { !q.hit(it) }
         msg(listOfNotNull("You found ${found.joinToString(" and ")}.",
             "$falseAlarms marked note${if (falseAlarms == 1) " was" else "s were"} fine.".takeIf { falseAlarms > 0 }, solved(a)).joinToString(" "))
-    }
-
-    fun setSelfCheck(on: Boolean) {
-        _state.update { it.copy(selfCheck = on) }
-        prefs.edit().putBoolean("selfCheck", on).apply()
     }
 
     /**

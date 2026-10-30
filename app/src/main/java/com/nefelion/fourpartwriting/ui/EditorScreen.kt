@@ -154,16 +154,11 @@ import kotlin.math.roundToInt
 private val BASES = listOf(1, 2, 4, 8, 16, 32, 64)
 
 /** Messages show on whichever page is on top: full-screen pages are their own windows and would hide the editor's. */
-private val LocalSnack = staticCompositionLocalOf<SnackbarHostState?> { null }
+internal val LocalSnack = staticCompositionLocalOf<SnackbarHostState?> { null }
 
+/** Messages are shown by [snack] (see [LocalSnack]); [onHome] leaves the editor (to Home, or back to the lesson). */
 @Composable
-fun EditorScreen(vm: EditorViewModel) {
-    val snack = remember { SnackbarHostState() }
-    CompositionLocalProvider(LocalSnack provides snack) { Editor(vm, snack) }
-}
-
-@Composable
-private fun Editor(vm: EditorViewModel, snack: SnackbarHostState) {
+internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, onHome: () -> Unit) {
     val st by vm.state.collectAsState()
     var settings by rememberSaveable { mutableStateOf(false) }
     var tempoDialog by rememberSaveable { mutableStateOf(false) }
@@ -177,18 +172,21 @@ private fun Editor(vm: EditorViewModel, snack: SnackbarHostState) {
     var figures by rememberSaveable { mutableStateOf(false) }
     var exercise by rememberSaveable { mutableStateOf(false) }
     var chords by rememberSaveable { mutableStateOf(false) }
+    var replaceLesson by rememberSaveable { mutableStateOf<Int?>(null) }
     var bassX by remember { mutableFloatStateOf(-1f) }
     // The figures pocket belongs to the bass: leaving the bass voice closes it
     LaunchedEffect(st.shownVoice) { if (st.shownVoice != Voice.BASS) figures = false }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     val more: @Composable RowScope.() -> Unit = {
         MoreButton(moreOpen, { moreOpen = it }) { item ->
-            item("Scores", false) { scores = true }
+            item(st.slot?.let { "Back to lesson ${it + 1}" } ?: "Home", false, onHome)
+            // Your scores belong to Free Mode; a lesson's exercise lives in the lesson
+            if (st.slot == null) item("Scores", false) { scores = true }
             HorizontalDivider()
             if (st.score.given.isNotEmpty()) {
                 item("Show a solution", false) { vm.showSolution() }
-                // In a lesson exercise: another one of the same lesson
-                item("New exercise", false) { st.score.lesson?.let(vm::newLessonExercise) ?: run { exercise = true } }
+                // In a lesson's exercise: a new one takes its place
+                item("New exercise", false) { st.slot?.let { replaceLesson = it } ?: run { exercise = true } }
                 HorizontalDivider()
             }
             item("Hint", false) { vm.hint() }
@@ -201,9 +199,6 @@ private fun Editor(vm: EditorViewModel, snack: SnackbarHostState) {
             item("Settings", false) { settings = true }
             item("About", false) { about = true }
         }
-    }
-    LaunchedEffect(st.message) {
-        st.message?.let { snack.showSnackbar(it); vm.clearMessage() }
     }
     // Opening a score from a page over the editor (a rule card's Bach example) goes back to the editor; not on rotation
     var seenOpen by rememberSaveable { mutableIntStateOf(st.openTick) }
@@ -275,6 +270,7 @@ private fun Editor(vm: EditorViewModel, snack: SnackbarHostState) {
     if (about) AboutDialog { about = false }
     if (exercise) ExerciseDialog(Voice.SOPRANO in st.score.given, onDismiss = { exercise = false }) { level, soprano -> exercise = false; vm.newExercise(level, soprano) }
     if (scores) ScoresPage(st, vm) { scores = false }
+    replaceLesson?.let { i -> ReplaceLessonDialog(i, vm) { replaceLesson = null } }
     if (confirmClear) AlertDialog(
         onDismissRequest = { confirmClear = false },
         title = { Text("Clear score?") },
@@ -643,7 +639,7 @@ private fun RowScope.MoreButton(open: Boolean, onOpen: (Boolean) -> Unit, items:
 
 /** App logo (the launcher icon's two layers, cut to a circle), name, version, license and a link to the source. */
 @Composable
-private fun AboutDialog(onDismiss: () -> Unit) {
+internal fun AboutDialog(onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty() }
     val uri = LocalUriHandler.current
@@ -652,11 +648,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
         KeepRefreshRate()
         Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
             Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Adaptive icon layers are 108dp with the visible part in the middle 72dp: draw them 1.5× and clip
-                Box(Modifier.size(96.dp).clip(CircleShape), contentAlignment = Alignment.Center) {
-                    for (res in listOf(R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground))
-                        Image(painterResource(res), null, Modifier.requiredSize(144.dp))
-                }
+                AppLogo(96.dp)
                 Text("SATB", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
                 Text("Version $version", style = MaterialTheme.typography.bodyMedium, color = muted)
                 Text("Free and open-source software (GPLv3)", style = MaterialTheme.typography.bodyMedium, color = muted, textAlign = TextAlign.Center)
@@ -669,6 +661,16 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     style = MaterialTheme.typography.labelSmall, color = muted, textAlign = TextAlign.Center)
             }
         }
+    }
+}
+
+/** The launcher icon cut to a circle. */
+@Composable
+internal fun AppLogo(size: androidx.compose.ui.unit.Dp) {
+    // Adaptive icon layers are 108dp with the visible part in the middle 72dp: draw them 1.5× and clip
+    Box(Modifier.size(size).clip(CircleShape), contentAlignment = Alignment.Center) {
+        for (res in listOf(R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground))
+            Image(painterResource(res), null, Modifier.requiredSize(size * 1.5f))
     }
 }
 
@@ -983,14 +985,6 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
                     Text("Rules to check", Modifier.weight(1f))
                     Text("${st.rules.size} of ${Rule.entries.size} on  ›", color = MaterialTheme.colorScheme.primary)
                 }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Find rule breaks yourself first")
-                        Text("✓ shows only how many there are until you mark them and tap Reveal.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(checked = st.selfCheck, onCheckedChange = vm::setSelfCheck)
-                }
             }
         }
     }
@@ -1102,26 +1096,47 @@ internal fun FullScreenPage(title: String, onDismiss: () -> Unit, content: andro
                 }
             }
         }
-        Surface(Modifier.fillMaxSize().clearFocusOnTap(), color = MaterialTheme.colorScheme.surface) {
-            Box {
-                Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
-                    Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(56.dp).clickable(onClick = onDismiss).semantics { contentDescription = "Back" },
-                            contentAlignment = Alignment.Center) { Text("←", fontSize = 22.sp) }
-                        Text(title, style = MaterialTheme.typography.titleLarge)
-                    }
-                    LazyColumn(
-                        Modifier.fillMaxSize(),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        content = content,
-                    )
+        Page(title, onDismiss, content = content)
+    }
+}
+
+/** A page with a back arrow and [title] over a list; [header] replaces the plain title (a lesson's shared badge). */
+@Composable
+internal fun Page(title: String, onBack: () -> Unit, header: (@Composable RowScope.() -> Unit)? = null,
+                  content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    Surface(Modifier.fillMaxSize().clearFocusOnTap(), color = MaterialTheme.colorScheme.surface) {
+        Box {
+            Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
+                Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(56.dp).clickable(onClick = onBack).semantics { contentDescription = "Back" },
+                        contentAlignment = Alignment.Center) { Text("←", fontSize = 22.sp) }
+                    if (header != null) header() else Text(title, style = MaterialTheme.typography.titleLarge)
                 }
-                LocalSnack.current?.let { SnackbarHost(it, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing)) }
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    content = content,
+                )
             }
+            LocalSnack.current?.let { SnackbarHost(it, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing)) }
         }
     }
+}
+
+/** Replaces lesson [i]'s saved exercise with a new one; asks first when it has notes of yours. */
+@Composable
+internal fun ReplaceLessonDialog(i: Int, vm: EditorViewModel, onDone: () -> Unit) {
+    val ask = remember(i) { vm.lessonHasWork(i) }
+    if (!ask) { LaunchedEffect(i) { vm.openLessonExercise(i, replace = true); onDone() }; return }
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text("New exercise?") },
+        text = { KeepRefreshRate(); Text("Your notes in this lesson's exercise will be lost.") },
+        confirmButton = { TextButton(onClick = { onDone(); vm.openLessonExercise(i, replace = true) }) { Text("Replace") } },
+        dismissButton = { TextButton(onClick = onDone) { Text("Keep it") } },
+    )
 }
 
 /** A titled card holding one group of settings. */

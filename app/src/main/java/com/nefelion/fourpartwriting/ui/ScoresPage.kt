@@ -7,7 +7,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -72,10 +76,15 @@ import com.nefelion.fourpartwriting.theory.Lessons
 import com.nefelion.fourpartwriting.model.ScoreCodec
 import androidx.compose.runtime.saveable.Saver
 
-/** Saved scores: open, start a new one, edit, set its rules, rename, copy, delete, save to or add from a .satb file. */
+/**
+ * Saved scores: open, start a new one, edit, set its rules, rename, copy, delete, save to or add from a .satb file.
+ * As the Free Mode [screen] it stays when a score opens ([onOpen] goes to the editor); over the editor it closes.
+ */
 @Composable
-internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
+internal fun ScoresPage(st: UiState, vm: EditorViewModel, screen: Boolean = false, onOpen: () -> Unit = {}, onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { vm.refreshScores() }
+    // Another score opening takes the app to the editor by itself (see AppRoot); only the page over the editor has to close
+    val opened = { if (!screen) onDismiss() }
     // Dialogs and menus stay open on rotation
     var menuFor by rememberSaveable { mutableStateOf<String?>(null) }
     var exercise by rememberSaveable { mutableStateOf(false) }
@@ -90,7 +99,6 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     var formatFor by rememberSaveable { mutableStateOf<String?>(null) }
     var asXml by rememberSaveable { mutableStateOf(false) }
     var studying by rememberSaveable { mutableStateOf(false) }
-    var learning by rememberSaveable { mutableStateOf(false) }
     // Generic type: providers keep an unknown .satb or .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val name = exporting
@@ -98,11 +106,11 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
         if (uri != null && name != null) vm.exportScoreFile(name, uri, asXml)
     }
     val opener = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) { vm.importScoreFile(uri); onDismiss() }
+        if (uri != null) { vm.importScoreFile(uri); opened() }
     }
     // Name, details and ⋮ menu; tapping opens the score (the open one just goes back to it)
     val row: @Composable (String, Score?, Boolean) -> Unit = { name, sc, open ->
-        Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.openScore(name); onDismiss() }.padding(start = 4.dp),
+        Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.openScore(name); if (screen) onOpen() else onDismiss() }.padding(start = 4.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) {
                 Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = if (open) FontWeight.Bold else FontWeight.Normal)
@@ -130,22 +138,19 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
             }
         }
     }
-    FullScreenPage("Scores", onDismiss) {
+    val body: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
+        // One main action; the others are smaller
         item {
-            Row(Modifier.widthIn(max = 640.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = { naming = true }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("New score") }
-                OutlinedButton(onClick = { opener.launch(arrayOf("*/*")) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Open file…") }
+            Button(onClick = { naming = true }, shape = RoundedCornerShape(16.dp), modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth().height(56.dp)) {
+                Text("New score", style = MaterialTheme.typography.titleMedium)
             }
         }
         item {
             Row(Modifier.widthIn(max = 640.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = { exercise = true }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("New exercise") }
-                OutlinedButton(onClick = { studying = true }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("Bach chorales") }
-            }
-        }
-        item {
-            FilledTonalButton(onClick = { learning = true }, shape = SHAPE, modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()) {
-                Text("Lessons" + if (st.lessonsDone.isEmpty()) "" else " (${st.lessonsDone.size} of ${Lessons.ALL.size} done)")
+                for ((label, action) in listOf("Exercise" to { exercise = true }, "Chorales" to { studying = true }, "Open file" to { opener.launch(arrayOf("*/*")) }))
+                    FilledTonalButton(onClick = action, shape = SHAPE, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                        Text(label, maxLines = 1)
+                    }
             }
         }
         // (a study score is not in the library, so a score of yours with the same name is listed)
@@ -153,7 +158,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
         item {
             // The open score's file may lag its last edit by the autosave delay, so its details come from the editor
             val cs = MaterialTheme.colorScheme
-            Group("Open", BorderStroke(2.dp, cs.primary), cs.primaryContainer, cs.onPrimaryContainer) { row(st.scoreName, st.score, true) }
+            Group(if (screen) "Continue" else "Open", BorderStroke(2.dp, cs.primary), cs.primaryContainer, cs.onPrimaryContainer) { row(st.scoreName, st.score, true) }
         }
         if (other.isNotEmpty()) item {
             Group("Other scores") {
@@ -164,11 +169,11 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
             }
         }
     }
-    if (exercise) ExerciseDialog(Voice.SOPRANO in st.score.given, onDismiss = { exercise = false }) { level, soprano -> exercise = false; vm.newExercise(level, soprano); onDismiss() }
-    if (learning) LessonsPage(st, vm) { learning = false }
-    if (studying) StudyPage(st, vm, onDismiss = { studying = false }) { studying = false; onDismiss() }
+    if (screen) Page("Free Mode", onDismiss, content = body) else FullScreenPage("Scores", onDismiss, body)
+    if (exercise) ExerciseDialog(Voice.SOPRANO in st.score.given, onDismiss = { exercise = false }) { level, soprano -> exercise = false; vm.newExercise(level, soprano); opened() }
+    if (studying) StudyPage(st, vm, onDismiss = { studying = false }) { studying = false; opened() }
     if (naming) ScoreDialog("New score", "", Score(), askName = true, action = "Create", onDismiss = { naming = false }) { name, settings ->
-        naming = false; vm.newScore(name, settings); onDismiss()
+        naming = false; vm.newScore(name, settings); opened()
     }
     editingScore?.let { name ->
         // The open score's file may lag its last edit, so its settings come from the editor
