@@ -948,6 +948,7 @@ internal fun keyLabel(k: Key) = k.name + when {
 internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
     val sf2Picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importSf2) }
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
+    var unlocking by rememberSaveable { mutableStateOf(false) }
     if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
     FullScreenPage("Settings", onDismiss) {
         item {
@@ -979,7 +980,20 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
                 }
             }
         }
+        item {
+            Group("Lessons") {
+                if (st.allUnlocked) Text("All lessons are unlocked.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else OutlinedButton(onClick = { unlocking = true }, shape = SHAPE) { Text("Unlock all lessons") }
+            }
+        }
     }
+    if (unlocking) AlertDialog(
+        onDismissRequest = { unlocking = false },
+        title = { Text("Unlock all lessons?") },
+        text = { KeepRefreshRate(); Text("Each lesson builds on the ones before it, so skipping ahead can make later lessons hard to follow. This can't be undone: the lessons won't lock again.") },
+        confirmButton = { TextButton({ vm.unlockAllLessons(); unlocking = false }) { Text("Unlock", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton({ unlocking = false }) { Text("Cancel") } },
+    )
 }
 
 /** MIDI keyboards: what is connected, and a search for Bluetooth ones (USB ones connect by themselves). */

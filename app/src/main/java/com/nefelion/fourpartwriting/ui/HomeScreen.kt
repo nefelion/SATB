@@ -86,6 +86,9 @@ internal enum class Stage { DONE, NOW, AHEAD }
 /** The lesson to go on with: the first not done, or the last when all are. */
 private fun nextLesson(done: Set<Int>) = Lessons.ALL.indices.firstOrNull { it !in done } ?: Lessons.ALL.lastIndex
 
+/** A lesson opens once the one before it is done, or when all are unlocked in Settings. */
+internal fun locked(i: Int, done: Set<Int>, all: Boolean) = !all && i > 0 && i - 1 !in done
+
 internal fun stageOf(i: Int, done: Set<Int>) = when { i in done -> Stage.DONE; i == nextLesson(done) -> Stage.NOW; else -> Stage.AHEAD }
 
 /** The first two bars of [score] (after a pickup), for a preview. */
@@ -224,16 +227,26 @@ private fun BookArt() {
     }
 }
 
+private var lockedToast: android.widget.Toast? = null
+
 /** The lessons in order, a card each; the next one stands out. [shared] ties a badge to its lesson's page. */
 @Composable
 internal fun LessonsScreen(st: State<UiState>, shared: @Composable (String) -> Modifier, onLesson: (Int) -> Unit, onBack: () -> Unit) {
     val done by remember { derivedStateOf { st.value.lessonsDone } }
+    val all by remember { derivedStateOf { st.value.allUnlocked } }
     val cs = MaterialTheme.colorScheme
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     Page("Lessons", onBack) {
         for ((i, l) in Lessons.ALL.withIndex()) item(key = "lesson$i") {
             val stage = stageOf(i, done)
             val now = stage == Stage.NOW
-            Surface(onClick = { onLesson(i) }, modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+            val shut = locked(i, done, all)
+            Surface(onClick = { if (shut) {
+                // Fast taps replace the toast instead of queuing behind it
+                lockedToast?.cancel()
+                lockedToast = android.widget.Toast.makeText(ctx, "Finish the previous lessons first", android.widget.Toast.LENGTH_SHORT).apply { show() }
+            } else onLesson(i) }, modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth().alpha(if (shut) 0.5f else 1f),
+                shape = RoundedCornerShape(20.dp),
                 color = if (now) cs.primaryContainer else cs.surfaceVariant, contentColor = cs.onSurface) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     LessonNode(i, stage, shared("node$i"))
@@ -241,7 +254,7 @@ internal fun LessonsScreen(st: State<UiState>, shared: @Composable (String) -> M
                         Text(l.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(l.idea, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    Text("›", fontSize = 26.sp, color = cs.onSurfaceVariant)
+                    if (!shut) Text("›", fontSize = 26.sp, color = cs.onSurfaceVariant)
                 }
             }
         }

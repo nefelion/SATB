@@ -223,7 +223,7 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
         }
 
         if (i < Lessons.ALL.lastIndex) item {
-            FilledTonalButton(onClick = onNext, shape = SHAPE) { Text("Next lesson: ${Lessons.ALL[i + 1].title}") }
+            FilledTonalButton(onClick = onNext, enabled = !locked(i + 1, st.lessonsDone, st.allUnlocked), shape = SHAPE) { Text("Next lesson: ${Lessons.ALL[i + 1].title}") }
         }
     }
     info?.let { r ->

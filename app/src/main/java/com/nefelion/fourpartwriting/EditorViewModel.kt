@@ -98,6 +98,8 @@ data class UiState(
     val note: Pair<String, String>? = null,
     /** Lessons (indexes into Lessons.ALL) whose exercise has been solved. */
     val lessonsDone: Set<Int> = emptySet(),
+    /** Every lesson opens without finishing the one before; set once in Settings, never undone. */
+    val allUnlocked: Boolean = false,
     val playing: Boolean = false,
     /** A lesson passage playing and how much of it has played (0..1). */
     val passage: Pair<Score, Float>? = null,
@@ -262,6 +264,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             themeChosen = prefs.contains("dark"),
             tutorialSeen = prefs.getBoolean("tutorialSeen", false),
             lessonsDone = prefs.getStringSet("lessonsDone", emptySet())!!.mapNotNull { it.toIntOrNull() }.toSet(),
+            allUnlocked = prefs.getBoolean("allUnlocked", false),
             dark = prefs.getBoolean("dark", app.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES),
             soundName = prefs.getString("sf2Name", null),
             piano = prefs.getBoolean("piano", true),
@@ -687,6 +690,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun finishTutorial() {
         _state.update { it.copy(tutorialSeen = true) }
         prefs.edit().putBoolean("tutorialSeen", true).apply()
+    }
+
+    fun unlockAllLessons() {
+        _state.update { it.copy(allUnlocked = true) }
+        prefs.edit().putBoolean("allUnlocked", true).apply()
     }
 
     fun setDark(dark: Boolean) {
