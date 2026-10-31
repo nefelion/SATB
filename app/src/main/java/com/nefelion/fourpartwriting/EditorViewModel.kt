@@ -207,7 +207,7 @@ private fun chorale(vararg chords: String): List<List<Event>> {
     }
 }
 
-private const val NO_SOUND = "Load a SoundFont (.sf2) in Settings, or switch to the built-in crude piano."
+private const val NO_SOUND = "Load a SoundFont (.sf2, preferred) in Settings, or switch to the built-in crude piano."
 
 /** A short phrase in C major (I IV V I | vi ii6 Cad6/4 V7 | I) so the first screen shows music. */
 val EXAMPLE = Score(

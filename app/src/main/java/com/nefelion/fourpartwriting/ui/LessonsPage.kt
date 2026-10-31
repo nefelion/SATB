@@ -226,7 +226,7 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
         // This page covers the editor's snackbar, so say here why Play is silent
         // Not in a lab lesson: its note card plays its own sound
         if (!st.canPlay && !l.lab) Row(Modifier.padding(horizontal = 16.dp).widthIn(max = 640.dp).fillMaxWidth().align(Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (st.soundLoading) "Loading the sound…" else "No sound yet: load a SoundFont (.sf2) or pick the built-in crude piano to hear the examples.",
+            Text(if (st.soundLoading) "Loading the sound…" else "No sound yet: load a SoundFont (.sf2, preferred) or pick the built-in crude piano to hear the examples.",
                 Modifier.weight(1f), style = body, color = MaterialTheme.colorScheme.error)
             if (!st.soundLoading) TextButton({ settings = true }) { Text("Settings") }
         }
