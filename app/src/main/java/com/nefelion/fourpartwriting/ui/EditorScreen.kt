@@ -965,7 +965,7 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
                     Text("Sound", Modifier.weight(1f))
                     Segmented(listOf("Crude piano", "SoundFont"), if (st.piano) 0 else 1, itemWidth = 124.dp) { vm.setPiano(it == 0) }
                 }
-                Text(if (st.piano) "Built-in crude piano, modeled from strings, hammers and soundboard. Velocity and sustain pedal work from a MIDI keyboard. A SoundFont still sounds better and is preferred."
+                Text(if (st.piano) "Built-in modeled crude piano. Using a SoundFont is preferred."
                     else if (st.soundLoading) "Loading…" else if (st.soundLoaded) "Loaded: ${st.soundName ?: "SoundFont"}" else "No SoundFont loaded. Pick any .sf2 file (piano, choir, strings…).",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (!st.piano) FilledTonalButton(onClick = { sf2Picker.launch(arrayOf("*/*")) }, shape = SHAPE) { Text("Load .sf2 file…") }
