@@ -1,4 +1,4 @@
-// Playback into an AAudio stream: the built-in modeled piano (piano.cpp) or a SoundFont (TinySoundFont).
+// Playback into an AAudio stream: the built-in crude piano (piano.cpp) or a SoundFont (TinySoundFont).
 // Scheduled events are applied inside the audio callback at sample-exact times. Event times are
 // musical (whole notes) and turned into frames with the current tempo, so tempo changes apply live.
 #define TSF_IMPLEMENTATION
@@ -30,7 +30,7 @@ double mpos = 0;      // whole notes since play() started
 double tempo = 80;    // quarter notes per minute
 bool playing = false;
 int64_t endWritten = -1;  // frames written when the score's last note was rendered; -1 once heard or stopped
-bool usePiano = true;  // the modeled piano, else the SoundFont
+bool usePiano = true;  // the crude piano, else the SoundFont
 
 bool ready() { return usePiano || sf; }
 
@@ -175,7 +175,7 @@ Java_com_nefelion_fourpartwriting_audio_Synth_nativeSustain(JNIEnv*, jobject, jb
     piano::sustain(down);
 }
 
-// Switches between the modeled piano and the SoundFont, silencing both.
+// Switches between the crude piano and the SoundFont, silencing both.
 JNIEXPORT void JNICALL
 Java_com_nefelion_fourpartwriting_audio_Synth_nativeUsePiano(JNIEnv*, jobject, jboolean on) {
     std::lock_guard<std::mutex> lock(mx);

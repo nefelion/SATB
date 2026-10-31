@@ -1,4 +1,4 @@
-// Physically modeled grand piano: no samples, every sound computed from strings, hammers and a soundboard.
+// The crude piano, a physically modeled grand: no samples, every sound computed from strings, hammers and a soundboard.
 // Not thread-safe: the caller serializes all calls (synth.cpp holds its mutex).
 #pragma once
 

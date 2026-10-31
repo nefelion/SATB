@@ -49,26 +49,26 @@ object Overtones {
     }
 
     /**
-     * A4 as the built-in piano strikes it in the overtone lesson (velocity 80), measured from its output (tools/pianowav):
+     * A4 as the built-in crude piano strikes it in the overtone lesson (velocity 80), measured from its output (tools/pianowav):
      * frequency, amplitude in its first moments, and fade. A stiff string stretches the partials a little sharp;
      * the hammer strikes near the 9th's still point, so that one is nearly silent; the felt and the fast fade of
      * high partials keep the note dark. Re-measure if the piano model changes.
      */
     val A4_PIANO = listOf(
-        Partial(1, 439.9, 3.163e-02, fast = 1.75, slow = 1.75),
-        Partial(2, 880.8, 2.564e-02, fast = 2.86, slow = 2.86),
-        Partial(3, 1322.1, 9.579e-03, fast = 3.36, slow = 1.90),
-        Partial(4, 1766.9, 7.512e-03, fast = 5.90, slow = 2.08),
-        Partial(5, 2213.5, 5.384e-03, fast = 7.36, slow = 2.75),
-        Partial(6, 2663.3, 3.378e-03, fast = 10.57, slow = 3.85),
-        Partial(7, 3116.9, 2.511e-03, fast = 10.86, slow = 5.00),
-        Partial(8, 3575.0, 8.615e-04, fast = 15.01, slow = 6.39),
-        Partial(9, 4038.2, 9.309e-05, fast = 13.71, slow = 7.47),
-        Partial(10, 4506.9, 2.283e-04, fast = 12.34, slow = 8.52),
-        Partial(11, 4982.1, 1.780e-04, fast = 14.93, slow = 9.91),
-        Partial(12, 5463.9, 1.506e-04, fast = 17.84, slow = 11.85),
-        Partial(13, 5951.5, 9.729e-05, fast = 18.99, slow = 18.99),
-        Partial(14, 6449.6, 4.767e-05, fast = 17.64, slow = 17.64),
+        Partial(1, 440.0, 2.563e-02, fast = 2.60, slow = 0.70),
+        Partial(2, 881.2, 2.469e-02, fast = 6.20, slow = 0.90),
+        Partial(3, 1324.8, 1.072e-02, fast = 9.30, slow = 0.90),
+        Partial(4, 1771.4, 7.658e-03, fast = 8.10, slow = 0.90),
+        Partial(5, 2222.6, 5.552e-03, fast = 12.80, slow = 1.10),
+        Partial(6, 2679.1, 3.377e-03, fast = 11.10, slow = 1.20),
+        Partial(7, 3142.0, 3.115e-03, fast = 14.90, slow = 1.60),
+        Partial(8, 3611.9, 8.446e-04, fast = 15.20, slow = 1.70),
+        Partial(9, 4090.1, 1.089e-04, fast = 28.00, slow = 1.10),
+        Partial(10, 4577.8, 3.362e-04, fast = 15.30, slow = 1.50),
+        Partial(11, 5075.2, 2.901e-04, fast = 20.60, slow = 1.50),
+        Partial(12, 5583.8, 1.951e-04, fast = 26.20, slow = 1.30),
+        Partial(13, 6107.2, 1.057e-04, fast = 39.90, slow = 1.10),
+        Partial(14, 6640.2, 5.277e-05, fast = 39.90, slow = 0.80),
     )
 
     fun parse(voicing: String) = voicing.split(" ").map { Pitch.parse(it) }

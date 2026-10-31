@@ -1,17 +1,20 @@
-// Physically modeled grand piano.
+// The crude piano, a physically modeled grand.
 //
 // Each key has 1-3 strings, each in two polarizations. A string is a sum of its vibration modes (partials), every one
 // tuned exactly to a stiff string's n F sqrt(1 + B n^2) and fading at its own rate. The hammer is a mass on a
 // nonlinear, slightly lossy felt spring (F = K x^p, Stulov), solved implicitly against the strings every sample, so a
 // harder blow is shorter and brighter, and partials near the strike point's nodes stay weak. The strings of a key
 // meet at the bridge, which couples their modes: slightly mistuned unisons beat and decay in two stages (Weinreich).
-// The bridge forces of all keys drive the soundboard (its low modes) and a small room; the
-// bridge also moves undamped strings, which then ring along (sympathetic resonance). After Bank, Chaigne, Weinreich,
-// Stulov.
+// Part of that coupling goes through one bridge all keys share (a resistive load, so the coupling only loses
+// energy): held notes take up the partials of new ones and undamped strings ring along (sympathetic resonance). The
+// soundboard drains each partial at its own rate, faster the higher it is, so a blow starts bright and mellows. The
+// bridge forces drive the soundboard and a small room; each blow also rings the board's low modes (the wooden body).
+// After Bank, Chaigne, Weinreich, Stulov.
 #include "piano.h"
 
 #include <algorithm>
 #include <cmath>
+#include <complex>
 #include <cstdint>
 #include <vector>
 #if defined(__x86_64__) || defined(__i386__)
@@ -23,14 +26,20 @@ namespace {
 
 constexpr int LO = 21, KEYS = 88, MAXN = 3;
 constexpr int MAXK = 128;   // modes per string, at most
-constexpr int MAXKH = 24;   // modes of the horizontal polarization
+constexpr int MAXKH = 48;   // modes of the horizontal polarization
 constexpr int RESK = 12;    // modes of a string that only rings along
-constexpr int BLOCK = 256;  // also the delay of the shared bridge signal fed back to the strings
+constexpr int BLOCK = 256;
 constexpr double PI = 3.14159265358979323846;
+constexpr double HARDEN = 8;    // felt stiffness ratio from velocity 0 to 1 (felt stiffens beyond its power law)
+constexpr float SHARE = 0.15f;    // share of each string's bridge coupling that goes through the bridge all keys share
+constexpr float SHELF = 1.5f;    // extra treble the soundboard radiates above 700 Hz (1.5: +8 dB)
+constexpr double BODYK = 0.0005;  // how hard each blow rings the soundboard's low modes (voicing)
+constexpr float KNOCK = 0.05f;    // the hammer's blow reaching the soundboard through the frame, rel. the string sound
 constexpr float SILENT = 3e-6f;  // output level below which a key stops being computed (about -110 dB)
 
 int rate = 0;
 float T = 1;  // seconds per sample
+float riseRate = 1;  // per-sample rate of each stage of a blow's build-up
 
 struct Rng {
     uint32_t s;
@@ -51,23 +60,20 @@ template <int N> double table(const double (&t)[N][2], double key) {
 double clamp01(double x) { return std::min(1.0, std::max(0.0, x)); }
 
 // String stiffness B: partial n sounds at n F sqrt(1 + B n^2). Lowest in the tenor, steep in the treble;
-// at A4 it equals Overtones.piano's, so the overtone lesson draws what it plays.
+// A4_PIANO in Overtones.kt is measured from this piano: re-measure it when this changes.
 double stiffness(double key) {
-    static const double t[][2] = {{21, 2.4e-4}, {33, 1.7e-4}, {45, 1.6e-4}, {57, 3.0e-4}, {69, 4.93e-4}, {81, 1.0e-3}, {93, 3.0e-3}, {108, 1.6e-2}};
+    static const double t[][2] = {{21, 3.0e-4}, {36, 1.3e-4}, {48, 1.67e-4}, {55, 2.3e-4}, {60, 3.56e-4}, {64, 5.1e-4}, {69, 8.3e-4}, {72, 1.1e-3}, {84, 3.0e-3}, {96, 8.45e-3}, {108, 2.4e-2}};  // fitted to a reference
     return table(t, key);
 }
 
 // Stretched tuning in cents off equal temperament (A4 = 440 exactly). Tuners match an upper partial of the lower
 // note of each octave to the upper note (the 2nd in the treble, the 4th or 6th in the bass), which stretches octaves.
 double stretch(int key) {
-    auto perOctave = [](double k) {
-        double n2 = k >= 60 ? 1 : k >= 48 ? 4 - 3 * (k - 48) / 12 : k >= 36 ? 9 - 5 * (k - 36) / 12 : 9;
-        return 1200 / std::log(2.0) * 1.5 * n2 * stiffness(k);
-    };
-    double c = 0, h = 0.25;
-    if (key > 69) for (double k = 69; k < key; k += h) c += perOctave(k - 12 + h / 2) * h / 12;
-    else for (double k = 69; k > key; k -= h) c -= perOctave(k - h / 2) * h / 12;
-    return c;
+    // Measured on a reference: wider than the stiffness alone asks for, so chords and octaves ring clean
+    static const double t[][2] = {{21, -24}, {36, -7}, {48, -4.5}, {55, -1.5}, {60, -0.8}, {69, 0}, {72, 0.9}, {84, 4.6}, {96, 13.7}, {108, 30}};
+    for (int i = 1; i < 10; i++)
+        if (key <= t[i][0]) return t[i - 1][1] + (t[i][1] - t[i - 1][1]) * (key - t[i - 1][0]) / (t[i][0] - t[i - 1][0]);
+    return t[9][1];
 }
 
 // The modes of one string polarization. Mode k is a complex phasor z: Im z is its displacement (m) at the
@@ -83,9 +89,6 @@ struct Modes {
 
 enum Mode { OFF, RESONATE, ON };  // RESONATE: only the low modes of the first string, moved by the bridge
 
-float board[BLOCK];      // this block's summed bridge force of the struck keys, N
-float boardRing[BLOCK];  // the last BLOCK samples of it, so the resting strings hear it one block late
-int ringPos = 0;
 bool pedal = false;
 
 struct Key {
@@ -93,16 +96,23 @@ struct Key {
     int key = 0, n = 1, K = 1, KH = 1;
     double f = 0;                       // fundamental, Hz
     float phi[MAXK] = {};               // mode shape at the hammer: sin(k pi beta)
-    float beta[MAXK] = {};              // bridge force per meter of mode displacement: tension k pi / L (-1)^k
-    float drive[MAXK] = {};             // mode input per meter of bridge displacement: 4 f T (-1)^k
-    float cb = 0, cbH = 0;              // bridge coupling of the modes of the strings, vertical and horizontal
+    float beta[MAXK] = {};              // bridge force per meter of mode displacement: tension k pi / L (-1)^k, voiced,
+                                        // as the left ear hears it
+    float betaR[MAXK] = {}, betaRq[MAXK] = {};  // the right ear: each partial radiates from its own spots on the
+                                        // soundboard, so the right ear hears it phase-shifted (on Im z and Re z)
+    float cb[MAXK] = {}, cbH[MAXK] = {};  // bridge coupling of each mode of the strings, vertical and horizontal
+    float own[MAXK] = {};               // the part of cb through this key's own bridge point
+    float sq[MAXK] = {};                // sqrt(cb) (-1)^k: each mode's coupling to the shared bridge
     float outGain = 0;                  // output per newton of bridge force (voicing)
     double w[MAXN] = {};                // hammer force share per string
     double mass = 0, K0 = 0, p = 0, tau = 0;
+    double Kv = 0;                      // felt stiffness for this blow: harder felt the harder it is struck
     float dampGain = 1, stopGain = 1;   // per-sample gain with the damper down / when stopping
     bool damper = true;
     float gl = 0, gr = 0;               // pan
     float thumpGain = 0, phantom = 0;
+    float body = 0;                     // how hard the blow rings the soundboard's low modes, per newton
+    float horiz = 0.2f;                 // share of the blow that goes into the horizontal polarization (the aftersound)
     float silentMode = 0;               // mode amplitude (m) below which a top mode is dropped
     Modes v[MAXN], h[MAXN];
 
@@ -114,15 +124,17 @@ struct Key {
     double yh = 0, vh = 0, xp = 0;
     int sinceContact = 0;
     float damp = 1, level = 0;          // level: peak output of the last block
-    float ub = 0;                       // bridge displacement felt by this key, m
-    float thump = 0, felt = 0, nlp1 = 0, nlp2 = 0, phLp = 0;
+    float rise1 = 1, rise2 = 1, rise = 1;  // output gain building up after a blow (three one-pole stages)
+    float S[MAXK] = {};                 // summed Re z of the strings, per mode (set by prep())
+    float g = 0;                        // this key's load on the shared bridge (set by prep())
+    float thump = 0, felt = 0, nlp1 = 0, nlp2 = 0, nlp3 = 0, nlp4 = 0, nlp5 = 0, phLp = 0;
     Rng rng{1};
 
     bool free() const { return pedal || down || !damper; }
 
     void clearAll() {
         for (int s = 0; s < MAXN; s++) { v[s].clear(); h[s].clear(); }
-        hammer = false; damp = 1; ub = 0; thump = felt = nlp1 = nlp2 = phLp = 0;
+        hammer = false; damp = 1; g = 0; thump = felt = nlp1 = nlp2 = nlp3 = nlp4 = nlp5 = phLp = 0;
     }
 
     void strike(float vel) {
@@ -137,12 +149,14 @@ struct Key {
         stopping = false;
         down = true;
         // Hammer speed: about 0.5 m/s pianissimo to 6 m/s fortissimo
-        vh = 0.3 * std::pow(20.0, vel);
+        vh = 0.3 * std::pow(20.0, 0.6 + (vel - 0.6) * (1 - 0.4 * clamp01((key - 72) / 24.0)));  // narrower range up high
+        Kv = K0 * std::pow(HARDEN, (vel - 0.6) * (1 - 0.8 * clamp01((key - 72) / 24.0)));  // less so in the treble
         double ys = 0;
         for (int s = 0; s < n; s++) for (int k = 0; k < K; k++) ys += w[s] * phi[k] * v[s].im[k];
         yh = ys - vh * T * 0.5;
         xp = 0; hammer = true; contacted = false; sinceContact = 0;
         thump = thumpGain * vel * vel;
+        rise1 = rise2 = rise = 0;
     }
 
     void release() {
@@ -157,7 +171,7 @@ struct Key {
         for (int s = 0; s < n; s++) { xs += w[s] * ys[s]; c += w[s] * w[s] * v[s].c1; }
         double x0 = yh + T * vh - xs;
         double r = tau / T;
-        auto g = [&](double F) { double x = x0 - c * F; return F - K0 * ((1 + r) * (x > 0 ? std::pow(x, p) : 0) - r * xp); };
+        auto g = [&](double F) { double x = x0 - c * F; return F - Kv * ((1 + r) * (x > 0 ? std::pow(x, p) : 0) - r * xp); };
         double F = 0;
         if (g(0) < 0) {
             // g is increasing and concave: Newton from 0 climbs to the root without overshooting
@@ -165,7 +179,7 @@ struct Key {
                 double x = x0 - c * F;
                 double gF = g(F);
                 if (gF > -1e-9 * (1 + F)) break;
-                F -= gF / (1 + (x > 0 ? K0 * (1 + r) * p * std::pow(x, p - 1) * c : 0));
+                F -= gF / (1 + (x > 0 ? Kv * (1 + r) * p * std::pow(x, p - 1) * c : 0));
             }
         }
         double x = x0 - c * F;
@@ -179,85 +193,107 @@ struct Key {
     }
 
     // Advances modes [m] one sample: bridge coupling [S] (summed Re z of all strings), extra input [in], damping [d].
-    // Returns the bridge force.
-    static float step(Modes& m, int count, const float* S, float cb, const float* in, float d, const float* beta) {
-        float out = 0;
+    // Adds the bridge force to [outL], [outR] (weighted for each ear).
+    static void step(Modes& m, int count, const float* S, const float* cb, const float* in, float d, const float* beta,
+                     const float* betaR, const float* betaRq, float& outL, float& outR) {
+        float ol = 0, orr = 0;
         for (int k = 0; k < count; k++) {
-            float a = m.re[k] * d - cb * S[k] + in[k], b = m.im[k] * d;
+            float a = m.re[k] * d - cb[k] * S[k] + in[k], b = m.im[k] * d;
             m.re[k] = m.pr[k] * a - m.pi[k] * b;
             m.im[k] = m.pr[k] * b + m.pi[k] * a;
-            out += beta[k] * m.im[k];
+            ol += beta[k] * m.im[k]; orr += betaR[k] * m.im[k] + betaRq[k] * m.re[k];
         }
-        return out;
+        outL += ol; outR += orr;
     }
 
-    // Adds this key's sound for [frames] samples to board, L and R.
-    void run(int frames, float* L, float* R) {
-        const float cs = 0.03f / 3000;  // soundboard admittance felt by resting strings (m/s per N), scaled down
-        const float kd = 1 - std::exp(-1 / (0.015f * rate));
-        const float leak = 1 - 20 * T;
-        bool isFree = free();
-        float target = stopping ? stopGain : (mode == ON && (isFree || hammer)) || (mode == RESONATE && isFree) ? 1 : dampGain;
-        float peak = 0;
-        const int ns = mode == ON ? n : 1;
-        const int kv = mode == ON ? top : std::min(K, RESK);
-        const int kh = std::min(KH, kv);
-        float S[MAXK], in[MAXK], zero[MAXK];
-        std::fill(zero, zero + kv, 0.f);
-        for (int i = 0; i < frames; i++) {
-            const int idx = (ringPos + i) & (BLOCK - 1);
-            // Only resting strings are moved by the bridge, and they do not move it back: no feedback loop can build up
-            if (mode == RESONATE && isFree && !stopping) ub = ub * leak + T * cs * boardRing[idx];
-            else ub = 0;
-            damp += (target - damp) * kd;
-            for (int k = 0; k < kv; k++) { float s = 0; for (int j = 0; j < ns; j++) s += v[j].re[k]; S[k] = s; in[k] = drive[k] * ub; }
+    // Fixed for one block: set by begin()
+    bool isFree = false;
+    float target = 1, peak = 0;
+    int ns = 1, kv = 1, kh = 1;
 
-            float force = 0;
-            if (mode == ON && hammer) {
-                // The strings without the hammer, then the hammer's force, then its effect
-                double ys[MAXN];
-                for (int s = 0; s < n; s++) {
-                    force += step(v[s], kv, S, cb, in, damp, beta);
-                    double y = 0;
-                    for (int k = 0; k < kv; k++) y += phi[k] * v[s].im[k];
-                    ys[s] = y;
+    void begin() {
+        isFree = free();
+        target = stopping ? stopGain : (mode == ON && (isFree || hammer)) || (mode == RESONATE && isFree) ? 1 : dampGain;
+        peak = 0;
+        ns = mode == ON ? n : 1;
+        kv = mode == ON ? top : std::min(K, RESK);
+        kh = std::min(KH, kv);
+    }
+
+    // This sample's load on the shared bridge, before any key moves on
+    void prep() {
+        float sum = 0;
+        for (int k = 0; k < kv; k++) { float s = 0; for (int j = 0; j < ns; j++) s += v[j].re[k]; S[k] = s; sum += sq[k] * s; }
+        g = sum;
+    }
+
+    // One sample; [total]: the summed load g of all keys. Adds the sound to [l], [r], the knock to [kn] and the blow
+    // the soundboard's low modes take up to [kb].
+    void tick(float total, float& l, float& r, float& kn, float& kb) {
+        const float kd = 1 - std::exp(-1 / (0.015f * rate));
+        static const float zero[MAXK] = {};
+        float in[MAXK];
+        const float c = -SHARE * total;
+        damp += (target - damp) * kd;
+        if (std::fabs(target - damp) < 1e-4f) damp = target;  // float steps stall about 2e-5 short (9 dB/s too fast)
+        for (int k = 0; k < kv; k++) in[k] = c * sq[k];
+
+        float f = 0, fR = 0;
+        if (mode == ON && hammer) {
+            // The strings without the hammer, then the hammer's force, then its effect
+            double ys[MAXN];
+            for (int s = 0; s < n; s++) {
+                step(v[s], kv, S, own, in, damp, beta, betaR, betaRq, f, fR);
+                double y = 0;
+                for (int k = 0; k < kv; k++) y += phi[k] * v[s].im[k];
+                ys[s] = y;
+            }
+            double F = hammerForce(ys);
+            kn += static_cast<float>(F) * outGain * KNOCK;
+            kb += static_cast<float>(F) * outGain * body;
+            for (int s = 0; s < n; s++) {
+                float fs = static_cast<float>(F * w[s]);
+                Modes& m = v[s];
+                for (int k = 0; k < kv; k++) {
+                    float a = m.h[k] * fs;
+                    m.re[k] += m.pr[k] * a; m.im[k] += m.pi[k] * a;
+                    f += beta[k] * m.pi[k] * a; fR += betaR[k] * m.pi[k] * a + betaRq[k] * m.pr[k] * a;
                 }
-                double F = hammerForce(ys);
-                for (int s = 0; s < n; s++) {
-                    float fs = static_cast<float>(F * w[s]);
-                    Modes& m = v[s];
-                    for (int k = 0; k < kv; k++) {
-                        float a = m.h[k] * fs;
-                        m.re[k] += m.pr[k] * a; m.im[k] += m.pi[k] * a;
-                        force += beta[k] * m.pi[k] * a;
-                    }
-                    // The hammer is not quite vertical: a little goes into the horizontal polarization
-                    Modes& mh = h[s];
-                    for (int k = 0; k < kh; k++) { float a = 0.08f * mh.h[k] * fs; mh.re[k] += mh.pr[k] * a; mh.im[k] += mh.pi[k] * a; }
-                }
-            } else {
-                for (int s = 0; s < ns; s++) force += step(v[s], kv, S, cb, in, damp, beta);
+                // The hammer is not quite vertical: a little goes into the horizontal polarization
+                Modes& mh = h[s];
+                for (int k = 0; k < kh; k++) { float a = horiz * mh.h[k] * fs; mh.re[k] += mh.pr[k] * a; mh.im[k] += mh.pi[k] * a; }
             }
-            float forceH = 0;
-            if (mode == ON) {
-                for (int k = 0; k < kh; k++) { float s = 0; for (int j = 0; j < n; j++) s += h[j].re[k]; S[k] = s; }
-                for (int s = 0; s < n; s++) forceH += step(h[s], kh, S, cbH, zero, damp, beta);
-            }
-            // Phantom partials: string tension rises with the square of the motion, adding sum tones in the bass
-            if (phantom > 0) { float q = force * force; phLp += 0.001f * (q - phLp); force += phantom * (q - phLp); }
-            if (mode == ON) board[i] += force;
-            float out = (force + 0.25f * forceH) * outGain;
-            // Action noises: the key and hammer thump on a strike, the felt on the strings when the damper falls
-            if (thump > 1e-6f || felt > 1e-6f) {
-                float nz = rng.pm();
-                nlp1 += 0.03f * (nz - nlp1); nlp2 += 0.03f * (nlp1 - nlp2);
-                float noise = thump * nlp2 * 20 + felt * (nz - nlp1) * 0.2f * level;
-                out += noise;
-                thump *= 0.9985f; felt *= 0.999f;
-            }
-            L[i] += out * gl; R[i] += out * gr;
-            peak = std::max(peak, std::fabs(out));
+        } else {
+            for (int s = 0; s < ns; s++) step(v[s], kv, S, own, in, damp, beta, betaR, betaRq, f, fR);
         }
+        float forceH = 0, forceHR = 0;
+        if (mode == ON) {
+            float SH[MAXKH];
+            for (int k = 0; k < kh; k++) { float s = 0; for (int j = 0; j < n; j++) s += h[j].re[k]; SH[k] = s; }
+            for (int s = 0; s < n; s++) step(h[s], kh, SH, cbH, zero, damp, beta, betaR, betaRq, forceH, forceHR);
+        }
+        // Phantom partials: string tension rises with the square of the motion, adding sum tones in the bass
+        if (phantom > 0) { float q = f * f; phLp += 0.001f * (q - phLp); float e = phantom * (q - phLp); f += e; fR += e; }
+        float out = (f + forceH) * outGain, outR = (fR + forceHR) * outGain;
+        // Action noises: the key and hammer thump on a strike, the felt on the strings when the damper falls
+        if (thump > 1e-6f || felt > 1e-6f) {
+            float nz = rng.pm();
+            nlp1 += 0.06f * (nz - nlp1); nlp2 += 0.06f * (nlp1 - nlp2); nlp4 += 0.06f * (nlp2 - nlp4); nlp5 += 0.06f * (nlp4 - nlp5);
+            nlp3 += 0.012f * (nlp5 - nlp3);  // thump: about 90-460 Hz, falling off steeply above (no hiss)
+            float noise = (thump * 20 + felt * level) * (nlp5 - nlp3);
+            out += noise; outR += noise;
+            thump *= 0.9985f; felt *= 0.999f;
+        }
+        // A blow takes a few ms to travel down the string and get the board going: the sound builds up from silence
+        // over about 4 ms (-18 dB after 1 ms, -7 dB after 2) instead of snapping on
+        rise1 += (1 - rise1) * riseRate; rise2 += (rise1 - rise2) * riseRate; rise += (rise2 - rise) * riseRate;
+        out *= rise; outR *= rise;
+        l += out * gl; r += outR * gr;
+        peak = std::max(peak, std::max(std::fabs(out), std::fabs(outR)));
+    }
+
+    void end() {
+        if (!(peak < 100)) { clearAll(); mode = OFF; stopping = false; peak = 0; }  // never let a blow-up ring on
         level = peak;
         // The highest modes fade first: drop them once inaudible
         if (mode == ON && !hammer)
@@ -268,7 +304,8 @@ struct Key {
                 for (int s = 0; s < n; s++) v[s].re[top - 1] = v[s].im[top - 1] = 0;
                 top--;
             }
-        if (peak < SILENT && !hammer && damp < 1.01f) {
+        // A damped key stops once its own sound is gone (about -80 dB), not kept faintly alive by the shared bridge
+        if (peak < (isFree ? SILENT : 30 * SILENT) && !hammer && damp < 1.01f) {
             // Rung down: stop computing, or keep the first string listening if its damper is up
             if (isFree && !stopping) {
                 if (mode == ON) {
@@ -277,15 +314,14 @@ struct Key {
                     for (int k = RESK; k < K; k++) v[0].re[k] = v[0].im[k] = 0;
                     mode = RESONATE;
                 }
-            } else { mode = OFF; stopping = false; damp = 1; }
+            } else { mode = OFF; stopping = false; damp = 1; g = 0; }
         }
     }
 };
 
 Key keys[KEYS];
 
-// Room: a feedback delay network of 8 lines (Hadamard mixing), each line losing highs faster. (A short one for the
-// soundboard's dense high modes colored single notes by up to 8 dB, so the soundboard is its low modes only.)
+// Room: a feedback delay network of 8 lines (Hadamard mixing), each line losing highs faster.
 struct Fdn {
     static constexpr int N = 8;
     std::vector<float> d[N];
@@ -317,9 +353,21 @@ struct Fdn {
     }
 };
 
-struct Mode2 { float a1, a2, b0, x1, x2, y1, y2; };  // two-pole resonator (a soundboard mode)
-constexpr int MODES = 24;
+// Soundboard: dense wooden modes the bridge drives. They color every note a little differently and ring briefly
+// after each blow (the "wood" between the partials). Each mode reaches the two ears with its own gain, which also
+// spreads the sound in stereo.
+struct Mode2 { float a1, a2, b0, gl, gr, x1, x2, y1, y2; };  // two-pole resonator
+constexpr int MODES = 96;
+constexpr float BOARD = 0.2f;  // share of the sound that comes through the soundboard modes, the rest straight
 Mode2 modes[MODES];
+// The soundboard's low modes (60-700 Hz) as each blow rings them: the wooden body under a note, most of it below the
+// pitch of a treble note. Each fades at its own rate, all with the same energy, the higher ones faster (35 to 100 dB/s
+// at 70 Hz, 110 to 340 dB/s at 500 Hz): a quick knock that leaves a short wooden ring.
+constexpr int BODY = 64;
+Mode2 bodyModes[BODY];
+// The blow reaches the board with the string's sound (about 1.5 ms on), not ahead of it
+float knockLine[256];
+int knockAt = 0, knockLen = 1;
 Fdn room;
 
 struct Biquad {
@@ -331,10 +379,28 @@ struct Biquad {
     float tick(float x) { float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = x; y2 = y1; y1 = y; return y; }
 };
 Biquad hpL, hpR, hpB;
-// The soundboard radiates highs better than lows (below its coincidence frequency): a high shelf of +9.5 dB above
+// The soundboard radiates highs better than lows (below its coincidence frequency): a high shelf of +8 dB above
 // about 700 Hz; then a gentle high cut
 float shL = 0, shR = 0, shA = 0, hiL = 0, hiR = 0, hiA = 0;
-float limEnv = 0, limRel = 0;
+
+// Linear up to -3 dBFS, then bends smoothly toward full scale: no gain riding, so loud chords never pump
+float softClip(float x) {
+    const float knee = 0.7f, span = 0.29f;
+    float a = std::fabs(x);
+    return a <= knee ? x : std::copysign(knee + span * std::tanh((a - knee) / span), x);
+}
+
+// Silences the shared body and room (after a blow-up, so it cannot ring on)
+void quietOutput() {
+    for (auto& d : room.d) std::fill(d.begin(), d.end(), 0.f);
+    std::fill(room.lp, room.lp + Fdn::N, 0.f);
+    for (Mode2& m : modes) m.x1 = m.x2 = m.y1 = m.y2 = 0;
+    for (Mode2& m : bodyModes) m.x1 = m.x2 = m.y1 = m.y2 = 0;
+    std::fill(knockLine, knockLine + 256, 0.f);
+    hpL = hpR = hpB = Biquad();
+    hpL.highpass(25, 0.7f); hpR.highpass(25, 0.7f); hpB.highpass(25, 0.7f);
+    shL = shR = hiL = hiR = 0;
+}
 
 void setupKey(Key& k, int key) {
     k.key = key;
@@ -356,13 +422,20 @@ void setupKey(Key& k, int key) {
     double mu = Z / (2 * len * F);
 
     // Losses. Inside the string (aftersound): air and internal friction, worse up high and for wound bass strings.
-    // Through the bridge (prompt sound): all strings moving together decay at promptDb dB/s.
-    const double a2 = 0.45 + 1.2 * clamp01((45 - key) / 24.0);
-    auto internal = [&](double hz) { return 0.30 + a2 * (hz / 1000) * (hz / 1000); };  // nepers per second
-    double promptDb = 2.5 * std::pow(2.0, (key - 21) / 20.0);
-    double toBridge = std::max(0.05, promptDb / 8.686 - internal(pitch)) / n;  // per string
-    k.cb = static_cast<float>(2 * toBridge * T);
-    k.cbH = k.cb / 5;
+    // Through the bridge (the prompt sound): the soundboard drains every partial, the more the higher it is (the board
+    // is more mobile up high), each partial meeting its own mix of board resonances. All strings of a key moving
+    // together, the fundamental fades at promptDb dB/s. So a blow starts bright, mellows within a fraction of a second,
+    // and leaves the slow aftersound: the strings drifting apart and the horizontal polarization.
+    const double a2 = 0.03 + 0.06 * clamp01((45 - key) / 24.0) + 0.08 * clamp01((key - 55) / 24.0);
+    static const double a0T[][2] = {{84, 0.3}, {96, 1.5}, {108, 3.0}};  // the top octave rings short
+    const double a0 = table(a0T, key);
+    auto internal = [&](double hz) { return a0 + a2 * (hz / 1000) * (hz / 1000); };  // nepers per second
+    static const double promptT[][2] = {{21, 4}, {36, 6}, {48, 9}, {60, 14}, {72, 19}, {84, 70}, {96, 80}, {108, 110}};  // fitted to a reference
+    const double toBridge = std::max(0.05, table(promptT, key) / 8.686 - internal(pitch)) / n;  // per string, Np/s
+    // Rise with frequency (Np/s per string): about 4.5 dB/s more at 1 kHz, steeper on the wound bass strings
+    const double gam = 0.8 + 0.4 * clamp01((48 - key) / 24.0), rise = (1 + 1.5 * clamp01((key - 72) / 24.0)) * 4.5 / 8.686;
+    auto bridgeLoss = [&](double hz) { return toBridge + rise * (std::pow(hz / 1000, gam) - std::pow(pitch / 1000, gam)); };
+    Rng board{static_cast<uint32_t>(key * 31 + 5)}, ears{static_cast<uint32_t>(key * 131 + 7)};
 
     k.K = 0;
     while (k.K < MAXK && partial(k.K + 1) < std::min(0.45 * rate, 10000.0)) k.K++;
@@ -373,23 +446,50 @@ void setupKey(Key& k, int key) {
         int j = m + 1;
         double sign = (j & 1) ? -1 : 1;
         k.phi[m] = static_cast<float>(std::sin(j * PI * beta));
-        k.beta[m] = static_cast<float>(tension * j * PI / len * sign);
-        k.drive[m] = static_cast<float>(4 * F * T * sign);
+        const double hz = partial(j);
+        // The board radiates little below its lowest modes (about 45 Hz)
+        const double rad = (hz / 45) * (hz / 45) / std::sqrt(1 + std::pow(hz / 45, 4));
+        const double bm = tension * j * PI / len * sign * rad;
+        // Bridge losses: the board's resonances make some partials fade much faster than their neighbors (log-normal)
+        double u = 0;
+        for (int i = 0; i < 4; i++) u += board.next();
+        const double irr = j == 1 ? 1 : std::min(3.0, std::max(0.3, std::exp(0.6 * 1.732 * (u - 2))));
+        const double cb = 2 * bridgeLoss(hz) * irr * T;
+        k.cb[m] = static_cast<float>(cb);
+        k.cbH[m] = static_cast<float>(cb / 10);
+        k.own[m] = static_cast<float>((1 - SHARE) * cb);
+        k.sq[m] = static_cast<float>(std::sqrt(cb) * sign);
+        // Left/right weights as the ears get them from a soundboard: each partial radiates from its own spots, so it is
+        // a little louder on one side (about 4 dB either way, no side favored) and phase-shifted, alike in the bass and
+        // unrelated up high (the mono sum, a phone speaker, loses at most 3 dB)
+        const double cor = 0.95 - 0.85 * clamp01(std::log2(hz / 150) / std::log2(2000.0 / 150));
+        const double ph = std::acos(cor) * (rng.next() < 0.5 ? -1 : 1);
+        double e = 0;
+        for (int i = 0; i < 4; i++) e += ears.next();
+        const double ild = std::min(10.0, std::max(-10.0, 4 * 1.732 * (e - 2)));  // dB, right over left
+        const double aL = std::sqrt(2 / (1 + std::pow(10.0, ild / 10))), aR = aL * std::pow(10.0, ild / 20);
+        k.beta[m] = static_cast<float>(bm * aL);
+        k.betaR[m] = static_cast<float>(bm * aR * std::cos(ph));
+        k.betaRq[m] = static_cast<float>(bm * aR * std::sin(ph));
     }
 
-    // Unisons a hair apart (cents); the horizontal polarizations a little sharper still
-    double spread = 0.35 + 0.55 * rng.next();
+    // Unisons a fraction of a cent apart, and no two wires quite alike in stiffness: the strings of a key drift in and
+    // out of phase, the upper partials faster (beats of 1-2 Hz around 2-3 kHz in the middle); the horizontal
+    // polarizations a little sharper still
+    double spread = 0.3 + 0.3 * rng.next();
     double det[MAXN] = {0, 0, 0};
     if (n == 2) { det[0] = -spread / 2; det[1] = spread / 2; }
     if (n == 3) { det[0] = -spread; det[1] = 0.15 * spread; det[2] = 0.85 * spread; }
     const double modalMass = mu * len / 2;
     for (int s = 0; s < n; s++) {
+        // this string's stiffness, rel. the key's (less spread on the bass strings)
+        const double wire = 1 + 0.015 * (0.5 + 0.5 * clamp01((key - 40) / 24.0)) * rng.pm();
         for (int pol = 0; pol < 2; pol++) {
             Modes& md = pol ? k.h[s] : k.v[s];
             double ratio = std::pow(2.0, (det[s] + (pol ? 0.08 + 0.08 * rng.next() : 0)) / 1200);
             md.c1 = 0;
             for (int m = 0; m < k.K; m++) {
-                double hz = partial(m + 1) * ratio, w = 2 * PI * hz;
+                double hz = (m + 1) * F * ratio * std::sqrt(1 + B * wire * (m + 1) * (m + 1)), w = 2 * PI * hz;
                 double r = std::exp(-internal(hz) * T);
                 md.pr[m] = static_cast<float>(r * std::cos(w * T));
                 md.pi[m] = static_cast<float>(r * std::sin(w * T));
@@ -400,15 +500,15 @@ void setupKey(Key& k, int key) {
         }
     }
     double wsum = 0;
-    const double share[MAXN] = {1.0, 0.97, 1.03};
+    const double share[MAXN] = {1.0, 0.9, 1.1};
     for (int s = 0; s < n; s++) wsum += share[s];
     for (int s = 0; s < n; s++) k.w[s] = share[s] / wsum;
 
     // Hammer: heavier and softer in the bass. K0 is set so a 2 m/s blow stays on a rigid string contact[] seconds.
     static const double massT[][2] = {{21, 0.011}, {108, 0.004}};
-    static const double contactT[][2] = {{21, 0.0028}, {60, 0.001}, {84, 0.0005}, {108, 0.0002}};
+    static const double contactT[][2] = {{21, 0.0014}, {36, 0.0012}, {48, 0.0011}, {60, 0.0009}, {72, 0.0008}, {84, 0.0008}, {108, 0.0004}};
     k.mass = table(massT, key);
-    k.p = 2.3 + 1.2 * (key - 21) / 87.0;
+    k.p = 3.2 + 0.5 * (key - 21) / 87.0;
     k.tau = 5e-6;
     {
         double tc = table(contactT, key), v = 2, q = 1 / (k.p + 1);
@@ -423,15 +523,17 @@ void setupKey(Key& k, int key) {
     k.dampGain = static_cast<float>(std::exp(-6.91 / table(dampT, key) * T));
     k.stopGain = static_cast<float>(std::exp(-6.91 / 0.06 * T));
 
-    // Output: bridge force, voiced so the keyboard sounds even; bass to the left, as the player hears it
+    // Output: bridge force, voiced so the keyboard sounds even; every register centered (the soundboard spreads each
+    // over both ears, partial by partial)
     // (voiceDb: measured loudness corrections, A-weighted, so every register sounds about as loud)
-    static const double voiceDb[][2] = {{21, 3.5}, {33, 2.1}, {45, 1.33}, {57, 0.94}, {69, 0.75}, {81, 0.67}, {93, 0.63}, {102, 0.67}, {108, 1.06}};
+    static const double voiceDb[][2] = {{21, 1.75}, {33, 1.67}, {45, 1.33}, {57, 0.94}, {64, 0.92}, {69, 0.6}, {72, 1.23}, {81, 1.5}, {89, 1.55}, {93, 1.65}, {102, 2.8}, {108, 3.5}};
     k.outGain = static_cast<float>(0.02 / (n * Z) * std::pow(2.0, -(key - 60) / 60.0) * table(voiceDb, key));
     k.silentMode = static_cast<float>(SILENT * 0.03 / (k.outGain * tension * PI / len * k.K));
-    double pan = (key - 64.5) / 87 * 0.7;
-    k.gl = static_cast<float>(std::cos((pan + 0.5) * PI / 2) * 1.4142);
-    k.gr = static_cast<float>(std::sin((pan + 0.5) * PI / 2) * 1.4142);
-    k.thumpGain = 0.004f;
+    k.gl = k.gr = 1;
+    k.horiz = static_cast<float>(0.2 + 0.3 * clamp01((84 - key) / 36.0));
+    k.thumpGain = static_cast<float>(0.02 * std::pow(0.5, std::max(0, key - 72) / 12.0));
+    static const double bodyT[][2] = {{21, 1.1}, {60, 1.1}, {72, 1}, {84, 1}, {96, 0.85}, {108, 0.85}};  // fitted to a reference
+    k.body = static_cast<float>(BODYK * table(bodyT, key));
     k.phantom = 0;
 }
 
@@ -441,29 +543,62 @@ void init(int sampleRate) {
     if (sampleRate == rate || sampleRate <= 0) return;
     rate = sampleRate;
     T = 1.0f / rate;
+    riseRate = 1 - std::exp(-1 / (0.0008f * rate));
+    knockLen = std::min(256, std::max(1, static_cast<int>(0.0015 * rate))); knockAt = 0;
     for (int i = 0; i < KEYS; i++) {
         keys[i] = Key(); setupKey(keys[i], LO + i);
         if (!keys[i].damper) keys[i].mode = RESONATE;  // the top strings have no dampers: always free to ring along
     }
-    std::fill(boardRing, boardRing + BLOCK, 0.f);
-    ringPos = 0;
     const float rm[] = {23.3f, 29.1f, 33.7f, 39.1f, 43.9f, 51.7f, 57.1f, 63.7f};
-    room.init(rm, 1.6f, 0.5f);
+    room.init(rm, 1.2f, 0.5f);
     Rng rng{12345};
+    // Modes 250 Hz to 6 kHz (below, the straight sound carries the bass: low wooden modes only boom), about as wide as
+    // they are apart, so they overlap into an uneven but continuous response
     for (int m = 0; m < MODES; m++) {
-        double hz = 48 * std::pow(600.0 / 48, (m + 0.5 * rng.next()) / MODES);
-        double q = 8 + 12 * rng.next();
+        double hz = 250 * std::pow(6000.0 / 250, (m + rng.next()) / MODES);
+        double q = 6 + 6 * rng.next();
         double r = std::exp(-PI * hz / (q * rate));
-        float gain = (0.5f + 0.5f * rng.next()) * (rng.next() < 0.5f ? -1.f : 1.f);
+        auto gain = [&] { return (0.4f + 0.6f * rng.next()) * (rng.next() < 0.5f ? -1.f : 1.f) * 1.6f; };
+        // The ears hear the low modes nearly alike, the high ones differently
+        float c = static_cast<float>(0.9 - 0.6 * m / MODES), gl = gain(), gr = c * gl + std::sqrt(1 - c * c) * gain();
         modes[m] = {static_cast<float>(2 * r * std::cos(2 * PI * hz / rate)), static_cast<float>(-r * r),
-                    static_cast<float>((1 - r * r) / 2 * gain), 0, 0, 0, 0};
+                    static_cast<float>((1 - r * r) / 2), gl, gr, 0, 0, 0, 0};
     }
-    hpL = Biquad(); hpR = Biquad(); hpB = Biquad();
-    hpL.highpass(55, 0.7f); hpR.highpass(55, 0.7f); hpB.highpass(55, 0.7f);
+    // Body modes: an impulse rings each at amplitude |gain|; strongest from 120 to 300 Hz, weaker below 100 Hz
+    for (int m = 0; m < BODY; m++) {
+        double hz = 60 * std::pow(700.0 / 60, (m + rng.next()) / BODY);
+        double fade = 38 * std::pow(hz / 80, 0.6) * std::pow(3.0, rng.next());  // dB/s
+        double r = std::exp(-(fade / 8.686) / rate), w = 2 * PI * hz / rate;
+        double shape = (hz < 120 ? std::pow(hz / 120, 1.5) : hz > 300 ? std::pow(300 / hz, 0.8) : 1) * std::sqrt(fade / 100);
+        auto gain = [&] { return static_cast<float>(shape * (0.5 + rng.next()) * (rng.next() < 0.5 ? -1 : 1)); };
+        const float c = 0.25f;  // the two ears hear the board's low modes nearly unrelated
+        float gl = gain(), gr = c * gl + std::sqrt(1 - c * c) * gain();
+        bodyModes[m] = {static_cast<float>(2 * r * std::cos(w)), static_cast<float>(-r * r), static_cast<float>(std::sin(w)), gl, gr, 0, 0, 0, 0};
+    }
     hiA = std::exp(-2 * static_cast<float>(PI) * 9000 / rate);
     shA = 1 - std::exp(-2 * static_cast<float>(PI) * 700 / rate);
-    limRel = std::exp(-1 / (0.15f * rate));
-    limEnv = 0;
+    // Voicing: the soundboard makes some notes louder than their neighbors; even them out over each key's lower partials,
+    // keeping the level the straight sound alone gives
+    for (Key& k : keys) {
+        const double B = stiffness(k.key), F = k.f / std::sqrt(1 + B);
+        double sum = 0, want = 0;
+        for (int j = 1; j <= std::min(k.K, 8); j++) {
+            double w = 2 * PI * j * F * std::sqrt(1 + B * j * j) / rate;
+            std::complex<double> z1 = std::polar(1.0, -w), z2 = z1 * z1, hl = 0, hr = 0;
+            for (const Mode2& m : modes) {
+                std::complex<double> h = static_cast<double>(m.b0) * (1.0 - z2) / (1.0 - static_cast<double>(m.a1) * z1 - static_cast<double>(m.a2) * z2);
+                hl += static_cast<double>(m.gl) * h; hr += static_cast<double>(m.gr) * h;
+            }
+            // The straight path: the high shelf, then the high cut (as in render())
+            const double a = hiA, sa = shA, bd = BOARD;
+            std::complex<double> d = (1 - a) / (1.0 - a * z1) * (1.0 + SHELF - SHELF * sa / (1.0 - (1 - sa) * z1));
+            sum += std::norm((1 - bd) * d + bd * (hl + hr) / 2.0) / j;  // as a mono speaker plays it
+            want += std::norm(d) / j;
+        }
+        float c = static_cast<float>(std::sqrt(want / sum));
+        k.outGain *= c; k.silentMode /= c;
+    }
+    quietOutput();
 }
 
 void noteOn(int key, float velocity) {
@@ -499,36 +634,48 @@ void render(float* out, int frames) {
 #elif defined(__x86_64__) || defined(__i386__)
     _mm_setcsr(_mm_getcsr() | 0x8040);
 #endif
-    float L[BLOCK], R[BLOCK];
+    float L[BLOCK], R[BLOCK], KN[BLOCK], KB[BLOCK];
+    Key* on[KEYS];
     while (frames > 0) {
-        int nf = std::min(frames, BLOCK);
-        std::fill(board, board + nf, 0.f);
-        std::fill(L, L + nf, 0.f); std::fill(R, R + nf, 0.f);
-        for (Key& k : keys) if (k.mode != OFF) k.run(nf, L, R);
+        int nf = std::min(frames, BLOCK), non = 0;
+        std::fill(L, L + nf, 0.f); std::fill(R, R + nf, 0.f); std::fill(KN, KN + nf, 0.f); std::fill(KB, KB + nf, 0.f);
+        for (Key& k : keys) if (k.mode != OFF) { k.begin(); on[non++] = &k; }
+        // Sample by sample across the keys, so the shared bridge couples them without delay
         for (int i = 0; i < nf; i++) {
-            boardRing[(ringPos + i) & (BLOCK - 1)] = board[i];
-            float b = hpB.tick(0.5f * (L[i] + R[i]));
-            float body = 0;
+            float total = 0;
+            for (int j = 0; j < non; j++) { on[j]->prep(); total += on[j]->g; }
+            for (int j = 0; j < non; j++) on[j]->tick(total, L[i], R[i], KN[i], KB[i]);
+        }
+        for (int j = 0; j < non; j++) on[j]->end();
+        for (int i = 0; i < nf; i++) {
+            float b = hpB.tick(0.5f * (L[i] + R[i]) + KN[i] / BOARD);
+            float kb = knockLine[knockAt];
+            knockLine[knockAt] = KB[i];
+            if (++knockAt >= knockLen) knockAt = 0;
+            float kl = 0, kr = 0;
+            for (Mode2& m : bodyModes) {
+                float y = m.b0 * kb + m.a1 * m.y1 + m.a2 * m.y2;
+                m.y2 = m.y1; m.y1 = y;
+                kl += m.gl * y; kr += m.gr * y;
+            }
+            float bl = 0, br = 0;
             for (Mode2& m : modes) {
                 float y = m.b0 * (b - m.x2) + m.a1 * m.y1 + m.a2 * m.y2;
                 m.x2 = m.x1; m.x1 = b; m.y2 = m.y1; m.y1 = y;
-                body += y;
+                bl += m.gl * y; br += m.gr * y;
             }
             float rl, rr;
-            room.tick(0.5f * (L[i] + R[i]) + 0.3f * body, rl, rr);
+            room.tick(0.5f * (L[i] + R[i]) * (1 - BOARD) + 0.5f * (bl + br) * BOARD, rl, rr);
             float dl = hpL.tick(L[i]), dr = hpR.tick(R[i]);
             shL += shA * (dl - shL); shR += shA * (dr - shR);
-            hiL = (1 - hiA) * (dl + 2 * (dl - shL)) + hiA * hiL;
-            hiR = (1 - hiA) * (dr + 2 * (dr - shR)) + hiA * hiR;
-            float l = hiL + 0.3f * body + 0.15f * rl;
-            float r = hiR + 0.3f * body + 0.15f * rr;
-            // Peak limiter: linear below -1 dBFS, so chords stay clean
-            limEnv = std::max(std::max(std::fabs(l), std::fabs(r)), limEnv * limRel);
-            float gain = limEnv > 0.89f ? 0.89f / limEnv : 1.f;
-            out[2 * i] = l * gain;
-            out[2 * i + 1] = r * gain;
+            hiL = (1 - hiA) * (dl + SHELF * (dl - shL)) + hiA * hiL;
+            hiR = (1 - hiA) * (dr + SHELF * (dr - shR)) + hiA * hiR;
+            float l = (1 - BOARD) * hiL + BOARD * bl + 0.08f * rl + kl;
+            float r = (1 - BOARD) * hiR + BOARD * br + 0.08f * rr + kr;
+            if (!(std::fabs(l) + std::fabs(r) < 1e4f)) { quietOutput(); l = r = 0; }  // (fast-math: no isfinite)
+            out[2 * i] = softClip(l);
+            out[2 * i + 1] = softClip(r);
         }
-        ringPos = (ringPos + nf) & (BLOCK - 1);
         out += nf * 2;
         frames -= nf;
     }

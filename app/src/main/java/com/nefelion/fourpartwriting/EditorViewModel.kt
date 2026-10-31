@@ -107,7 +107,7 @@ data class UiState(
     val tone: String? = null,
     /** Onset of the slice under the playback cursor. */
     val playTime: Fraction? = null,
-    /** The built-in modeled piano plays, not the SoundFont. */
+    /** The built-in crude piano plays, not the SoundFont. */
     val piano: Boolean = true,
     val soundLoaded: Boolean = false,
     /** A SoundFont is being read (on app start or after a pick). */
@@ -138,7 +138,7 @@ data class UiState(
     /** Movement mode (tap the active voice button): taps only select notes, nothing is added. */
     val moving: Boolean = false,
 ) {
-    /** Some instrument is ready to play: the built-in piano, or a loaded SoundFont. */
+    /** Some instrument is ready to play: the built-in crude piano, or a loaded SoundFont. */
     val canPlay: Boolean get() = piano || soundLoaded
     /** Rules the open score is checked with: a lesson's own, whatever is switched off in Settings. */
     val checkRules: Set<Rule> get() = score.lesson?.let(Lessons::rulesUpTo) ?: rules
@@ -207,7 +207,7 @@ private fun chorale(vararg chords: String): List<List<Event>> {
     }
 }
 
-private const val NO_SOUND = "Load a SoundFont (.sf2) in Settings, or switch to the built-in piano."
+private const val NO_SOUND = "Load a SoundFont (.sf2) in Settings, or switch to the built-in crude piano."
 
 /** A short phrase in C major (I IV V I | vi ii6 Cad6/4 V7 | I) so the first screen shows music. */
 val EXAMPLE = Score(
@@ -1471,7 +1471,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Plays the built-in modeled piano ([on]) or the SoundFont. */
+    /** Plays the built-in crude piano ([on]) or the SoundFont. */
     fun setPiano(on: Boolean) {
         stop()
         Synth.usePiano(on)
