@@ -1,6 +1,32 @@
 package com.nefelion.fourpartwriting.ui
 
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Backspace
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.Redo
+import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.UnfoldLess
+import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.nefelion.fourpartwriting.R
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.requiredSize
@@ -155,9 +181,9 @@ private val BASES = listOf(1, 2, 4, 8, 16, 32, 64)
 /** Messages show on whichever page is on top: full-screen pages are their own windows and would hide the editor's. */
 internal val LocalSnack = staticCompositionLocalOf<SnackbarHostState?> { null }
 
-/** Messages are shown by [snack] (see [LocalSnack]); [onHome] leaves the editor (to Home, or back to the lesson). */
+/** Messages are shown by [snack] (see [LocalSnack]). [study]: the screen of a Bach chorale opened over another one. */
 @Composable
-internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, onHome: () -> Unit) {
+internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: Boolean = false) {
     val st by vm.state.collectAsState()
     var settings by rememberSaveable { mutableStateOf(false) }
     var tempoDialog by rememberSaveable { mutableStateOf(false) }
@@ -167,7 +193,8 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, onHome:
     // Bar whose key or time change is being edited, or -1
     var changeBar by rememberSaveable { mutableIntStateOf(-1) }
     var about by rememberSaveable { mutableStateOf(false) }
-    var scores by rememberSaveable { mutableStateOf(false) }
+    var sharing by rememberSaveable { mutableStateOf(false) }
+    val share = rememberShare(vm)
     var figures by rememberSaveable { mutableStateOf(false) }
     var exercise by rememberSaveable { mutableStateOf(false) }
     var chords by rememberSaveable { mutableStateOf(false) }
@@ -176,33 +203,39 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, onHome:
     // The figures pocket belongs to the bass: leaving the bass voice closes it
     LaunchedEffect(st.shownVoice) { if (st.shownVoice != Voice.BASS) figures = false }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
+    var hintReady by remember { mutableStateOf(false) }
+    LaunchedEffect(moreOpen, st.score) { hintReady = false; if (moreOpen) vm.prepareHint { hintReady = it } }
     val more: @Composable RowScope.() -> Unit = {
         MoreButton(moreOpen, { moreOpen = it }) { item ->
-            item(st.slot?.let { "Back to lesson ${it + 1}" } ?: "Home", false, onHome)
-            // Your scores belong to Free Mode; a lesson's exercise lives in the lesson
-            if (st.slot == null) item("Scores", false) { scores = true }
-            HorizontalDivider()
+            // A read-only score (a Bach chorale, a lesson's passage) has nothing to edit
+            if (st.study == null) {
             if (st.score.given.isNotEmpty()) {
                 item("Show a solution", false) { vm.showSolution() }
                 // In a lesson's exercise: a new one takes its place
                 item("New exercise", false) { st.slot?.let { replaceLesson = it } ?: run { exercise = true } }
                 HorizontalDivider()
             }
-            item("Hint", false) { vm.hint() }
+            // Only when there is a hint for the score as it is (worked out as the menu opens)
+            if (hintReady) item("Hint", false) { vm.hint() }
             if (st.selected != null) item("Fix this chord", false) { vm.fixChord() }
             if (st.selected != null) item("Key or time change", false) { vm.changeBarOfSelection()?.let { changeBar = it } }
             // Again while open: closes it, like Done
             item("Specify chord", false) { if (chords) chords = false else if (vm.startChords()) { chords = true; figures = false } }
             item("Clear score", true) { confirmClear = true }
             HorizontalDivider()
+            item("Score properties", false) { tempoDialog = true }
+            // Your own scores (a lesson's exercise is kept in the lesson)
+            if (st.slot == null) item("Share…", false) { sharing = true }
+            HorizontalDivider()
+            }
             item("Settings", false) { settings = true }
             item("About", false) { about = true }
         }
     }
-    // Opening a score from a page over the editor (a rule card's Bach example) goes back to the editor; not on rotation
+    // Another chorale opened from a page over this chorale (a rule card's Bach example) shows here: the pages close; not on rotation
     var seenOpen by rememberSaveable { mutableIntStateOf(st.openTick) }
     LaunchedEffect(st.openTick) {
-        if (st.openTick != seenOpen) { seenOpen = st.openTick; settings = false; scores = false }
+        if (st.openTick != seenOpen) { seenOpen = st.openTick; if (study) settings = false }
     }
     LaunchedEffect(undoable) {
         val m = undoable ?: return@LaunchedEffect
@@ -219,11 +252,13 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, onHome:
             val dir = LocalLayoutDirection.current
             val density = LocalDensity.current
             val edges = safe.getLeft(density, dir).toFloat() to safe.getRight(density, dir).toFloat()
+            val panel = st.analysis != null || st.quiz != null
             Column(Modifier.fillMaxSize()) {
                 if (!wide) Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).height(48.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     ActionButtons(st, vm, more = more, leading = true)
                     Gap()
+                    if (st.study != null) Spacer(Modifier.weight(3f)) // where undo, redo and delete sit
                     ActionButtons(st, vm, more = more, leading = false, below = true)
                 }
                 if (!wide) HorizontalDivider()
@@ -241,8 +276,12 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, onHome:
                         edges = edges,
                     )
                     if (st.reorder.isNotEmpty()) ReorderPrompt(st, vm, Modifier.align(Alignment.TopCenter).padding(8.dp))
-                    st.note?.let { NoteCard(it, vm::closeNote, Modifier.align(Alignment.BottomCenter).padding(8.dp)) }
+                    if (!panel) st.note?.let { NoteCard(it, vm::closeNote, Modifier.align(Alignment.BottomCenter).padding(8.dp)) }
+                    // Messages over the bottom of the score, clear of the check panel and the toolbar
+                    SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
                 }
+                // With the check open, a note (Bach's reason, a lesson's task) sits above its panel instead of over the score
+                if (panel) st.note?.let { NoteCard(it, vm::closeNote, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) }
                 if (st.quiz?.revealed == false) QuizBar(st, vm, safe.only(WindowInsetsSides.Horizontal))
                 st.analysis?.let { IssuesStrip(st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide, onUndoable = { undoable = it }) }
                 if (figures) { HorizontalDivider(); FiguresPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { figures = false } }
@@ -252,23 +291,32 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, onHome:
                     Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
                         .height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (wide) { ActionButtons(st, vm, more = more, leading = true); Gap() }
-                        VoiceButtons(st, vm) { bassX = it }
-                        Gap()
-                        NoteTools(st, vm)
+                        // Read-only: its name instead of the writing tools
+                        if (st.study != null) Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                            Text(st.scoreName.substringBefore(" (BWV"), style = MaterialTheme.typography.titleSmall, maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Text(if (st.bachOpen) "${st.study} · read-only" else "Read-only", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        } else {
+                            VoiceButtons(st, vm) { bassX = it }
+                            Gap()
+                            NoteTools(st, vm)
+                        }
                         if (wide) { Gap(); ActionButtons(st, vm, more = more, leading = false) }
                     }
                     // A pocket above the B button: bass figures (not in exercises, whose bass is fixed)
-                    if (st.shownVoice == Voice.BASS && !st.moving && Voice.BASS !in st.score.given && !figures && bassX >= 0)
+                    if (st.study == null && st.shownVoice == Voice.BASS && !st.moving && Voice.BASS !in st.score.given && !figures && bassX >= 0)
                         FiguresTab(Modifier.align(Alignment.TopStart), bassX) { if (vm.startFigures()) { figures = true; chords = false } }
                 }
             }
-            SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(safe).padding(bottom = 64.dp))
         }
     }
+    // Hidden while a chorale is open over this screen, back on return
+    Overlays {
     if (settings) SettingsDialog(st, vm) { settings = false }
     if (about) AboutDialog { about = false }
+    if (sharing) FormatDialog("Share ${st.scoreName} as", onDismiss = { sharing = false }) { sharing = false; share(st.scoreName, it) }
     if (exercise) ExerciseDialog(Voice.SOPRANO in st.score.given, onDismiss = { exercise = false }) { level, soprano -> exercise = false; vm.newExercise(level, soprano) }
-    if (scores) ScoresPage(st, vm) { scores = false }
     replaceLesson?.let { i -> ReplaceLessonDialog(i, vm) { replaceLesson = null } }
     if (confirmClear) AlertDialog(
         onDismissRequest = { confirmClear = false },
@@ -282,8 +330,9 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, onHome:
     )
     if (changeBar > 0) ChangeDialog(st.score, changeBar, onDismiss = { changeBar = -1 }) { c -> vm.setChange(changeBar, c); changeBar = -1 }
     // Tapping the tempo, clef, key or time signature: the score's settings, applied as one undo step
-    if (tempoDialog) ScoreDialog("Score settings", st.scoreName, st.score, askName = false, action = "Save",
+    if (tempoDialog) ScoreDialog("Score properties", st.scoreName, st.score, askName = false, action = "Save",
         onDismiss = { tempoDialog = false }) { _, settings -> tempoDialog = false; vm.editScore(st.scoreName, settings) }
+    }
 }
 
 /** Key and time signature from bar [bar] on; [onSet] gets null to remove the change. */
@@ -430,11 +479,11 @@ private fun FiguresPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets,
     }
     Column(Modifier.fillMaxWidth().windowInsetsPadding(insets).padding(horizontal = 4.dp)) {
         Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Tool(onClick = { vm.stepBass(-1) }, label = "Previous bass note") { Text("‹", fontSize = 30.sp, color = ink) }
+            Tool(onClick = { vm.stepBass(-1) }, label = "Previous bass note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, ink, 30.dp) }
             if (e == null) Text("Select a bass note", Modifier.weight(6f), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
             else for (f in listOf(listOf("6"), listOf("6", "4"), listOf("7"), listOf("6", "5"), listOf("4", "3"), listOf("4", "2")))
                 Tool(lines == f, { vm.setFigures(f) }, "Figures " + f.joinToString(" ")) { Stack(f) }
-            Tool(onClick = { vm.stepBass(1) }, label = "Next bass note") { Text("›", fontSize = 30.sp, color = ink) }
+            Tool(onClick = { vm.stepBass(1) }, label = "Next bass note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowRight, ink, 30.dp) }
             TextButton(onClick = onClose) { Text("Done") }
         }
         Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -446,7 +495,7 @@ private fun FiguresPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets,
                 val l = lines.toMutableList()
                 if (l.isNotEmpty()) { l[l.lastIndex] = l.last().dropLast(1); if (l.last().isEmpty()) l.removeAt(l.lastIndex) }
                 vm.setFigures(l)
-            }, label = "Delete figure", long = { vm.setFigures(emptyList()) }) { Text("⌫", fontSize = 18.sp, color = ink) }
+            }, label = "Delete figure", long = { vm.setFigures(emptyList()) }) { Ico(Icons.AutoMirrored.Outlined.Backspace, ink) }
         }
     }
 }
@@ -465,12 +514,12 @@ private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, o
     val common = if (st.score.key.mode == Mode.MAJOR) listOf("I", "ii", "IV", "V", "V7", "vi") else listOf("i", "iv", "V", "V7", "VI", "ii°6")
     Column(Modifier.fillMaxWidth().windowInsetsPadding(insets).padding(horizontal = 4.dp)) {
         Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Tool(onClick = { apply(); vm.step(-1) }, label = "Previous note") { Text("‹", fontSize = 30.sp, color = ink) }
+            Tool(onClick = { apply(); vm.step(-1) }, label = "Previous note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, ink, 30.dp) }
             if (e == null) Text("Select a note", Modifier.weight(6f), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
             else for (c in common) Tool(e.chord == c, { text = c; vm.setChord(c) }, "Chord $c") {
                 Text(c, fontSize = 17.sp, color = ink, fontFamily = FontFamily.Serif)
             }
-            Tool(onClick = { apply(); vm.step(1) }, label = "Next note") { Text("›", fontSize = 30.sp, color = ink) }
+            Tool(onClick = { apply(); vm.step(1) }, label = "Next note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowRight, ink, 30.dp) }
             TextButton(onClick = { apply(); onClose() }) { Text("Done") }
         }
         androidx.compose.material3.OutlinedTextField(
@@ -485,6 +534,10 @@ private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, o
     }
 }
 
+/** A Material icon of [size] in [tint]; the button around it carries the label. */
+@Composable
+internal fun Ico(v: ImageVector, tint: Color, size: Dp = 24.dp) = Icon(v, null, Modifier.size(size), tint = tint)
+
 /** Shared corner shape for buttons, toggles and fields. */
 internal val SHAPE = RoundedCornerShape(12.dp)
 
@@ -495,6 +548,7 @@ internal val SHAPE = RoundedCornerShape(12.dp)
  * hold released in place, or sliding elsewhere, cancels. A small dot marks buttons with a target; [menu] adds a ▾ corner mark.
  * [press] replaces all of this with a custom gesture; it gets the down event and a local-to-screen mapper.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun RowScope.Tool(
     selected: Boolean = false,
@@ -507,6 +561,7 @@ private fun RowScope.Tool(
     /** Plain long-press action (no drop target), with a haptic tick. */
     long: (() -> Unit)? = null,
     place: Modifier = Modifier,
+    enabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
@@ -518,8 +573,8 @@ private fun RowScope.Tool(
     val coords = remember { arrayOfNulls<LayoutCoordinates>(1) }
     val below = hold?.below == true
     val hint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-    Box(
-        Modifier.weight(1f).then(place).height(46.dp).padding(2.dp).clip(SHAPE)
+    val body: @Composable (Modifier) -> Unit = { outer -> Box(
+        outer.height(46.dp).padding(2.dp).clip(SHAPE)
             .background(if (selected) color else Color.Transparent)
             .semantics { contentDescription = label }
             // Buttons at the screen edge would otherwise wait for Android's back-swipe check before a press arrives
@@ -536,7 +591,7 @@ private fun RowScope.Tool(
             else if (long != null) Modifier.combinedClickable(role = Role.Button, onLongClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress); long()
             }, onClick = onClick)
-            else if (hold == null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier.semantics {
+            else if (hold == null) Modifier.clickable(enabled = enabled, onClick = onClick, role = Role.Button) else Modifier.semantics {
                 role = Role.Button
                 onClick(label) { click(); true }
                 onLongClick(hold.label) { drop?.invoke(); true }
@@ -561,7 +616,7 @@ private fun RowScope.Tool(
             }),
         contentAlignment = Alignment.Center,
     ) {
-        content()
+        Box(Modifier.alpha(if (enabled) 1f else 0.38f)) { content() }
         if (hold != null) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 3.dp).size(4.dp).clip(CircleShape)
             .background(if (selected) MaterialTheme.colorScheme.surface.copy(alpha = 0.7f) else hint))
         if (menu) Text("▾", fontSize = 10.sp, color = hint, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 5.dp, bottom = 1.dp))
@@ -578,7 +633,15 @@ private fun RowScope.Tool(
                 }
             }
         }
-    }
+    } }
+    // A plain button shows its name on long-press
+    if (hold == null && press == null && long == null)
+        Box(Modifier.weight(1f).then(place)) {
+            TooltipBox(TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below), { PlainTooltip { Text(label) } }, rememberTooltipState()) {
+                body(Modifier.fillMaxWidth())
+            }
+        }
+    else body(Modifier.weight(1f).then(place))
 }
 
 /** Two related toolbar buttons sharing one rounded tray. */
@@ -602,30 +665,30 @@ private class HoldTarget(val label: String, val below: Boolean, val danger: Bool
 private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, more: @Composable RowScope.() -> Unit, leading: Boolean, below: Boolean = false) {
     val ink = MaterialTheme.colorScheme.onSurface
     if (leading) {
-        Tool(st.playing, vm::togglePlay, if (st.playing) "Stop" else "Play") { Text(if (st.playing) "■" else "▶", fontSize = 20.sp, color = ink) }
-        Tool(st.analysis != null, vm::check, "Check") { Text("✓", fontSize = 22.sp, color = ink, fontWeight = FontWeight.Bold) }
+        Tool(st.playing, vm::togglePlay, if (st.playing) "Stop" else "Play") { Ico(if (st.playing) Icons.Rounded.Stop else Icons.Rounded.PlayArrow, ink, 28.dp) }
+        Tool(st.analysis != null || st.quiz != null, vm::check, "Check harmony") { Ico(Icons.Rounded.Check, ink, 28.dp) }
         Pill {
-            Tool(onClick = { vm.step(-1) }, label = "Previous note") { Text("‹", fontSize = 30.sp, color = ink) }
-            Tool(onClick = { vm.step(1) }, label = "Next note") { Text("›", fontSize = 30.sp, color = ink) }
+            Tool(onClick = { vm.step(-1) }, label = "Previous note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, ink, 30.dp) }
+            Tool(onClick = { vm.step(1) }, label = "Next note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowRight, ink, 30.dp) }
         }
-    } else {
+    } else if (st.study == null) {
         Pill {
-            Tool(onClick = vm::undo, label = "Undo") { Text("↶", fontSize = 22.sp, color = ink) }
-            Tool(onClick = vm::redo, label = "Redo") { Text("↷", fontSize = 22.sp, color = ink) }
+            Tool(onClick = vm::undo, label = "Undo", enabled = st.undo.isNotEmpty()) { Ico(Icons.AutoMirrored.Rounded.Undo, ink) }
+            Tool(onClick = vm::redo, label = "Redo", enabled = st.redo.isNotEmpty()) { Ico(Icons.AutoMirrored.Rounded.Redo, ink) }
         }
         val bar = st.selectedTime?.let { st.score.barNumber(it) }
         Tool(onClick = vm::delete, label = "Delete", hold = HoldTarget(if (bar != null) "🗑  Delete bar $bar" else "🗑  Select a note first", below, danger = true, onDrop = vm::deleteMeasure)) {
-            Text("⌫", fontSize = 20.sp, color = ink)
+            Ico(Icons.AutoMirrored.Outlined.Backspace, ink)
         }
         more()
-    }
+    } else more()
 }
 
 /** ⋮ overflow menu. [items] adds entries with item(label, danger, action); picking one closes the menu. Open state is hoisted so it survives rotation. */
 @Composable
 private fun RowScope.MoreButton(open: Boolean, onOpen: (Boolean) -> Unit, items: @Composable (item: @Composable (String, Boolean, () -> Unit) -> Unit) -> Unit) {
     Tool(onClick = { onOpen(true) }, label = "More options") {
-        Text("⋮", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        Ico(Icons.Rounded.MoreVert, MaterialTheme.colorScheme.onSurface)
         DropdownMenu(expanded = open, onDismissRequest = { onOpen(false) }, shape = SHAPE) {
             KeepRefreshRate()
             items { label, danger, action ->
@@ -829,14 +892,14 @@ private fun RowScope.PickTool(
 @Composable
 private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, maxList: Dp, oneLine: Boolean, onUndoable: (String) -> Unit) {
     val a = st.analysis ?: return
-    // Landscape has little height: start with just the summary line
-    var open by rememberSaveable { mutableStateOf(!oneLine) }
+    // The list of all issues, or one at a time
+    var open by rememberSaveable { mutableStateOf(false) }
     val errors = a.issues.count { it.severity == Severity.ERROR }
     val warnings = a.issues.size - errors
     val sc = LocalScoreColors.current
     // The issue's ignore key ("RULE@time|message"): saveable, and it still names the rule once the issue is gone
     var info by rememberSaveable { mutableStateOf<String?>(null) }
-    info?.let { key ->
+    if (LocalOnTop.current) info?.let { key ->
         val r = Rule.valueOf(key.substringBefore('@'))
         val i = a.issues.indexOfFirst { VoiceLeading.ignoreKey(it, a.slices) == key }
         // A lesson's rules are locked: no switching off, no ignoring
@@ -844,47 +907,65 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
         RuleInfoDialog(r, r in st.rules, onToggle = if (lesson) null else ({ vm.toggleRule(r) }),
             onIgnoreHere = if (i < 0 || lesson) null else ({ info = null; vm.ignoreIssue(i); onUndoable("Issue ignored") }),
             onIgnoreInScore = if (lesson) null else ({ info = null; vm.ignoreRuleInScore(r); onUndoable("${r.label} ignored in this score") }),
-            onStudy = { info = null; vm.openStudy(it.study, r, it.bar, it.breaks, it.note) },
+            // Over a chorale, the next one replaces it; otherwise this card is back when you return from it
+            onStudy = { if (st.bachOpen) info = null; vm.openStudy(it.study, r, it.bar, it.breaks, it.note) },
         ) { info = null }
+    }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    @Composable fun IssueRow(i: Int, issue: com.nefelion.fourpartwriting.theory.Issue, prefix: String = "", onClick: () -> Unit) {
+        val t = a.slices.getOrNull(issue.slice)?.time ?: Fraction.ZERO
+        Row(
+            Modifier.fillMaxWidth().height(IntrinsicSize.Min)
+                .background(if (st.focusedIssue == i) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                .clickable(onClick = onClick),
+        ) {
+            Box(Modifier.width(4.dp).fillMaxHeight().background(if (issue.severity == Severity.ERROR) sc.errorText else sc.warnText))
+            val quiz = st.quiz?.takeIf { it.revealed && issue.severity == Severity.ERROR }
+            val head = prefix + "${where(t, st.score)} · ${issue.rule.label}" + (quiz?.let { if (it.found(issue)) " · found ✓" else " · missed" } ?: "")
+            val pad = Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 6.dp)
+            if (oneLine) Row(pad, verticalAlignment = Alignment.CenterVertically) {
+                Text(head, style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.width(10.dp))
+                Text(issue.message, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            } else Column(pad) {
+                Text(head, style = MaterialTheme.typography.labelLarge)
+                Text(issue.message, style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+            Box(Modifier.width(44.dp).fillMaxHeight().clickable { info = VoiceLeading.ignoreKey(issue, a.slices) }.semantics { contentDescription = "About ${issue.rule.label}" },
+                contentAlignment = Alignment.Center) { Ico(Icons.Outlined.Info, MaterialTheme.colorScheme.primary, 22.dp) }
+        }
     }
     Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(Modifier.fillMaxWidth().windowInsetsPadding(insets)) {
             HorizontalDivider()
-            Row(Modifier.fillMaxWidth().height(44.dp).clickable { open = !open }.padding(start = 12.dp),
+            Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (a.issues.isEmpty()) Text("All rules kept ✓", style = MaterialTheme.typography.titleSmall, color = sc.ok)
-                else {
-                    if (errors > 0) Badge("$errors rule break${if (errors == 1) "" else "s"}", sc.errorText)
-                    if (warnings > 0) Badge("$warnings warning${if (warnings == 1) "" else "s"}", sc.warnText)
-                    Text(if (open) "▾" else "▴", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                if (errors > 0) Badge("$errors rule break${if (errors == 1) "" else "s"}", sc.errorText)
+                if (warnings > 0) Badge("$warnings warning${if (warnings == 1) "" else "s"}", sc.warnText)
                 Spacer(Modifier.weight(1f))
-                Box(Modifier.size(44.dp).clickable(onClick = vm::closeAnalysis).semantics { contentDescription = "Close check" },
-                    contentAlignment = Alignment.Center) { Text("✕", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                if (a.issues.size > 1)
+                    PanelIcon(if (open) Icons.Rounded.UnfoldLess else Icons.AutoMirrored.Rounded.List, if (open) "One at a time" else "Show all") { open = !open }
+                PanelIcon(Icons.Rounded.Close, "Close check", onClick = vm::closeAnalysis)
             }
-            if (open && a.issues.isNotEmpty()) LazyColumn(Modifier.heightIn(max = maxList)) {
+            unfinished(st.score)?.let { Text(it, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp), style = MaterialTheme.typography.bodySmall, color = muted) }
+            if (open) LazyColumn(Modifier.heightIn(max = maxList)) {
                 itemsIndexed(a.issues) { i, issue ->
-                    val t = a.slices.getOrNull(issue.slice)?.time ?: Fraction.ZERO
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Row(
-                        Modifier.fillMaxWidth().height(IntrinsicSize.Min)
-                            .background(if (st.focusedIssue == i) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                            .clickable { vm.focusIssue(i) },
-                    ) {
-                        Box(Modifier.width(4.dp).fillMaxHeight().background(if (issue.severity == Severity.ERROR) sc.errorText else sc.warnText))
-                        val quiz = st.quiz?.takeIf { it.revealed }
-                        val head = "${where(t, st.score)} · ${issue.rule.label}" + (quiz?.let { if (it.found(issue)) " · found ✓" else " · missed" } ?: "")
-                        val pad = Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 6.dp)
-                        if (oneLine) Row(pad, verticalAlignment = Alignment.CenterVertically) {
-                            Text(head, style = MaterialTheme.typography.labelLarge)
-                            Spacer(Modifier.width(10.dp))
-                            Text(issue.message, style = MaterialTheme.typography.bodySmall)
-                        } else Column(pad) {
-                            Text(head, style = MaterialTheme.typography.labelLarge)
-                            Text(issue.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    IssueRow(i, issue) { vm.focusIssue(i) }
+                }
+            } else {
+                // One issue at a time, stepped with ‹ ›; the list shows them all
+                val i = st.focusedIssue ?: 0
+                a.issues.getOrNull(i)?.let { issue ->
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (a.issues.size > 1) PanelIcon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Previous issue", enabled = i > 0) { vm.showIssue(i - 1) }
+                        Box(Modifier.weight(1f)) { IssueRow(i, issue, if (a.issues.size > 1) "${i + 1}/${a.issues.size} · " else "") { vm.showIssue(i) } }
+                        if (a.issues.size > 1) PanelIcon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Next issue", enabled = i < a.issues.lastIndex) {
+                            vm.showIssue(if (st.focusedIssue == null) 1 else i + 1)
                         }
-                        Box(Modifier.width(44.dp).fillMaxHeight().clickable { info = VoiceLeading.ignoreKey(issue, a.slices) }.semantics { contentDescription = "About ${issue.rule.label}" },
-                            contentAlignment = Alignment.Center) { Text("ⓘ", fontSize = 20.sp, color = MaterialTheme.colorScheme.primary) }
                     }
                 }
             }
@@ -892,34 +973,57 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
     }
 }
 
+/** A small icon button of the check panel. */
+@Composable
+private fun PanelIcon(v: ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) =
+    Box(Modifier.size(40.dp).clip(CircleShape).clickable(enabled = enabled, onClick = onClick).semantics { contentDescription = label },
+        contentAlignment = Alignment.Center) { Ico(v, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f), 22.dp) }
 
-/** Self-check: how many issues there are, the bars as a clue, and Reveal. */
+/** "Bars 3–4 not finished yet." while some voice stops before the others (that part is not checked), else null. */
+private fun unfinished(sc: Score): String? {
+    val end = sc.writtenEnd
+    if (end >= sc.length) return null
+    val a = sc.barNumber(end); val b = sc.barNumber(sc.length - Fraction.of(1, 1024))
+    return (if (a == b) "Bar $a" else "Bars $a–$b") + " not finished yet: checked once every voice is written."
+}
+
+/** Self-check: how many rule breaks there are; help in steps (bars, rules, one break at a time), and Reveal. */
 @Composable
 private fun QuizBar(st: UiState, vm: EditorViewModel, insets: WindowInsets) {
     val q = st.quiz ?: return
     val a = q.analysis
-    val errors = a.issues.count { it.severity == Severity.ERROR }
-    val warnings = a.issues.size - errors
+    val errors = q.errors
     val sc = LocalScoreColors.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    fun bar(i: com.nefelion.fourpartwriting.theory.Issue) = a.slices.getOrNull(i.slice)?.time?.let(st.score::barNumber) ?: 1
     Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(Modifier.fillMaxWidth().windowInsetsPadding(insets)) {
             HorizontalDivider()
             Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (errors > 0) Badge("$errors rule break${if (errors == 1) "" else "s"}", sc.errorText)
-                if (warnings > 0) Badge("$warnings warning${if (warnings == 1) "" else "s"}", sc.warnText)
+                Badge("${errors.size} rule break${if (errors.size == 1) "" else "s"}", sc.errorText)
+                Text("${errors.count(q::found)} found", style = MaterialTheme.typography.labelLarge, color = muted)
                 Spacer(Modifier.weight(1f))
-                Box(Modifier.size(44.dp).clickable(onClick = vm::closeAnalysis).semantics { contentDescription = "Close check" },
-                    contentAlignment = Alignment.Center) { Text("✕", color = muted) }
+                PanelIcon(Icons.Rounded.Close, "Close check", onClick = vm::closeAnalysis)
             }
-            val bars = a.issues.mapNotNull { a.slices.getOrNull(it.slice)?.time?.let(st.score::barNumber) }.distinct().sorted()
-            val clue = if (q.bars) "Look in bar${if (bars.size == 1) "" else "s"} ${bars.joinToString(", ")}. " else ""
-            Text("${clue}Tap the notes you think break a rule (${q.marked.size} marked).",
-                Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.bodySmall, color = muted)
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                if (!q.bars) TextButton(onClick = vm::showBars) { Text("Show bars") }
-                FilledTonalButton(onClick = vm::reveal, shape = SHAPE) { Text("Reveal") }
+            Column(Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                unfinished(st.score)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = muted) }
+                Text("Tap the notes you think break a rule.", style = MaterialTheme.typography.bodySmall, color = muted)
+                q.last?.let { Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = if (it.startsWith("✓")) sc.ok else sc.errorText) }
+                val byBar = errors.groupBy(::bar).toSortedMap()
+                if (q.names) for ((b, l) in byBar) Text("Bar $b: ${l.map { it.rule.label }.distinct().joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
+                else if (q.bars) Text("Look in bar${if (byBar.size == 1) "" else "s"} ${byBar.keys.joinToString(", ")}.", style = MaterialTheme.typography.bodySmall)
+                for (i in q.shown) a.issues.getOrNull(i)?.let { issue ->
+                    val t = a.slices.getOrNull(issue.slice)?.time ?: Fraction.ZERO
+                    Text("${where(t, st.score)} · ${issue.rule.label}: ${issue.message}", style = MaterialTheme.typography.bodySmall, color = sc.errorText)
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
+                if (!q.names) TextButton(onClick = vm::quizHelp) { Text(if (!q.bars) "Which bars?" else "Which rules?") }
+                val left = errors.any { e -> !q.found(e) && a.issues.indexOf(e) !in q.shown }
+                TextButton(onClick = vm::revealNext, enabled = left) { Text("Show one") }
+                FilledTonalButton(onClick = vm::reveal, shape = SHAPE) { Text("Reveal all") }
             }
         }
     }
@@ -949,13 +1053,14 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
     val sf2Picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importSf2) }
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
     var unlocking by rememberSaveable { mutableStateOf(false) }
-    if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
     FullScreenPage("Settings", onDismiss) {
         item {
             Group("Appearance") {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Theme", Modifier.weight(1f))
-                    Segmented(listOf("Light", "Dark"), if (st.dark) 1 else 0, itemWidth = 84.dp) { vm.setDark(it == 1) }
+                    Segmented(listOf("System", "Light", "Dark"), when (st.dark) { null -> 0; false -> 1; true -> 2 }, itemWidth = 76.dp) {
+                        vm.setDark(when (it) { 0 -> null; else -> it == 2 })
+                    }
                 }
             }
         }
@@ -963,9 +1068,9 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
             Group("Playback") {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Sound", Modifier.weight(1f))
-                    Segmented(listOf("Crude piano", "SoundFont"), if (st.piano) 0 else 1, itemWidth = 124.dp) { vm.setPiano(it == 0) }
+                    Segmented(listOf("Basic piano", "SoundFont"), if (st.piano) 0 else 1, itemWidth = 124.dp) { vm.setPiano(it == 0) }
                 }
-                Text(if (st.piano) "Built-in modeled crude piano. Using a SoundFont is preferred."
+                Text(if (st.piano) "Built-in modeled piano, basic but always ready. A SoundFont sounds better."
                     else if (st.soundLoading) "Loading…" else if (st.soundLoaded) "Loaded: ${st.soundName ?: "SoundFont"}" else "No SoundFont loaded. Pick any .sf2 file (piano, choir, strings…).",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (!st.piano) FilledTonalButton(onClick = { sf2Picker.launch(arrayOf("*/*")) }, shape = SHAPE) { Text("Load .sf2 file…") }
@@ -976,7 +1081,8 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
             Group("Rules") {
                 Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { rulesOpen = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Rules to check", Modifier.weight(1f))
-                    Text("${st.rules.size} of ${Rule.entries.size} on  ›", color = MaterialTheme.colorScheme.primary)
+                    Text(when (st.rules.size) { Rule.entries.size -> "All on"; 0 -> "All off"; else -> "${st.rules.size} of ${Rule.entries.size} on" } + "  ›",
+                        color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -987,6 +1093,8 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
             }
         }
     }
+    // After the page: a dialog composed later opens above it, also when both come back together (rotation, return from a chorale)
+    if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
     if (unlocking) AlertDialog(
         onDismissRequest = { unlocking = false },
         title = { Text("Unlock all lessons?") },
@@ -1034,26 +1142,48 @@ private fun MidiGroup(st: UiState, vm: EditorViewModel) {
 @Composable
 private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
     var info by rememberSaveable { mutableStateOf<Rule?>(null) }
-    info?.let { r -> RuleInfoDialog(r, r in st.rules, onToggle = { vm.toggleRule(r) },
-        onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null } }
-    FullScreenPage("Rules to check", onDismiss) {
-        item {
-            Group(null) { for (r in Rule.entries) key(r.name) { RuleRow(r, r in st.rules, onInfo = { info = r }) { vm.toggleRule(r) } } }
+    var menu by rememberSaveable { mutableStateOf(false) }
+    FullScreenPage("Rules to check", onDismiss, actions = {
+        Box {
+            Box(Modifier.size(56.dp).clickable { menu = true }.semantics { contentDescription = "More options" }, contentAlignment = Alignment.Center) {
+                Ico(Icons.Rounded.MoreVert, MaterialTheme.colorScheme.onSurface)
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, shape = SHAPE) {
+                KeepRefreshRate()
+                DropdownMenuItem(text = { Text("Turn all on") }, enabled = st.rules.size < Rule.entries.size, onClick = { menu = false; vm.setAllRules(true) })
+                DropdownMenuItem(text = { Text("Turn all off") }, enabled = st.rules.isNotEmpty(), onClick = { menu = false; vm.setAllRules(false) })
+            }
+        }
+    }) {
+        for ((title, rules) in RULE_GROUPS) item(title) {
+            Group(title) { for (r in rules) key(r.name) { RuleRow(r, r in st.rules, onInfo = { info = r }) { vm.toggleRule(r) } } }
         }
     }
+    // After the page, so it stays above it when both come back
+    info?.let { r -> RuleInfoDialog(r, r in st.rules, onToggle = { vm.toggleRule(r) },
+        onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null } }
 }
 
-/** Rule name and one-line description, an ⓘ button for the animated example, and its switch. */
+/** The rules in the order Settings lists them, by what they look at. */
+private val RULE_GROUPS = listOf(
+    "Motion between voices" to listOf(Rule.PARALLEL_OCTAVES, Rule.PARALLEL_FIFTHS, Rule.DIRECT, Rule.UNEQUAL_FIFTHS, Rule.SIMILAR_MOTION,
+        Rule.CROSSING, Rule.OVERLAP, Rule.CROSS_RELATION),
+    "Each voice's line" to listOf(Rule.MELODIC, Rule.LEAPS, Rule.RANGE, Rule.LEADING_TONE, Rule.SEVENTH, Rule.TENDENCY, Rule.UNRESOLVED_NCT),
+    "Chords" to listOf(Rule.UNRECOGNIZED, Rule.MISSING_THIRD, Rule.MISSING_VOICE, Rule.DOUBLING, Rule.SPACING, Rule.SIX_FOUR,
+        Rule.NAMED_CHORD, Rule.FIGURES),
+    "Progression and form" to listOf(Rule.PROGRESSION, Rule.CADENCE, Rule.HARMONIC_RHYTHM, Rule.STRUCTURE),
+).also { g -> check(g.flatMap { it.second }.sorted() == Rule.entries) { "every rule in one group" } }
+
+/** Rule name and description, an ⓘ button for the animated example, and its switch. */
 @Composable
 internal fun RuleRow(r: Rule, checked: Boolean, onInfo: () -> Unit, locked: Boolean = false, onToggle: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(enabled = !locked, onClick = onToggle).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(r.label)
-            Text(r.desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(r.desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Box(Modifier.size(48.dp).clip(CircleShape).clickable(onClick = onInfo).semantics { contentDescription = "About ${r.label}" },
-            contentAlignment = Alignment.Center) { Text("ⓘ", fontSize = 22.sp, color = MaterialTheme.colorScheme.primary) }
+            contentAlignment = Alignment.Center) { Ico(Icons.Outlined.Info, MaterialTheme.colorScheme.primary) }
         Switch(checked = checked, onCheckedChange = { onToggle() }, enabled = !locked)
     }
 }
@@ -1084,7 +1214,8 @@ internal fun KeepRefreshRate() {
 
 /** Full-screen page with a back arrow, drawn under the status bar like the editor. */
 @Composable
-internal fun FullScreenPage(title: String, onDismiss: () -> Unit, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+internal fun FullScreenPage(title: String, onDismiss: () -> Unit, actions: (@Composable RowScope.() -> Unit)? = null,
+                            content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         KeepRefreshRate()
         // The dialog has its own window: status bar icons that suit the page, and full screen in landscape like the editor
@@ -1102,14 +1233,15 @@ internal fun FullScreenPage(title: String, onDismiss: () -> Unit, content: andro
                 }
             }
         }
-        Page(title, onDismiss, content = content)
+        Page(title, onDismiss, actions = actions, content = content)
     }
 }
 
 /** A page with a back arrow and [title] over a list; [header] replaces the plain title (a lesson's shared badge). */
 @Composable
 internal fun Page(title: String, onBack: () -> Unit, header: (@Composable RowScope.() -> Unit)? = null,
-                  content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) = PageFrame(title, onBack, header) {
+                  actions: (@Composable RowScope.() -> Unit)? = null,
+                  content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) = PageFrame(title, onBack, header, actions) {
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -1122,14 +1254,16 @@ internal fun Page(title: String, onBack: () -> Unit, header: (@Composable RowSco
 /** [Page]'s frame (back arrow and title) around any [body]. */
 @Composable
 internal fun PageFrame(title: String, onBack: () -> Unit, header: (@Composable RowScope.() -> Unit)? = null,
+                       actions: (@Composable RowScope.() -> Unit)? = null,
                        body: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     Surface(Modifier.fillMaxSize().clearFocusOnTap(), color = MaterialTheme.colorScheme.surface) {
         Box {
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
                 Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(56.dp).clickable(onClick = onBack).semantics { contentDescription = "Back" },
-                        contentAlignment = Alignment.Center) { Text("←", fontSize = 22.sp) }
+                        contentAlignment = Alignment.Center) { Ico(Icons.AutoMirrored.Rounded.ArrowBack, MaterialTheme.colorScheme.onSurface) }
                     if (header != null) header() else Text(title, style = MaterialTheme.typography.titleLarge)
+                    if (actions != null) { Spacer(Modifier.weight(1f)); actions() }
                 }
                 body()
             }

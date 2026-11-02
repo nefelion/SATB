@@ -4,7 +4,7 @@ import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.Voice
 
-/** JNI bridge to the native synth (src/main/cpp/synth.cpp): the crude piano or a SoundFont, played through AAudio. */
+/** JNI bridge to the native synth (src/main/cpp/synth.cpp): the basic piano or a SoundFont, played through AAudio. */
 object Synth {
     init { System.loadLibrary("satb") }
 
@@ -18,9 +18,9 @@ object Synth {
     fun loadFd(fd: Int) = nativeLoadFd(fd).also { loaded = loaded || it }
     fun noteOn(midi: Int, vel: Int = 90) = nativeNote(midi, vel)
     fun noteOff(midi: Int) = nativeNote(midi, 0)
-    /** Sustain pedal of the crude piano. */
+    /** Sustain pedal of the basic piano. */
     fun sustain(down: Boolean) = nativeSustain(down)
-    /** Plays the built-in crude piano ([on]) or the loaded SoundFont. */
+    /** Plays the built-in basic piano ([on]) or the loaded SoundFont. */
     fun usePiano(on: Boolean) = nativeUsePiano(on)
     fun stop() = nativeStop()
     /** Whole notes played since playback started, or null when idle. */

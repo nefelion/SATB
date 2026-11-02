@@ -51,6 +51,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -129,9 +132,9 @@ internal fun HomeScreen(st: State<UiState>, vm: EditorViewModel, onLessons: () -
                     AppLogo(36.dp)
                     Spacer(Modifier.width(12.dp))
                     Text("SATB", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    for ((glyph, label, open) in listOf(Triple("ⓘ", "About", { about = true }), Triple("⚙", "Settings", { settings = true })))
+                    for ((glyph, label, open) in listOf(Triple(Icons.Outlined.Info, "About", { about = true }), Triple(Icons.Outlined.Settings, "Settings", { settings = true })))
                         Box(Modifier.size(48.dp).clip(CircleShape).clickable(onClick = open).semantics { contentDescription = label },
-                            contentAlignment = Alignment.Center) { Text(glyph, fontSize = 22.sp, color = cs.onSurfaceVariant) }
+                            contentAlignment = Alignment.Center) { Ico(glyph, cs.onSurfaceVariant) }
                 }
                 Spacer(Modifier.height(16.dp))
                 if (landscape) Row(Modifier.widthIn(max = 900.dp).weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -145,8 +148,11 @@ internal fun HomeScreen(st: State<UiState>, vm: EditorViewModel, onLessons: () -
             LocalSnack.current?.let { SnackbarHost(it, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing)) }
         }
     }
-    if (settings) SettingsDialog(st.value, vm) { settings = false }
-    if (about) AboutDialog { about = false }
+    // Hidden while a chorale (opened from a rule card) is over this screen
+    Overlays {
+        if (settings) SettingsDialog(st.value, vm) { settings = false }
+        if (about) AboutDialog { about = false }
+    }
 }
 
 /** A big menu card: a picture ([art]) on top, then [title] and [text]. It sinks a little while pressed. */

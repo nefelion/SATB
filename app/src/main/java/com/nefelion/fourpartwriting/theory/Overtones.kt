@@ -49,7 +49,7 @@ object Overtones {
     }
 
     /**
-     * A4 as the built-in crude piano strikes it in the overtone lesson (velocity 80), measured from its output (tools/pianowav):
+     * A4 as the built-in basic piano strikes it in the overtone lesson (velocity 80), measured from its output (tools/pianowav):
      * frequency, amplitude in its first moments, and fade. A stiff string stretches the partials a little sharp;
      * the hammer strikes near the 9th's still point, so that one is nearly silent; the felt and the fast fade of
      * high partials keep the note dark. Re-measure if the piano model changes.

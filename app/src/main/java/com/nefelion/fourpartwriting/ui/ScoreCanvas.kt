@@ -141,7 +141,9 @@ fun ScoreCanvas(
             val (el, er) = edge
             val cw = l.width * sp; val ch = l.height * sp
             offX = if (cw <= vw - el - er) el else offX.coerceIn(vw - er - cw, el)
-            offY = if (ch <= vh) (vh - ch) / 2 else offY.coerceIn(vh - ch, 0f)
+            // Staves centered (not the whole layout, which grows with high or low notes), so they stay put as notes come
+            val mid = (l.staffTop.first() + l.staffTop.last() + 4) / 2 * sp
+            offY = if (ch <= vh) (vh / 2 - mid).coerceIn(0f, vh - ch) else offY.coerceIn(vh - ch, 0f)
         }
         SideEffect { clampOffsets() }
         LaunchedEffect(viewKey) { snapshotFlow { sp to offX }.collect { (a, b) -> onViewport(a, b) } }

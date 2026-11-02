@@ -32,6 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
@@ -90,8 +92,10 @@ private val ATTACHED = setOf(Smufl.HEAD_BLACK, Smufl.HEAD_HALF, Smufl.HEAD_WHOLE
 
 private fun Mark.attached() = this is GlyphMark && ref != null && c in ATTACHED
 private fun Mark.ledger() = this is LineMark && ref == null && width == Smufl.LEDGER
-/** Staff lines and barlines. */
-private fun Mark.frame() = this is LineMark && ref == null && width != Smufl.LEDGER
+private val CLEFS = setOf(Smufl.G_CLEF, Smufl.F_CLEF)
+
+/** Staff lines, barlines and clefs: the same in both versions. */
+private fun Mark.frame() = (this is LineMark && ref == null && width != Smufl.LEDGER) || (this is GlyphMark && ref == null && c in CLEFS)
 
 private const val STRETCH = 1.8f
 
@@ -282,7 +286,17 @@ fun RuleInfoDialog(
                 Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("How to avoid: ") }; append(rule.how) },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (demo != null) DemoCanvas(demo)
-                val spots = IN_BACH[rule].orEmpty()
+                // The marks Check prints next to such notes
+                if (rule == Rule.UNRESOLVED_NCT) Text(buildAnnotatedString {
+                    append("Marks in the score:")
+                    for (n in com.nefelion.fourpartwriting.theory.NctType.entries) {
+                        append('\n')
+                        withStyle(SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = LocalScoreColors.current.nct)) { append(n.label) }
+                        append("  ${n.full}: ${n.how}")
+                    }
+                }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Where Bach keeps the rule first, then where he bends it
+                val spots = IN_BACH[rule].orEmpty().sortedBy { it.breaks }
                 if (onStudy != null && spots.isNotEmpty()) {
                     Text("In Bach's chorales", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                     for (spot in spots) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onStudy(spot) }.padding(vertical = 4.dp),
@@ -292,7 +306,7 @@ fun RuleInfoDialog(
                                 color = if (spot.breaks) LocalScoreColors.current.warnText else LocalScoreColors.current.ok)
                             Text(spot.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Text("›", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                        Ico(Icons.AutoMirrored.Rounded.KeyboardArrowRight, MaterialTheme.colorScheme.primary)
                     }
                 }
                 if (onToggle == null) Text("Always checked in lessons.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

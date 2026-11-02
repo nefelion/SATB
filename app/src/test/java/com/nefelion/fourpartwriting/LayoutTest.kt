@@ -71,9 +71,10 @@ class LayoutTest {
     @Test fun bareLayoutDrawsOnlyShownVoices() {
         val voices = listOf(notes("E5", base = 4), notes("C5", base = 4), notes("G4", base = 4), notes("C4", base = 4))
         val l = Engraver.layout(Score(voices = voices).withArrangement(Arrangement.ONE), show = setOf(Voice.SOPRANO))
-        // No clef, time signature, tempo or rests; only the soprano's head and stem
+        // Just the clef: no time signature, tempo or rests; only the soprano's head and stem
         assertEquals(setOf(Voice.SOPRANO), l.marks.mapNotNull { it.ref?.voice }.toSet())
-        assertEquals(1, l.marks.filterIsInstance<GlyphMark>().size)
+        assertEquals(listOf(Smufl.G_CLEF), l.marks.filterIsInstance<GlyphMark>().filter { it.ref == null }.map { it.c })
+        assertEquals(2, l.marks.filterIsInstance<GlyphMark>().size)
         assertTrue(l.marks.none { it is com.nefelion.fourpartwriting.engrave.TextMark })
     }
 

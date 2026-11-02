@@ -20,6 +20,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -43,7 +44,19 @@ private const val HOME = "home"
 private const val EDITOR = "editor"
 private const val LESSONS = "lessons"
 private const val FREE = "free"
+/** A Bach chorale over the screen it was opened from; leaving it brings back the score that was open before. */
+private const val STUDY = "study"
 private fun lesson(i: Int) = "lesson:$i"
+
+/** False on a screen with another one over it: its dialogs hide until it is back on top (see [Overlays]). */
+internal val LocalOnTop = compositionLocalOf { true }
+
+/** A screen's dialogs: hidden while another screen is over it, and back as they were (with their state) when it returns. */
+@Composable
+internal fun Overlays(content: @Composable () -> Unit) {
+    val holder = rememberSaveableStateHolder()
+    if (LocalOnTop.current) holder.SaveableStateProvider("overlays", content)
+}
 
 /** Lessons easing: quick start, long gentle settle. */
 private val SETTLE = CubicBezierEasing(0.2f, 0f, 0f, 1f)
@@ -68,7 +81,7 @@ fun AppRoot(vm: EditorViewModel) {
     // A score opened: to the editor (not on rotation, which keeps the tick)
     val tick by remember { derivedStateOf { st.value.openTick } }
     var seenTick by rememberSaveable { mutableIntStateOf(tick) }
-    LaunchedEffect(tick) { if (tick != seenTick) { seenTick = tick; push(EDITOR) } }
+    LaunchedEffect(tick) { if (tick != seenTick) { seenTick = tick; push(if (st.value.bachOpen) STUDY else EDITOR) } }
 
     val motion = remember { SeekableTransitionState(stack) }
     val transition = rememberTransition(motion, label = "screens")
@@ -78,6 +91,7 @@ fun AppRoot(vm: EditorViewModel) {
         if (before != stack) motion.animateTo(stack)
         // A screen that was left (back) starts fresh next time
         for (k in before - stack.toSet()) holder.removeState(k)
+        if (STUDY in before && STUDY !in stack) vm.leaveStudy()
     }
     val scope = rememberCoroutineScope()
     PredictiveBackHandler(enabled = stack.size > 1) { events ->
@@ -108,16 +122,12 @@ fun AppRoot(vm: EditorViewModel) {
                 val shared: @Composable (String) -> Modifier = { key ->
                     Modifier.sharedElement(rememberSharedContentState(key), this@AnimatedContent)
                 }
-                holder.SaveableStateProvider(screen) {
+                holder.SaveableStateProvider(screen) { CompositionLocalProvider(LocalOnTop provides (screen == stack.last())) {
                     when {
                         screen == HOME -> HomeScreen(st, vm, onLessons = { push(LESSONS) }, onFree = { push(FREE) })
                         screen == LESSONS -> LessonsScreen(st, shared, onLesson = { push(lesson(it)) }, onBack = ::pop)
                         screen == FREE -> ScoresPage(st.value, vm, screen = true, onOpen = { push(EDITOR) }, onDismiss = ::pop)
-                        screen == EDITOR -> EditorScreen(vm, snack, onHome = {
-                            // From a lesson's exercise, back to that lesson; otherwise to the main menu
-                            val i = st.value.slot
-                            stack = if (i == null) listOf(HOME) else stack.dropLast(1).let { if (it.last() == lesson(i)) it else listOf(HOME, LESSONS, lesson(i)) }
-                        })
+                        screen == EDITOR || screen == STUDY -> EditorScreen(vm, snack, study = screen == STUDY)
                         else -> {
                             val i = screen.substringAfter(':').toInt()
                             LessonPage(i, st.value, vm, header = {
@@ -127,7 +137,7 @@ fun AppRoot(vm: EditorViewModel) {
                             }, onNext = { stack = stack.dropLast(1) + lesson(i + 1) }, onDismiss = ::pop)
                         }
                     }
-                }
+                } }
             }
         }
     }

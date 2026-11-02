@@ -226,7 +226,7 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
         // This page covers the editor's snackbar, so say here why Play is silent
         // Not in a lab lesson: its note card plays its own sound
         if (!st.canPlay && !l.lab) Row(Modifier.padding(horizontal = 16.dp).widthIn(max = 640.dp).fillMaxWidth().align(Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (st.soundLoading) "Loading the sound…" else "No sound yet: load a SoundFont (.sf2, preferred) or pick the built-in crude piano to hear the examples.",
+            Text(if (st.soundLoading) "Loading the sound…" else "No sound yet: load a SoundFont (.sf2, preferred) or pick the built-in basic piano to hear the examples.",
                 Modifier.weight(1f), style = body, color = MaterialTheme.colorScheme.error)
             if (!st.soundLoading) TextButton({ settings = true }) { Text("Settings") }
         }
@@ -251,11 +251,12 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
             }
         }
     }
-    info?.let { r ->
+    // Back from a Bach example, the card is here again
+    if (LocalOnTop.current) info?.let { r ->
         RuleInfoDialog(r, true, onToggle = null,
-            onStudy = { info = null; vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null }
+            onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null }
     }
-    if (settings) SettingsDialog(st, vm) { settings = false }
+    Overlays { if (settings) SettingsDialog(st, vm) { settings = false } }
     if (replacing) ReplaceLessonDialog(i, vm) { replacing = false }
 }
 

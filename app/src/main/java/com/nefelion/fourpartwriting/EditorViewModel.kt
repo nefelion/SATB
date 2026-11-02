@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.content.res.Configuration
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,6 +16,7 @@ import com.nefelion.fourpartwriting.engrave.NOTE_POSITIONS
 import com.nefelion.fourpartwriting.engrave.NoteRef
 import com.nefelion.fourpartwriting.engrave.Notation
 import com.nefelion.fourpartwriting.export.MusicXml
+import com.nefelion.fourpartwriting.export.Midi
 import com.nefelion.fourpartwriting.model.Duration
 import com.nefelion.fourpartwriting.model.Edit
 import com.nefelion.fourpartwriting.model.Event
@@ -68,10 +68,8 @@ data class UiState(
     /** All saved scores (null: file unreadable), most recently changed first. */
     val scores: List<Pair<String, Score?>> = emptyList(),
     val voice: Voice = Voice.SOPRANO,
-    /** Dark theme on; chosen in Settings. */
-    val dark: Boolean = false,
-    /** False until the user has picked Light or Dark (the first-run picker shows until then). */
-    val themeChosen: Boolean = true,
+    /** Dark theme on, off, or null to follow the phone; chosen in the welcome or in Settings. */
+    val dark: Boolean? = null,
     /** False until the welcome tutorial has been finished or skipped. */
     val tutorialSeen: Boolean = true,
     val duration: Duration = Duration(4),
@@ -107,7 +105,7 @@ data class UiState(
     val tone: String? = null,
     /** Onset of the slice under the playback cursor. */
     val playTime: Fraction? = null,
-    /** The built-in crude piano plays, not the SoundFont. */
+    /** The built-in basic piano plays, not the SoundFont. */
     val piano: Boolean = true,
     val soundLoaded: Boolean = false,
     /** A SoundFont is being read (on app start or after a pick). */
@@ -138,8 +136,10 @@ data class UiState(
     /** Movement mode (tap the active voice button): taps only select notes, nothing is added. */
     val moving: Boolean = false,
 ) {
-    /** Some instrument is ready to play: the built-in crude piano, or a loaded SoundFont. */
+    /** Some instrument is ready to play: the built-in basic piano, or a loaded SoundFont. */
     val canPlay: Boolean get() = piano || soundLoaded
+    /** A Bach chorale is open (read-only), not a lesson's passage. */
+    val bachOpen: Boolean get() = study != null && score.lesson == null
     /** Rules the open score is checked with: a lesson's own, whatever is switched off in Settings. */
     val checkRules: Set<Rule> get() = score.lesson?.let(Lessons::rulesUpTo) ?: rules
     /** Voice shown on the caret and voice buttons: while dragging, the dragged note's voice, not the next input voice. */
@@ -175,6 +175,13 @@ fun tupletLength(d: Duration, t: Pair<Int, Int>?) = if (t == null) d.value else 
 /** A bundled study score: [id] is its file name ("BWV 13.6"). */
 data class Study(val id: String, val title: String, val score: Score)
 
+/** File formats a score can be saved or shared as. */
+enum class FileFormat(val label: String, val about: String, val ext: String, val mime: String) {
+    SATB("SATB score", "Opens in this app with everything kept", ScoreLibrary.EXT, "application/octet-stream"),
+    MUSICXML("MusicXML", "For MuseScore, Sibelius, Finale and other notation apps", ".musicxml", "application/vnd.recordare.musicxml+xml"),
+    MIDI("MIDI", "Notes only, for sequencers and players", ".mid", "audio/midi"),
+}
+
 /** Preview notehead: staff, staff position, onset. */
 /** A faded note: the tap preview, or a hint ([voice] colors it; [alter]: an accidental to show). */
 data class Ghost(val staff: Int, val pos: Int, val at: Fraction, val voice: Voice? = null, val alter: Int? = null)
@@ -186,14 +193,20 @@ data class Hint(val score: Score, val notes: List<Ghost>)
  * "Find it yourself": the result of a check, hidden until [revealed]; [marked]: notes the user thinks are wrong;
  * [bars]: the bars with issues are shown as a clue.
  */
-data class Quiz(val analysis: Analysis, val marked: Set<NoteRef> = emptySet(), val bars: Boolean = false, val revealed: Boolean = false) {
+/**
+ * The user's search for the rule breaks of [analysis] (warnings show only after [revealed]). Help comes in steps: [bars], then the rule
+ * [names] per bar, then issues [shown] one by one. [last]: what the last mark turned out to be.
+ */
+data class Quiz(val analysis: Analysis, val marked: Set<NoteRef> = emptySet(), val bars: Boolean = false, val revealed: Boolean = false,
+                val names: Boolean = false, val shown: List<Int> = emptyList(), val last: String? = null) {
+    val errors get() = analysis.issues.filter { it.severity == Severity.ERROR }
     /** The notes of [issue]; one that names none (a missing third) is its whole chord. */
     fun refs(issue: Issue): Set<NoteRef> = issue.notes.ifEmpty { Voice.entries.map { issue.slice to it } }.mapNotNull { (si, v) ->
         analysis.slices.getOrNull(si)?.eventIndex?.get(v.ordinal)?.takeIf { it >= 0 }?.let { NoteRef(v, it) }
     }.toSet()
     fun found(issue: Issue) = refs(issue).any { it in marked }
     /** [r] belongs to some issue (a marked note that is not is a false alarm). */
-    fun hit(r: NoteRef) = analysis.issues.any { r in refs(it) }
+    fun hit(r: NoteRef) = errors.any { r in refs(it) }
 }
 
 private fun chorale(vararg chords: String): List<List<Event>> {
@@ -207,7 +220,7 @@ private fun chorale(vararg chords: String): List<List<Event>> {
     }
 }
 
-private const val NO_SOUND = "Load a SoundFont (.sf2, preferred) in Settings, or switch to the built-in crude piano."
+private const val NO_SOUND = "Load a SoundFont (.sf2, preferred) in Settings, or switch to the built-in basic piano."
 
 /** A short phrase in C major (I IV V I | vi ii6 Cad6/4 V7 | I) so the first screen shows music. */
 val EXAMPLE = Score(
@@ -260,12 +273,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             redo = history?.second.orEmpty(),
             // Stored as the rules switched OFF, so rules added in later versions start on
             rules = Rule.entries.toSet() - prefs.getStringSet("rulesOff", emptySet())!!.mapNotNull { n -> Rule.entries.firstOrNull { it.name == n } }.toSet(),
-            // Until the user picks, start in the phone's current mode
-            themeChosen = prefs.contains("dark"),
             tutorialSeen = prefs.getBoolean("tutorialSeen", false),
             lessonsDone = prefs.getStringSet("lessonsDone", emptySet())!!.mapNotNull { it.toIntOrNull() }.toSet(),
             allUnlocked = prefs.getBoolean("allUnlocked", false),
-            dark = prefs.getBoolean("dark", app.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES),
+            dark = if (prefs.contains("dark")) prefs.getBoolean("dark", false) else null,
             soundName = prefs.getString("sf2Name", null),
             piano = prefs.getBoolean("piano", true),
             voice = Voice.entries.getOrElse(prefs.getInt("voice", 0)) { Voice.SOPRANO },
@@ -353,7 +364,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edited: Score, selected: NoteRef? = s.selected, voice: Voice = s.voice,
         selectedAt: Fraction? = if (selected == s.selected) s.selectedAt else null,
     ): Boolean {
-        if (s.study != null) { msg("This score can't be changed. Duplicate it in Scores to get a copy you can edit."); return false }
+        if (s.study != null) { msg("This score is read-only."); return false }
         // An exercise's given voices stay as they are (naming their chords and fermatas is fine)
         s.score.given.firstOrNull { v -> v in edited.given && edited.voice(v).map { it.copy(chord = null, fermata = false) } != s.score.voice(v).map { it.copy(chord = null, fermata = false) } }?.let { v ->
             msg("The ${v.name.lowercase()} is given in this exercise.")
@@ -385,7 +396,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         t to Voice.entries.map { v -> sc.eventAt(v, t).takeIf { it >= 0 }?.let { sc.voice(v)[it].pitch } }
 
     private fun checkOrder() = _state.update { st ->
-        st.copy(reorder = Edit.misorderedChords(st.score).filter { chordKey(st.score, it) !in keptOrder })
+        // A read-only score can't be reordered
+        st.copy(reorder = if (st.study != null) emptyList() else Edit.misorderedChords(st.score).filter { chordKey(st.score, it) !in keptOrder })
     }
 
     /** Gives the highest note to S ... the lowest to B in every flagged chord (one undo step). */
@@ -617,20 +629,32 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edit(s.score.withVoice(r.voice, evs.toMutableList().also { it[r.index] = e.copy(chord = clean) }))
     }
 
-    /** Names the chord and the notes for the next beat where a voice is missing; writes nothing. */
-    fun hint() = viewModelScope.launch {
+    /** A hint for the open score, worked out when the menu opens (null: none; the Hint item stays hidden). */
+    private var nextHint: Pair<Hint, String>? = null
+
+    /** Works out the hint for the score as it is now; [onReady] tells the menu whether there is one. */
+    fun prepareHint(onReady: (Boolean) -> Unit) = viewModelScope.launch {
+        nextHint = null
         val sc = s.score
+        nextHint = if (s.study != null) null else findHint(sc)?.takeIf { s.score == sc }
+        onReady(nextHint != null)
+    }
+
+    /** Shows the prepared hint: faded notes for the next beat where a voice is missing; writes nothing. */
+    fun hint() {
+        val (h, text) = nextHint?.takeIf { it.first.score == s.score } ?: return
+        _state.update { it.copy(hint = h, followTick = it.followTick + 1, message = text) }
+    }
+
+    /** The chord and notes for the next beat where a voice is missing, and its message; null when there is none. */
+    private suspend fun findHint(sc: Score): Pair<Hint, String>? {
         val out = withContext(Dispatchers.Default) { Voicer.attempt(sc) }
-        val filled = when (out) {
-            is Voicer.Outcome.Done -> out.score
-            is Voicer.Outcome.Stuck -> return@launch msg("Your notes up to bar ${barOf(out.time)} leave no clean way on. Press ✓ to find the problem.")
-            Voicer.Outcome.Empty -> return@launch msg("Write a melody or a bass first.")
-        }
+        val filled = (out as? Voicer.Outcome.Done)?.score ?: return null
         // The first beat where the fill adds a note
         val t = Voice.entries.mapNotNull { v ->
             val start = sc.length(v)
             filled.onsets(v).withIndex().firstOrNull { (i, on) -> on >= start && filled.voice(v)[i].pitch != null }?.value
-        }.minOrNull() ?: return@launch msg("Every voice is written. Press ✓ to check.")
+        }.minOrNull() ?: return null
         // The checker may flag the solver's chord (it doesn't model every rule): revoice it against your notes alone
         val open = Voice.entries.filter { sc.length(it) <= t }.toSet()
         val upTo = sc.copy(voices = Voice.entries.map { v ->
@@ -638,7 +662,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         })
         val rules = s.checkRules
         val best = withContext(Dispatchers.Default) { Voicer.fix(upTo, t, rules, open) } ?: upTo
-        if (s.score != sc) return@launch
         val notes = Voice.entries.map { v -> best.eventAt(v, t).takeIf { it >= 0 }?.let { best.voice(v)[it].pitch } }
         val chord = ChordAnalyzer.analyze(notes.filterNotNull(), sc.keyAt(t))
         val ghosts = Voice.entries.filter { sc.length(it) <= t }.mapNotNull { v ->
@@ -646,10 +669,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             val staff = sc.staffOf(v)
             Ghost(staff, sc.clefs[staff].position(p), t, v, p.alter.takeIf { it != sc.keyAt(t).sigAlter(p.step) })
         }
-        _state.update { it.copy(hint = Hint(sc, ghosts), followTick = it.followTick + 1) }
         // Plain digits: the snackbar cannot stack figures
         val roman = chord.roman.map { c -> "⁰¹²³⁴⁵⁶⁷⁸⁹".indexOf(c).takeIf { it >= 0 }?.let { '0' + it } ?: "₀₁₂₃₄₅₆₇₈₉".indexOf(c).takeIf { it >= 0 }?.let { '0' + it } ?: c }.joinToString("")
-        msg("Hint for bar ${barOf(t)}: ${roman.ifEmpty { chord.symbol }} (${chord.symbol}). The faded notes show one way to voice it.")
+        return Hint(sc, ghosts) to "Hint for bar ${sc.barNumber(t)}: ${roman.ifEmpty { chord.symbol }} (${chord.symbol}). The faded notes show one way to voice it."
     }
 
     /** Revoices the selected note's chord: the clean voicing nearest the written one (one undo step). */
@@ -701,9 +723,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putBoolean("allUnlocked", true).apply()
     }
 
-    fun setDark(dark: Boolean) {
-        _state.update { it.copy(dark = dark, themeChosen = true) }
-        prefs.edit().putBoolean("dark", dark).apply()
+    /** [dark] null: follow the phone. */
+    fun setDark(dark: Boolean?) {
+        _state.update { it.copy(dark = dark) }
+        prefs.edit().apply { if (dark == null) remove("dark") else putBoolean("dark", dark) }.apply()
     }
 
 
@@ -788,7 +811,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             false -> {
                 val base = dragBase ?: return
                 dragBase = null
-                _state.update { it.copy(score = base, dragging = false, analysis = it.analysis?.let { _ -> VoiceLeading.check(base, it.checkRules) }) }
+                _state.update { it.copy(score = base, dragging = false, analysis = it.analysis?.let { _ -> checkWritten(base, it.checkRules) }) }
                 checkOrder()
             }
         }
@@ -955,6 +978,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(scoreName = name, score = score, study = study, slot = slot, freeName = if (free) name else it.freeName,
                 lessonSaved = slots(), scores = library.list(), undo = emptyList(), redo = emptyList(),
                 selected = null, selectedAt = null, placed = false, analysis = null, quiz = null, focusedIssue = null, reorder = emptyList(), note = null,
+                voice = Voice.entries.firstOrNull { v -> v !in score.given } ?: Voice.SOPRANO, locked = null,
                 moving = if (study != null) true else if (it.study != null) false else it.moving, openTick = if (opened) it.openTick + 1 else it.openTick)
         }
         Synth.setTempo(score.qpm)
@@ -1070,17 +1094,38 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         msg("$name deleted.")
     }
 
-    /** Saves a copy of a score to a file the user picked (to back up or share). */
-    /** Writes score [name] to [uri] as a .satb file, or as MusicXML when [xml]. */
-    fun exportScoreFile(name: String, uri: Uri, xml: Boolean) = viewModelScope.launch {
+    /** Score [name] as a file in [f]'s format, or null if it can't be read. */
+    private fun fileBytes(name: String, f: FileFormat): ByteArray? = scoreOf(name)?.let {
+        when (f) {
+            FileFormat.SATB -> ScoreCodec.encode(it, name).toByteArray()
+            FileFormat.MUSICXML -> MusicXml.export(it).toByteArray()
+            FileFormat.MIDI -> Midi.export(it)
+        }
+    }
+
+    /** Writes score [name] to [uri] in format [f] (to back up, or for other apps). */
+    fun exportScoreFile(name: String, uri: Uri, f: FileFormat) = viewModelScope.launch {
         flushScore()
-        val text = scoreOf(name)?.let { if (xml) MusicXml.export(it) else ScoreCodec.encode(it, name) }
-        val ok = text != null && withContext(Dispatchers.IO) {
+        val bytes = fileBytes(name, f)
+        val ok = bytes != null && withContext(Dispatchers.IO) {
             runCatching {
-                getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
+                getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(bytes) }
             }.isSuccess
         }
         msg(if (ok) "$name saved to file." else "Could not write the file.")
+    }
+
+    /** Score [name] written to a file in the app's cache for sharing, or null (a message says why). */
+    suspend fun shareFile(name: String, f: FileFormat): File? {
+        flushScore()
+        val bytes = fileBytes(name, f) ?: run { msg("Could not read $name."); return null }
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                // One file at a time: the last share replaces the one before
+                val dir = File(getApplication<Application>().cacheDir, "share").apply { deleteRecursively(); mkdirs() }
+                File(dir, name.replace(Regex("""[\\/:*?"<>|]"""), "_") + f.ext).apply { writeBytes(bytes) }
+            }.getOrNull()
+        } ?: run { msg("Could not write the file."); null }
     }
 
     /** Adds a .satb or MusicXML (.musicxml, .xml, .mxl) file to the library and opens it. */
@@ -1131,6 +1176,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun openStudy(id: String, rule: Rule? = null, bar: Int = 0, breaks: Boolean = false, note: String? = null) {
         val study = readStudy(id) ?: return msg("Could not open $id.")
         flushScore()
+        if (s.study == null) beforeStudy = s
         val sc = study.score
         show(study.title, sc, id)
         if (rule == null) return
@@ -1144,6 +1190,24 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(selected = refAt(sc, Voice.SOPRANO, start), selectedAt = start, followTick = it.followTick + 1) }
         }
         note?.let { n -> _state.update { it.copy(note = "$id, bar $bar · ${rule.label}, ${if (breaks) "bent" else "kept"}" to n) } }
+    }
+
+    /** What was open before a Bach chorale opened: back from the chorale returns to it as it was. */
+    private var beforeStudy: UiState? = null
+
+    /** Leaves the open Bach chorale for the score that was open before it, with its undo history and check. */
+    fun leaveStudy() {
+        val b = beforeStudy ?: return
+        beforeStudy = null
+        if (!s.bachOpen) return
+        stop()
+        _state.update {
+            it.copy(scoreName = b.scoreName, score = b.score, study = b.study, slot = b.slot, undo = b.undo, redo = b.redo, voice = b.voice,
+                selected = null, selectedAt = null, placed = false, analysis = b.analysis, quiz = b.quiz, focusedIssue = b.focusedIssue,
+                note = b.note, moving = b.moving, locked = b.locked, followTick = it.followTick + 1)
+        }
+        Synth.setTempo(s.score.qpm)
+        checkOrder()
     }
 
     // ---------- lessons ----------
@@ -1185,7 +1249,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         flushScore()
         val sc = l.find.copy(lesson = i)
         show("Lesson ${i + 1}: find the mistakes", sc, "Lesson ${i + 1}")
-        _state.update { it.copy(quiz = Quiz(VoiceLeading.check(sc, it.checkRules)), note = "Find the mistakes" to l.findNote) }
+        _state.update { it.copy(quiz = Quiz(checkWritten(sc, it.checkRules)), note = "Find the mistakes" to l.findNote) }
     }
 
     /**
@@ -1233,12 +1297,23 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- analysis ----------
 
-    /** ✓ button: check (the user finds the mistakes first), or close the results. */
+    /**
+     * Check of [sc] up to where every voice is written: chords not finished yet are not judged (no missing voices,
+     * no unequal lengths), the panel says which bars are left.
+     */
+    private fun checkWritten(sc: Score, rules: Set<Rule>): Analysis {
+        val a = VoiceLeading.check(sc, rules)
+        val end = sc.writtenEnd
+        if (end >= sc.length) return a
+        return a.copy(issues = a.issues.filter { it.rule != Rule.STRUCTURE && (a.slices.getOrNull(it.slice)?.time ?: Fraction.ZERO) < end })
+    }
+
+    /** ✓ button: check (the user finds the rule breaks first), or close the results. */
     fun check() {
         if (s.analysis != null || s.quiz != null) return closeAnalysis()
         toMovement()
-        val a = VoiceLeading.check(s.score, s.checkRules)
-        if (a.issues.isNotEmpty()) return _state.update { it.copy(quiz = Quiz(a), focusedIssue = null) }
+        val a = checkWritten(s.score, s.checkRules)
+        if (a.issues.any { it.severity == Severity.ERROR }) return _state.update { it.copy(quiz = Quiz(a), focusedIssue = null) }
         _state.update { it.copy(analysis = a, focusedIssue = null) }
         solved(a)?.let(::msg)
     }
@@ -1257,23 +1332,34 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         return (if (a.issues.isEmpty()) "Solved, with no rule breaks or warnings!" else "Solved: no rule breaks. Look at the warnings to make it better.") + lesson
     }
 
-    /** Self-check: marks or unmarks a note as breaking a rule. */
+    /** Self-check: marks or unmarks a note as breaking a rule; a new mark says whether it does. */
     fun toggleMark(r: NoteRef) = _state.update { st ->
         val q = st.quiz?.takeIf { !it.revealed } ?: return@update st
-        st.copy(quiz = q.copy(marked = if (r in q.marked) q.marked - r else q.marked + r))
+        if (r in q.marked) return@update st.copy(quiz = q.copy(marked = q.marked - r, last = null))
+        val rules = q.errors.filter { r in q.refs(it) }.map { it.rule.label }.distinct()
+        val last = if (rules.isEmpty()) "✗ This note is fine." else "✓ Right: ${rules.joinToString(", ")}."
+        st.copy(quiz = q.copy(marked = q.marked + r, last = last))
     }
-    fun showBars() = _state.update { it.copy(quiz = it.quiz?.copy(bars = true)) }
+    /** Self-check help, one step at a time: which bars, then which rules in them. */
+    fun quizHelp() = _state.update { st -> st.copy(quiz = st.quiz?.let { if (!it.bars) it.copy(bars = true) else it.copy(names = true) }) }
+
+    /** Self-check: shows one rule break not found yet. */
+    fun revealNext() = _state.update { st ->
+        val q = st.quiz ?: return@update st
+        val i = q.analysis.issues.indices.firstOrNull { i -> q.analysis.issues[i].let { it.severity == Severity.ERROR && !q.found(it) } && i !in q.shown }
+            ?: return@update st
+        st.copy(quiz = q.copy(shown = q.shown + i))
+    }
 
     /** Self-check: shows the results and how many of them the user found. */
     fun reveal() {
         val q = s.quiz?.takeIf { !it.revealed } ?: return
         val a = q.analysis
         _state.update { it.copy(analysis = a, quiz = q.copy(revealed = true), focusedIssue = null) }
-        val (errors, warnings) = a.issues.partition { it.severity == Severity.ERROR }
-        fun part(l: List<Issue>, what: String) = "${l.count(q::found)} of ${l.size} $what${if (l.size == 1) "" else "s"}"
-        val found = listOfNotNull(part(errors, "rule break").takeIf { errors.isNotEmpty() }, part(warnings, "warning").takeIf { warnings.isNotEmpty() })
+        // Only rule breaks were searched for; the warnings show now
+        val errors = q.errors
         val falseAlarms = q.marked.count { !q.hit(it) }
-        msg(listOfNotNull("You found ${found.joinToString(" and ")}.",
+        msg(listOfNotNull("You found ${errors.count(q::found)} of ${errors.size} rule break${if (errors.size == 1) "" else "s"}.",
             "$falseAlarms marked note${if (falseAlarms == 1) " was" else "s were"} fine.".takeIf { falseAlarms > 0 }, solved(a)).joinToString(" "))
     }
 
@@ -1284,13 +1370,15 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun checked(st: UiState, new: Score): UiState {
         if (st.analysis == null && st.quiz == null) return st
         if (new.copy(ignored = st.score.ignored, rulesOff = st.score.rulesOff) == st.score)
-            return st.copy(analysis = st.analysis?.let { VoiceLeading.check(new, st.checkRules) }, quiz = st.quiz?.takeIf { !it.revealed }, focusedIssue = null)
+            return st.copy(analysis = st.analysis?.let { checkWritten(new, st.checkRules) }, quiz = st.quiz?.takeIf { !it.revealed }, focusedIssue = null)
         return st.copy(analysis = null, quiz = null, focusedIssue = null, message = "Score changed. Press ✓ to check again.")
     }
 
     /** Opening the check or tapping a found issue drops the selection into movement mode. */
     private fun toMovement() { deselect(); _state.update { it.copy(moving = true) } }
     fun closeAnalysis() = _state.update { it.copy(analysis = null, quiz = null, focusedIssue = null) }
+    /** Picks issue [i] (the ‹ › of the check panel). */
+    fun showIssue(i: Int) { toMovement(); _state.update { it.copy(focusedIssue = i) } }
     fun focusIssue(i: Int?) {
         toMovement()
         _state.update { it.copy(focusedIssue = if (it.focusedIssue == i) null else i) }
@@ -1315,9 +1403,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleRule(r: Rule) = setRules(if (r in s.rules) s.rules - r else s.rules + r)
+    fun setAllRules(on: Boolean) = setRules(if (on) Rule.entries.toSet() else emptySet())
 
     private fun setRules(rules: Set<Rule>) {
-        _state.update { it.copy(rules = rules).let { st -> st.copy(analysis = st.analysis?.let { VoiceLeading.check(st.score, st.checkRules) }, focusedIssue = null) } }
+        _state.update { it.copy(rules = rules).let { st -> st.copy(analysis = st.analysis?.let { checkWritten(st.score, st.checkRules) }, focusedIssue = null) } }
         prefs.edit().putStringSet("rulesOff", (Rule.entries - rules).map { it.name }.toSet()).apply()
     }
 
@@ -1471,7 +1560,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Plays the built-in crude piano ([on]) or the SoundFont. */
+    /** Plays the built-in basic piano ([on]) or the SoundFont. */
     fun setPiano(on: Boolean) {
         stop()
         Synth.usePiano(on)

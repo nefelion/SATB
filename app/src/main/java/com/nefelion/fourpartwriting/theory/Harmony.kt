@@ -11,17 +11,18 @@ import com.nefelion.fourpartwriting.model.Voice
 import kotlin.math.abs
 import kotlin.math.sign
 
-enum class NctType(val label: String, val full: String) {
-    PT("PT", "passing tone"),
-    NT("NT", "neighbor tone"),
-    SUS("sus", "suspension"),
-    RET("ret", "retardation"),
-    APP("app", "appoggiatura"),
-    ESC("esc", "escape tone"),
-    CAMB("camb", "cambiata"),
-    ANT("ant", "anticipation"),
-    PED("ped", "pedal"),
-    UNRESOLVED("!", "unresolved dissonance"),
+/** [how]: what makes the note one, said simply (shown as a key to the marks in the score). */
+enum class NctType(val label: String, val full: String, val how: String) {
+    PT("PT", "passing tone", "steps between two chord notes"),
+    NT("NT", "neighbor tone", "steps away from a chord note and back"),
+    SUS("sus", "suspension", "held over from the chord before, then steps down"),
+    RET("ret", "retardation", "held over from the chord before, then steps up"),
+    APP("app", "appoggiatura", "leaps in on a strong beat, then steps to a chord note"),
+    ESC("esc", "escape tone", "steps out of a chord note, then leaps to the next chord"),
+    CAMB("camb", "cambiata", "leaps away, then steps back to a chord note"),
+    ANT("ant", "anticipation", "a note of the next chord, arriving early"),
+    PED("ped", "pedal", "held while the chords change around it"),
+    UNRESOLVED("!", "unresolved dissonance", "clashes with the chord and does not resolve"),
 }
 
 /** A non-chord tone; [label] is what is printed (e.g. "PT", "4–3"). */

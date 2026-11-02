@@ -171,7 +171,7 @@ object Engraver {
     }
 
     /**
-     * [show]: draw only these voices, bare (no clef, key, time, tempo, bar numbers or final bar), for small examples.
+     * [show]: draw only these voices, bare (just the clef: no key, time, tempo, bar numbers or final bar), for small examples.
      * Null: the full editor score.
      */
     fun layout(
@@ -256,7 +256,7 @@ object Engraver {
         val heads = mutableListOf<HeadBox>()
         val restBoxes = mutableListOf<HeadBox>()
         val x0 = LEFT_MARGIN
-        val header = if (!bare) headerWidth(score) else if (n > 1) 0.8f + Smufl.CLEF_W + 0.8f else 0f
+        val header = if (!bare) headerWidth(score) else 0.8f + Smufl.CLEF_W + 0.8f
         var x = x0 + header
         val boxes = mutableListOf<MeasureBox>()
         for (m in measures) {
@@ -287,8 +287,7 @@ object Engraver {
         val tempoY = top - max(2.2f, (maxP[0] - 8) * 0.5f + 1.2f) - (if (hasLabels) 2.8f else 0f) - nameH
         val tx = x0 + if (n > 2) 1.6f else 0.8f // clear the bracket hook
         var tempoX = tx + 1.2f
-        // Bare: clefs only on two staves, where the notes cannot be read without them
-        if (!bare || n > 1) for (s in 0 until n) marks += GlyphMark(Smufl.clefGlyph(score.clefs[s]), hx, sy(s, (score.clefs[s].line - 1) * 2))
+        for (s in 0 until n) marks += GlyphMark(Smufl.clefGlyph(score.clefs[s]), hx, sy(s, (score.clefs[s].line - 1) * 2))
         hx += Smufl.CLEF_W + 0.8f
         if (!bare) {
             val f = score.key.fifths
@@ -354,10 +353,10 @@ object Engraver {
                 prevLab = lab
                 if (lab == null) continue
                 val cx = c.x + Smufl.HEAD_W / 2
-                // Labels that would collide with the previous one move to a second row.
+                // Labels that would collide with the previous one move to a second row; if both are taken, the freer one
                 fun row(text: String, size: Float, last: FloatArray): Int {
-                    val w = text.length * size * 0.5f
-                    val r = if (cx - w / 2 < last[0] + 0.3f) 1 else 0
+                    val w = text.length * size * 0.62f
+                    val r = if (cx - w / 2 >= last[0] + 0.5f) 0 else if (cx - w / 2 >= last[1] + 0.5f) 1 else if (last[1] < last[0]) 1 else 0
                     last[r] = cx + w / 2
                     return r
                 }

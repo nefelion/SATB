@@ -9,6 +9,7 @@ import android.view.WindowManager
 import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -17,6 +18,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.nefelion.fourpartwriting.audio.Synth
 import com.nefelion.fourpartwriting.ui.AppRoot
 import com.nefelion.fourpartwriting.ui.ThemePicker
@@ -34,7 +39,7 @@ class MainActivity : ComponentActivity() {
             .filter { it.physicalWidth == display.mode.physicalWidth && it.physicalHeight == display.mode.physicalHeight }
             .maxByOrNull { it.refreshRate }
             ?.let { m -> window.attributes = window.attributes.apply { preferredDisplayModeId = m.modeId } }
-        barsFor(vm.state.value.dark)
+        barsFor(vm.state.value.dark ?: systemDark())
         // Landscape is full screen: no status or navigation bar cutting into the score.
         // A swipe from the edge shows them for a moment. (Rotation recreates the activity, so this runs again.)
         WindowCompat.getInsetsController(window, window.decorView).apply {
@@ -47,19 +52,25 @@ class MainActivity : ComponentActivity() {
             window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES }
         setContent {
             val st = vm.state.collectAsState()
-            val dark by remember { derivedStateOf { st.value.dark } }
-            val chosen by remember { derivedStateOf { st.value.themeChosen } }
+            val chosen by remember { derivedStateOf { st.value.dark } }
+            val dark = chosen ?: isSystemInDarkTheme()
             val seen by remember { derivedStateOf { st.value.tutorialSeen } }
-            LaunchedEffect(dark, chosen) {
+            // After the tutorial, the theme: the screen split into a light and a dark half (back returns to the tutorial's last page)
+            var picking by rememberSaveable { mutableStateOf(false) }
+            var back by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(dark, picking) {
                 // Picker: light half on top / left, dark half below / right; bar icons suit each
-                if (chosen) barsFor(dark) else enableEdgeToEdge(barStyle(false), barStyle(true))
+                if (picking) enableEdgeToEdge(barStyle(false), barStyle(true)) else barsFor(dark)
             }
-            if (!chosen) ThemePicker(st.value, vm::setDark)
+            BackHandler(enabled = picking) { picking = false; back = true }
+            if (picking) ThemePicker(st.value) { vm.setDark(it); picking = false; vm.finishTutorial() }
             else MyApplicationTheme(dark) {
-                if (!seen) Tutorial(vm::finishTutorial) else AppRoot(vm)
+                if (!seen) Tutorial(atEnd = back, onDone = { picking = true }) else AppRoot(vm)
             }
         }
     }
+
+    private fun systemDark() = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
 
     /** Transparent system bars with icons that suit the chosen theme. */
     private fun barsFor(dark: Boolean) = enableEdgeToEdge(barStyle(dark), barStyle(dark))

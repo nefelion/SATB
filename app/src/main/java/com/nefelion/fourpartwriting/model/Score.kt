@@ -131,6 +131,8 @@ data class Score(
 
     /** Quarter notes per minute. */
     val qpm get() = tempo * time.beatLength.toDouble() * 4
+    /** Up to here every voice has notes (or rests); after it, chords are not finished yet. */
+    val writtenEnd: Fraction get() = Voice.entries.minOf { length(it) }
 
     fun voice(v: Voice) = voices[v.ordinal]
     fun staffOf(v: Voice) = arrangement.staffOf[v.ordinal]

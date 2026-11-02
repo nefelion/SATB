@@ -74,6 +74,14 @@ import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Exercises
 import com.nefelion.fourpartwriting.theory.Lessons
 import com.nefelion.fourpartwriting.model.ScoreCodec
+import com.nefelion.fourpartwriting.FileFormat
+import android.content.Intent
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.Saver
 
 /**
@@ -95,15 +103,17 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, screen: Boolean = fals
     var duplicating by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     var exporting by rememberSaveable { mutableStateOf<String?>(null) }
-    // Score whose file format is being picked, and the picked one
+    // Score whose file format is being picked (to save, or to share), and the picked one
     var formatFor by rememberSaveable { mutableStateOf<String?>(null) }
-    var asXml by rememberSaveable { mutableStateOf(false) }
+    var sharing by rememberSaveable { mutableStateOf(false) }
+    var format by rememberSaveable { mutableStateOf(FileFormat.SATB) }
     var studying by rememberSaveable { mutableStateOf(false) }
+    val share = rememberShare(vm)
     // Generic type: providers keep an unknown .satb or .musicxml extension only then, so a duplicate becomes "satb (1).musicxml"
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val name = exporting
         exporting = null
-        if (uri != null && name != null) vm.exportScoreFile(name, uri, asXml)
+        if (uri != null && name != null) vm.exportScoreFile(name, uri, format)
     }
     val opener = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { vm.importScoreFile(uri); opened() }
@@ -119,7 +129,7 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, screen: Boolean = fals
             }
             Box(Modifier.size(48.dp).clip(SHAPE).clickable { menuFor = name }.semantics { contentDescription = "Options for $name" },
                 contentAlignment = Alignment.Center) {
-                Text("⋮", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Ico(Icons.Rounded.MoreVert, LocalContentColor.current)
                 DropdownMenu(expanded = menuFor == name, onDismissRequest = { menuFor = null }, shape = SHAPE) {
                     KeepRefreshRate()
                     @Composable fun item(label: String, danger: Boolean = false, action: () -> Unit) = DropdownMenuItem(
@@ -131,7 +141,8 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, screen: Boolean = fals
                     if (!study) item("Rules") { rulesFor = name }
                     if (!study) item("Rename") { renaming = name }
                     item("Duplicate") { duplicating = name }
-                    item("Save to file…") { formatFor = name }
+                    item("Share…") { sharing = true; formatFor = name }
+                    item("Save to file…") { sharing = false; formatFor = name }
                     if (!study) HorizontalDivider()
                     if (!study) item("Delete", danger = true) { deleting = name }
                 }
@@ -169,9 +180,12 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, screen: Boolean = fals
             }
         }
     }
-    if (screen) Page("Free Mode", onDismiss, content = body) else FullScreenPage("Scores", onDismiss, body)
+    if (screen) Page("Free Mode", onDismiss, content = body) else FullScreenPage("Scores", onDismiss, content = body)
+    // Hidden while a chorale is open over this page, back on return
+    Overlays {
     if (exercise) ExerciseDialog(Voice.SOPRANO in st.score.given, onDismiss = { exercise = false }) { level, soprano -> exercise = false; vm.newExercise(level, soprano); opened() }
-    if (studying) StudyPage(st, vm, onDismiss = { studying = false }) { studying = false; opened() }
+    // Stays open under the chorale: back from it returns to the list
+    if (studying) StudyPage(st, vm, onDismiss = { studying = false })
     if (naming) ScoreDialog("New score", "", Score(), askName = true, action = "Create", onDismiss = { naming = false }) { name, settings ->
         naming = false; vm.newScore(name, settings); opened()
     }
@@ -192,27 +206,10 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, screen: Boolean = fals
         NameDialog("Duplicate score", vm.copyName(from), "Duplicate", onDismiss = { duplicating = null }) { vm.duplicateScore(from, it); duplicating = null }
     }
     formatFor?.let { name ->
-        val pick = { xml: Boolean -> formatFor = null; asXml = xml; exporting = name; saver.launch(name + if (xml) ".musicxml" else ScoreLibrary.EXT) }
-        AlertDialog(
-            onDismissRequest = { formatFor = null },
-            title = { Text("Save $name as") },
-            text = {
-                KeepRefreshRate()
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for ((xml, label, about) in listOf(
-                        Triple(false, "SATB score", "Opens in this app with everything kept"),
-                        Triple(true, "MusicXML", "For MuseScore, Sibelius, Finale and other notation apps"),
-                    )) OutlinedButton(onClick = { pick(xml) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                            Text(label, style = MaterialTheme.typography.titleSmall)
-                            Text(about, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { formatFor = null }) { Text("Cancel") } },
-        )
+        FormatDialog(if (sharing) "Share $name as" else "Save $name as", onDismiss = { formatFor = null }) { f ->
+            formatFor = null; format = f
+            if (sharing) share(name, f) else { exporting = name; saver.launch(name + f.ext) }
+        }
     }
     deleting?.let { name ->
         AlertDialog(
@@ -226,16 +223,52 @@ internal fun ScoresPage(st: UiState, vm: EditorViewModel, screen: Boolean = fals
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
         )
     }
+    }
 }
 
-/** The bundled Bach chorales: tap one to open it read-only ([onOpen] then closes the pages). */
+/** Picks a file format for score files ([onPick]). */
 @Composable
-private fun StudyPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit, onOpen: () -> Unit) {
+internal fun FormatDialog(title: String, onDismiss: () -> Unit, onPick: (FileFormat) -> Unit) = AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text(title) },
+    text = {
+        KeepRefreshRate()
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (f in FileFormat.entries) OutlinedButton(onClick = { onPick(f) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Text(f.label, style = MaterialTheme.typography.titleSmall)
+                    Text(f.about, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    },
+    confirmButton = {},
+    dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+)
+
+/** Shares score (name, format) through Android's share sheet. */
+@Composable
+internal fun rememberShare(vm: EditorViewModel): (String, FileFormat) -> Unit {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    return remember(vm) { { name, f ->
+        scope.launch {
+            val file = vm.shareFile(name, f) ?: return@launch
+            val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", file)
+            val send = Intent(Intent.ACTION_SEND).setType(f.mime).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            runCatching { ctx.startActivity(Intent.createChooser(send, "Share $name")) }
+        }
+    } }
+}
+
+/** The bundled Bach chorales: tap one to open it read-only (over this page; back returns here). */
+@Composable
+private fun StudyPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { vm.loadStudies() }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     FullScreenPage("Bach chorales", onDismiss) {
         item {
-            Text("Four-part chorales by J. S. Bach to listen to, check and learn from. They open read-only: duplicate one in Scores to change it.",
+            Text("Four-part chorales by J. S. Bach to listen to, check and learn from.",
                 Modifier.widthIn(max = 640.dp), style = MaterialTheme.typography.bodyMedium, color = muted)
         }
         item {
@@ -243,7 +276,7 @@ private fun StudyPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit, o
                 if (st.studies.isEmpty()) Text("Loading…", color = muted)
                 st.studies.forEachIndexed { i, s ->
                     if (i > 0) HorizontalDivider()
-                    Column(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.openStudy(s.id); onOpen() }.padding(horizontal = 4.dp, vertical = 4.dp)) {
+                    Column(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.openStudy(s.id) }.padding(horizontal = 4.dp, vertical = 4.dp)) {
                         Text(s.title.substringBefore(" (BWV"), maxLines = 1, overflow = TextOverflow.Ellipsis,
                             fontWeight = if (s.id == st.study) FontWeight.Bold else FontWeight.Normal)
                         Text("${s.id} · ${summary(s.score)}", style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -263,8 +296,6 @@ private fun StudyPage(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit, o
 private fun ScoreRulesPage(name: String, sc: Score, st: UiState, vm: EditorViewModel, onDismiss: () -> Unit) {
     var info by rememberSaveable { mutableStateOf<Rule?>(null) }
     val locked = sc.lesson != null
-    info?.let { r -> RuleInfoDialog(r, locked || r.name !in sc.rulesOff, onToggle = if (locked) null else ({ vm.toggleScoreRule(name, r) }),
-        onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null } }
     FullScreenPage("Rules · $name", onDismiss) {
         item {
             Group("Checked in this score") {
@@ -279,6 +310,8 @@ private fun ScoreRulesPage(name: String, sc: Score, st: UiState, vm: EditorViewM
             }
         }
     }
+    info?.let { r -> RuleInfoDialog(r, locked || r.name !in sc.rulesOff, onToggle = if (locked) null else ({ vm.toggleScoreRule(name, r) }),
+        onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null } }
 }
 
 /** "D major · 3/4 · 12 bars". */
@@ -306,10 +339,8 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
     }
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
-    fun next() {
-        if (name.isBlank()) return
-        if (step == 1) onDone(name, draft) else step++
-    }
+    // No name typed: "Untitled" (the library numbers repeats)
+    fun next() = if (step == 1) onDone(name.ifBlank { "Untitled" }, draft) else step++
     AlertDialog(
         onDismissRequest = onDismiss,
         // New/Edit show the name being set; opened from the score, only the small label
@@ -317,7 +348,7 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
             Column {
                 Text(if (steps > 1) "$label · ${step + 1} of 2" else label, style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (askName) Text(if (step == 0) "Name" else name.trim(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (askName) Text(if (step == 0) "Name" else name.trim().ifEmpty { "Untitled" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         },
         text = {
@@ -325,7 +356,7 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
             if (step == 0) {
                 LaunchedEffect(Unit) { focus.requestFocus() }
                 OutlinedTextField(field, { field = if (it.text.length > 60) it.copy(it.text.take(60)) else it }, Modifier.focusRequester(focus), singleLine = true, shape = SHAPE,
-                    placeholder = { Text("Name") }, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
+                    placeholder = { Text("Untitled") }, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { next() }))
             } else Column(Modifier.verticalScroll(rememberScrollState())) {
                 // An exercise's figures are read in its key and its cadence is placed in its meter
@@ -343,7 +374,7 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
                 SettingRow("Staves", draft.arrangement.label) { editing = "Staves" }
             }
         },
-        confirmButton = { TextButton(onClick = ::next, enabled = name.isNotBlank()) { Text(if (step == 1) action else "Next") } },
+        confirmButton = { TextButton(onClick = { next() }) { Text(if (step == 1) action else "Next") } },
         dismissButton = {
             val back = askName && step == 1
             TextButton(onClick = { if (back) step-- else onDismiss() }) { Text(if (back) "Back" else "Cancel") }
