@@ -192,7 +192,6 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
     var confirmClear by rememberSaveable { mutableStateOf(false) }
     // Bar whose key or time change is being edited, or -1
     var changeBar by rememberSaveable { mutableIntStateOf(-1) }
-    var about by rememberSaveable { mutableStateOf(false) }
     var sharing by rememberSaveable { mutableStateOf(false) }
     val share = rememberShare(vm)
     var figures by rememberSaveable { mutableStateOf(false) }
@@ -229,7 +228,6 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
             HorizontalDivider()
             }
             item("Settings", false) { settings = true }
-            item("About", false) { about = true }
         }
     }
     // Another chorale opened from a page over this chorale (a rule card's Bach example) shows here: the pages close; not on rotation
@@ -314,7 +312,6 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
     // Hidden while a chorale is open over this screen, back on return
     Overlays {
     if (settings) SettingsDialog(st, vm) { settings = false }
-    if (about) AboutDialog { about = false }
     if (sharing) FormatDialog("Share ${st.scoreName} as", onDismiss = { sharing = false }) { sharing = false; share(st.scoreName, it) }
     if (exercise) ExerciseDialog(Voice.SOPRANO in st.score.given, onDismiss = { exercise = false }) { level, soprano -> exercise = false; vm.newExercise(level, soprano) }
     replaceLesson?.let { i -> ReplaceLessonDialog(i, vm) { replaceLesson = null } }
@@ -1061,6 +1058,7 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
     val sf2Picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importSf2) }
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
     var unlocking by rememberSaveable { mutableStateOf(false) }
+    var about by rememberSaveable { mutableStateOf(false) }
     FullScreenPage("Settings", onDismiss) {
         item {
             Group("Appearance") {
@@ -1076,7 +1074,10 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
             Group("Playback") {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Sound", Modifier.weight(1f))
-                    Segmented(listOf("Basic piano", "SoundFont"), if (st.piano) 0 else 1, itemWidth = 124.dp) { vm.setPiano(it == 0) }
+                    Segmented(listOf("Basic piano", "SoundFont (.sf2)"), if (st.piano) 0 else 1, itemWidth = 144.dp) {
+                        // No font yet: SoundFont turns on only once one is picked and loads
+                        if (it == 0 || st.soundLoaded || st.soundLoading) vm.setPiano(it == 0) else sf2Picker.launch(arrayOf("*/*"))
+                    }
                 }
                 Text(if (st.piano) "Built-in modeled piano, basic but always ready. A SoundFont sounds better."
                     else if (st.soundLoading) "Loading…" else if (st.soundLoaded) "Loaded: ${st.soundName ?: "SoundFont"}" else "No SoundFont loaded. Pick any .sf2 file (piano, choir, strings…).",
@@ -1100,9 +1101,16 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
                 else OutlinedButton(onClick = { unlocking = true }, shape = SHAPE) { Text("Unlock all lessons") }
             }
         }
+        item {
+            Row(Modifier.fillMaxWidth().clip(SHAPE).clickable { about = true }.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("About SATB", Modifier.weight(1f))
+                Text("›", color = MaterialTheme.colorScheme.primary)
+            }
+        }
     }
     // After the page: a dialog composed later opens above it, also when both come back together (rotation, return from a chorale)
     if (rulesOpen) RulesDialog(st, vm) { rulesOpen = false }
+    if (about) AboutDialog { about = false }
     if (unlocking) AlertDialog(
         onDismissRequest = { unlocking = false },
         title = { Text("Unlock all lessons?") },

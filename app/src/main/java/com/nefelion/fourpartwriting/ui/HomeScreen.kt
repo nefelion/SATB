@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -52,7 +53,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -129,10 +131,17 @@ internal fun HomeScreen(st: State<UiState>, vm: EditorViewModel, onLessons: () -
             Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.widthIn(max = 900.dp).fillMaxWidth().entrance(0, play), verticalAlignment = Alignment.CenterVertically) {
-                    AppLogo(36.dp)
-                    Spacer(Modifier.width(12.dp))
-                    Text("SATB", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    for ((glyph, label, open) in listOf(Triple(Icons.Outlined.Info, "About", { about = true }), Triple(Icons.Outlined.Settings, "Settings", { settings = true })))
+                    Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable { about = true }.semantics { contentDescription = "About" }.padding(end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        AppLogo(36.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text("SATB", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    val dark = st.value.dark ?: isSystemInDarkTheme()
+                    for ((glyph, label, open) in listOf(
+                        Triple(if (dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode, if (dark) "Light theme" else "Dark theme", { vm.setDark(!dark) }),
+                        Triple(Icons.Outlined.Settings, "Settings", { settings = true })))
                         Box(Modifier.size(48.dp).clip(CircleShape).clickable(onClick = open).semantics { contentDescription = label },
                             contentAlignment = Alignment.Center) { Ico(glyph, cs.onSurfaceVariant) }
                 }

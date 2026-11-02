@@ -322,7 +322,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 it.copy(soundLoaded = ok, soundLoading = false, message = if (ok || savedUri == null) it.message
                     else "Could not open ${it.soundName ?: "the SoundFont"}. Pick it again in Settings.")
             }
-        }
+            // SoundFont is only on with a font loaded
+            if (!ok && !_state.value.piano) setPiano(true)
+        } else if (!s.piano) setPiano(true)
         // Save the score shortly after it changes
         viewModelScope.launch {
             var last = s.score
