@@ -23,7 +23,10 @@ class StudyBuild {
         val dir = System.getenv("BCFB_DIR")?.let(::File)
         assumeTrue(dir != null && dir.isDirectory)
         val titles = readTitles(File(dir, "reference_table.csv"))
-        val out = File("src/main/assets/study").apply { deleteRecursively(); mkdirs() }
+        val out = File("src/main/assets/study")
+        // The comments on Bach's rule breaks are written by hand: kept across a rebuild
+        val why = out.listFiles().orEmpty().associate { f -> f.name to f.readLines().filter { it.startsWith("why ") } }
+        out.deleteRecursively(); out.mkdirs()
         val report = StringBuilder()
         val src = File(dir, "FB_source/musicXML_master").listFiles { f -> f.name.endsWith(".musicxml") }!!.sortedBy { it.name }
         for (f in src) {
@@ -50,7 +53,7 @@ class StudyBuild {
             val number = bwv.substringBefore('a').let { n -> n.substringBefore('.') + (n.substringAfter('.', "").trimStart('0').let { if (it.isEmpty()) "" else ".$it" }) }
             val text = titles[bwv.removeSuffix("a")] ?: imp.title
             val title = "${TYPOS[text] ?: text} (BWV $number)"
-            out.resolve("BWV $number.satb").writeText(ScoreCodec.encode(sc, title))
+            out.resolve("BWV $number.satb").writeText(ScoreCodec.encode(sc, title) + why["BWV $number.satb"].orEmpty().joinToString("") { it + "\n" })
             report.appendLine("== BWV $number · $title · ${sc.key.name} · $bars bars")
             if (System.getenv("STUDY_DETAIL") != null) for (k in a.points.takeLast(4)) {
                 val sl = a.slices[k]

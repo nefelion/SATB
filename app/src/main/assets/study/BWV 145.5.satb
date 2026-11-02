@@ -10,3 +10,17 @@ S F#4:1/4 F#4:1/4 F#4:1/4 C#5:1/2 D#5:1/4 E5:1/4 D#5:1/4 C#5:1/4 B4:3/4^ C#5:1/4
 A C#4:1/4 C#4:1/4 D#4:1/4 E4:1/4 F#4:1/4 F#4:1/4 G#4:1/8 A#4:1/8 B4:1/4 A#4:1/4 F#4:3/4^ F#4:1/4 F#4:1/4 G#4:1/4 A4:1/8 B4:1/8 A4:1/8 G#4:1/8 F#4:1/4 G#4:1/4 A4:1/4 G#4:1/4 E#4:1/2^ F#4:1/4 E4:1/2 E4:1/4 F#4:1/2 E4:1/4 E4:1/2 D#4:1/4 B3:1/2^ C#4:1/4 C#4:1/4 F#4:1/4 E4:1/4 E4:1/8 F#4:1/8 G#4:1/2 F#4:1/4 G#4:1/8 A4:1/8 B4:1/4 A4:1/2^ G#4:1/4 F#4:1/2 E#4:1/4 C#4:3/4^
 T A3:1/8 B3:1/8 C#4:1/4 B3:1/4 G#3:1/4 C#4:1/4 B3:1/4 B3:1/4 G#3:1/4 C#4:1/4 D#4:3/4^ C#4:1/4 B3:1/4 B3:1/4 C#4:1/2 C#4:1/4 C#4:1/2 B#3:1/4 G#3:1/2^ A3:1/4 B3:1/2 A3:1/4 F#3:1/4 B3:1/2 A3:1/8 B3:1/8 C#4:1/4 B3:1/8 A3:1/8 G#3:1/2^ G#3:1/4 A3:1/4 D4:1/2 C#4:1/4 C#4:1/2 C#4:1/8 D4:1/8 E4:1/2 E4:1/2^ D4:1/4 C#4:1/4 B3:1/8 A3:1/8 B3:1/4 A#3:3/4^
 B F#3:1/8 G#3:1/8 A3:1/4@6 B3:1/2@5 A#3:1/4@6 B3:1/4 G#3:1/4@6 E3:1/4@5 F#3:1/4@# B2:3/4^@# A#3:1/4@6 B3:1/4 G#3:1/4@#6 F#3:1/8@5 E#3:1/8 F#3:1/8 G#3:1/8 A3:1/4@6 G#3:1/4@6,4 F#3:1/4@#6,5 G#3:1/4@#5,# C#3:1/2^@# F#3:1/4 G#3:1/2@n6 A3:1/4@5 D#3:1/2@6,5 E3:1/4@#5 C#3:1/4@6 A2:1/4@6 B2:1/4@7,# E3:1/2^ C#3:1/4 F#3:1/2 G#3:1/4@6 A3:1/4 E#3:1/2 F#3:1/4 C#4:1/4 G#3:1/4@6 A3:1/2^ B3:1/4@#6 C#4:1/4@6,4 C#3:1/2@#5,4 F#3:3/4^
+why 2 0 CROSSING The bass holds B over the bar line while the tenor drops to G♯ below it. A held bass note and a moving tenor cross for a beat.
+why 3 1/4 SPACING The alto climbs with the soprano to B while the tenor drops to G♯ for the seventh chord. The gap lasts a beat and closes as the tenor rises to C♯.
+why 6 1/8 LEAPS The bass falls B–G♯–F♯ and dips to E♯, the leading tone of F♯, and back. The tritone B–E♯ spans several notes, and E♯ resolves at once.
+why 8 0 TENDENCY The soprano's D♯ is the fifth of the G♯ chord, so the tune's fall to C♯ is natural. The tenor's B♯, leading tone of C♯, drops to G♯ to give the fermata chord its fifth, accepted in an inner voice.
+why 8 0 SIMILAR_MOTION Every voice falls into the C♯ major chord at the fermata, a half cadence; each takes its nearest good note.
+why 13 1/4 OVERLAP Alto and tenor both leap up, C♯–F♯ and A–D, to place the chord higher. They move together, so the voices stay in order.
+why 13 1/4 LEAPS The tenor steps G♯–A and then leaps to D. The tritone G♯–D spans two chords, so it is not heard as one interval.
+why 14 0 DOUBLING Soprano (B–C♯) and tenor (D–C♯) meet on C♯ by step from opposite sides.
+why 15 1/4 RANGE The bass leaps up to C♯ for the ii chord in root position, then falls back G♯–A. A short high point.
+why 15 1/4 SIMILAR_MOTION Every voice rises as the tune leaps up a fifth, A–E. Bass and tenor leap with it to move the whole chord higher.
+why 15 1/2 PROGRESSION Over the soprano's held E the chord only changes color, ii to IV⁶, before the cadence on A. It is one harmony area, not a step backward.
+why 17 0 RANGE The bass rises B–C♯ and then drops an octave to C♯ for the cadence. It stays high for one beat.
+why 17 1/4 DOUBLING This is the cadential ⁶₄ of the final cadence, already decorated: the soprano passes A–G♯ and the tenor C♯–B. Passing notes, not a doubling, fill the beat.
+why 18 0 CADENCE The melody ends on F♯, so Bach ends on the F♯ major chord, which in B minor is V. Chorale tunes from the old modes often end like this.

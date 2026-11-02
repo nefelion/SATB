@@ -34,7 +34,27 @@ class StudySpotsTest {
             val a = VoiceLeading.check(sc)
             val here = a.issues.any { it.rule == rule && sc.barNumber(a.slices[it.slice].time) == spot.bar }
             assertEquals("${rule.name} in ${spot.study} bar ${spot.bar}", spot.breaks, here)
+            val why = ScoreCodec.comments(File(dir, "${spot.study}.satb").readText())
+            assertTrue("comment on ${rule.name} in ${spot.study} bar ${spot.bar}", why.keys.any { it.startsWith("${spot.bar} ") && it.endsWith(" ${rule.name}") })
         }
+    }
+
+    /** Every issue in a study score has a comment saying why Bach wrote it so; a comment with no issue is a rule card's "keeps it" spot. */
+    @Test fun everyIssueCommented() {
+        val keeps = IN_BACH.flatMap { (r, l) -> l.filter { !it.breaks }.map { "${it.study} ${it.bar} ${r.name}" } }.toSet()
+        val missing = mutableListOf<String>(); val stale = mutableListOf<String>()
+        for (f in dir.listFiles { f -> f.name.endsWith(".satb") }!!) {
+            val text = f.readText()
+            val sc = ScoreCodec.decode(text)!!
+            val a = VoiceLeading.check(sc)
+            val why = ScoreCodec.comments(text)
+            val keys = a.issues.map { ScoreCodec.whyKey(sc, a.slices[it.slice].time, it.rule.name) }.toSet()
+            val id = f.name.removeSuffix(".satb")
+            missing += keys.filter { why[it].isNullOrBlank() }.map { "$id $it" }
+            stale += why.keys.filter { it !in keys && "$id ${it.substringBefore(' ')} ${it.substringAfterLast(' ')}" !in keeps }.map { "$id $it" }
+        }
+        assertTrue("${missing.size} issues without a comment, e.g. ${missing.take(5)}", missing.isEmpty())
+        assertTrue("Comments with no issue: $stale", stale.isEmpty())
     }
 
     /** The importer reads the app's own MusicXML export back to the same music. */

@@ -11,3 +11,19 @@ S B4:1/4 B4:1/4 B4:1/4 A#4:1/4 F#4:1/4 B4:1/4 C#5:1/4 D5:1/4 D5:1/4 E5:1/4 D5:1/
 A A4:1/4 G4:1/4 G#4:1/4 F#4:1/4 C#4:1/4 B3:1/4 F#4:1/4 F#4:1/4 B4:1/4 C#5:1/4 B4:1/4 A#4:1/4^ F#4:1/4 F#4:1/4 A4:1/4 A4:1/4 B4:1/8 A4:1/8 G4:1/8 A4:1/8 B4:1/4 B4:1/4 B4:1/4 E4:1/8 F#4:1/8 G4:1/4 F#4:1/4^ B4:1/4 E4:1/4 D4:1/4 E4:1/4 D4:1/8 E4:1/8 F#4:1/4 F#4:1/4 G4:1/4 F#4:1/4 F#4:1/8 D#4:1/8 E4:1/4 D#4:1/4^ B4:1/4 B4:1/8 A#4:1/8 B4:3/8 G#4:1/8 A#4:1/4 F#4:3/4^
 T F#4:1/4 E4:1/4 D4:1/4 C#4:1/4 A#3:1/4 E4:1/4 E4:1/4 D4:1/8 E4:1/8 F#4:1/4 G4:1/4 F#4:1/4 F#4:1/4^ A#3:1/4 B3:1/4 C#4:1/4 D4:1/8 C#4:1/8 B3:1/4 B3:1/4 E4:1/4 D4:1/8 C#4:1/8 D4:1/4 D4:1/4 C#4:1/4 A3:1/4^ F#3:1/4 G#3:1/8 A#3:1/8 B3:1/4 E3:1/4 A3:1/4 D4:1/4 D4:1/4 D4:1/8 E4:1/8 F#4:1/4 B3:1/2 B3:1/4^ D4:1/4 C#4:1/4 F#3:1/4 F#4:3/8 E4:1/8 D#4:3/4^
 B D#3:1/4@6,5 E3:1/4 E#3:1/4@7,5 F#3:1/4@# F#3:1/4 G#3:1/4@6 A#3:1/4@6,5 B3:1/4 B3:1/4 A#3:1/4@7,5 B3:1/4 F#3:1/4^@# F#3:1/4 B3:1/4 A3:1/4 D3:1/4@8 G3:1/8 F#3:1/8 E3:1/8 F#3:1/8 G3:1/8@6 A3:1/8 B3:1/4 A3:1/8@6,4,2 G#3:1/8 A3:1/2@5,4 D3:1/4^ D3:1/4 E3:1/8@6 F#3:1/8 G3:1/4 C#3:1/4@6 D3:1/4 D4:1/8 C4:1/8 B3:1/8@7,5 A3:1/8 G3:1/8 F#3:1/8 E3:1/8@5,4,2 D#3:1/8 E3:1/2@9 B2:1/4^@# B2:1/4@n C#3:1/4@7 D3:1/8@6 E3:1/8 F#3:1/2@5,4 B2:3/4^@#
+why 8 0 OVERLAP The bass leaps up an octave on the same chord, past where the tenor just was. The tenor has moved up too, so the lines do not get confused.
+why 4 0 OVERLAP The bass leaps up a fourth, F♯ to B, while the tenor resolves A♯ to B, so they meet in unison. A strong root leap starts the phrase.
+why 4 3/4 DOUBLING Alto (A–B) and tenor (C♯–B) meet on B by step from opposite sides.
+why 8 0 HARMONIC_RHYTHM The D chord arrives on the last eighth and carries over the bar line while the bass leaps an octave. The new bar decorates the same chord before moving on.
+why 8 0 RANGE The bass leaps up an octave to a high D and walks down D–C–B–A: a short high stretch that keeps it close to the tenor.
+why 8 0 SIMILAR_MOTION All voices rise into the downbeat while the bass only changes octave within the D chord. The harmony stays the same, so the lines keep their independence.
+why 8 0 LEAPS The tenor rises E–A–D through chord notes as the bass leaps an octave. Leaping through the notes of the chord keeps the line clear.
+why 8 1/2 SEVENTH The soprano's A belongs to the D chord, held over the bass's passing B and A. It is not a seventh, and the tune rises to B as written.
+why 2 0 CROSSING The alto drops to B while the tenor leaps up to E, so they trade places for a beat. The tenor's E is the seventh of the coming V⁶₅, and the alto climbs back to F♯ at once.
+why 6 1/2 SIMILAR_MOTION A cadence on D (III): the soprano falls E–D, the seventh G to F♯, the tenor's C♯ drops to A and the bass to D. All the resolutions point down.
+why 6 3/4 SPACING The new phrase starts with the alto high on B and the tenor low on F♯. The tenor climbs G♯–A♯–B over the next eighths and the gap closes.
+why 7 1/4 DOUBLING Soprano (C♯–B) and tenor (A♯–B) both move by step onto B; the tenor's A♯ is a leading tone and must rise.
+why 7 1/2 OVERLAP The tenor drops a fifth to E, below where the bass just was, while the bass falls a fourth to C♯. Both move down together, so the order stays clear.
+why 10 1/4 SPACING The alto holds a high B while the tenor drops to a low F♯. The gap lasts two eighths.
+why 10 3/8 SPACING The tenor is still on its low F♯ and leaps up an octave on the next beat.
+why 11 0 SIMILAR_MOTION The piece ends on B major, a Picardy third. Every voice falls into it: the seventh E to D♯, the alto's A♯ to F♯ and the bass to B.

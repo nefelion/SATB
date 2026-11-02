@@ -11,3 +11,17 @@ S C5:1/4 B4:1/4 A4:1/4 B4:1/8 A4:1/8 G4:1/4 A4:1/4 B4:1/4 C5:1/4^ C5:1/4 C5:1/4 
 A G4:1/4 G4:1/8 F4:1/8 E4:1/4 F#4:1/4 E4:1/8 D4:1/8 C4:1/4 D4:1/4 E4:1/4^ E4:1/4 E4:1/4 E4:1/4 D4:1/4 C4:1/4 C4:1/4 C4:1/4 C4:1/4^ C4:1/4 C4:1/4 F4:1/8 E4:1/8 D4:1/8 C4:1/8 B3:1/4 A3:1/8 E4:1/8 F4:1/4 E4:1/4^ A4:1/4 A4:1/8 G4:1/8 F4:1/4 E4:3/8 D4:1/8 C4:3/8 B3:1/8 G3:1/4^
 T E4:1/4 D4:3/8 C4:1/8 B3:1/4 C4:1/8 B3:1/8 A3:1/8 G3:1/8 F3:1/4 G3:1/4^ A3:1/4 A3:1/8 B3:1/8 C4:1/4 B3:1/8 A3:1/8 G3:1/8 A3:1/8 Bb3:3/8 A3:1/8 G3:1/4^ C4:1/8 Bb3:1/8 A3:1/8 G3:1/8 F3:1/4 F3:1/4 G3:1/8 F3:1/8 E3:1/8 C3:1/8 C4:1/4 C4:1/4^ E4:1/4 E4:1/8 B3:1/8 C4:1/4 B3:1/4 A3:1/8 B3:1/8 C4:1/8 A3:1/8 D3:1/8 G3:1/8 E3:1/4^
 B C3:1/4 G3:1/4@8 G3:1/4@5 D#3:1/4@6 E3:1/4@6,8 F3:1/8@5 E3:1/8 D3:1/4@6 C3:1/4^ A2:1/8 B2:1/8 C3:1/8@6 D3:1/8 E3:1/8@6 F3:1/8 G3:1/8 A3:1/8 Bb3:1/4@6,4,2 E3:1/4@6,b5 F3:1/4@b4 C3:1/4^ A3:1/8@5 G3:1/8 F3:1/8 E3:1/8 D3:1/8 C3:1/8 B2:1/8@6,5 A2:1/8 G2:1/4@7 A2:3/8@5 B2:1/8 C3:1/4^ C3:1/8@6 D3:1/8 E3:3/8@5,4 D3:1/4 C3:1/4 B2:1/8@6 A2:1/8@6 B2:1/16 C3:1/16 G3:1/8@4 G2:1/8@3 C3:1/4^
+why 2 0 DOUBLING Soprano (G–A) and tenor (B–A) meet on A by step from opposite sides.
+why 2 0 LEAPS The alto walks down F♯–E–D–C by step. A scale line hides the tritone between its ends.
+why 3 5/8 PROGRESSION The bass climbs G–A–B♭ toward F major (IV). The chord over A is a passing one on that climb, not a step backward.
+why 3 3/4 CROSSING The bass rises to B♭, the seventh of C⁷ (V of IV), while the tenor dips to G under it. Then the bass leaps down to E, back below the tenor.
+why 3 7/8 CROSSING The tenor climbs back G–A–B♭ under the bass's held B♭; on the next beat the bass drops to E.
+why 5 0 DOUBLING The tenor's B♭, a seventh, falls to A while the tune leaps up to A. Both land on A: a correct resolution beats the ideal doubling.
+why 5 3/4 DOUBLING Soprano and alto share B on V. The soprano's B rises to C as it should; the alto's falls to A, the root of the deceptive vi.
+why 6 0 SPACING At the deceptive cadence the alto drops to a low A while the soprano rises to C. The gap lasts an eighth: the alto climbs to E right after.
+why 6 0 LEADING_TONE A deceptive cadence: V moves to vi. The soprano's B rises to C, so the alto's B falls to A and doubles the root of vi, the usual choice.
+why 6 1/8 SPACING The tenor drops to a low C while the alto leaps up to E; the voices regroup within the A minor chord before the next beat.
+why 7 7/8 DOUBLING Tenor and bass both reach B on a weak eighth. The tenor's B rises to C; the bass's B is a passing note in its walk down C–B–A.
+why 8 0 PROGRESSION The bass walks down C–B–A and back up to C before the cadence; V⁶ is a passing chord on that walk, not a step backward.
+why 8 1/4 CROSSING In the final cadence the tenor drops to a low D under the bass's G as the bass leaps up and then an octave down. The voices trade places for an eighth to reach the last chord.
+why 8 1/4 LEAPS The tenor falls C–A–D, outlining the cadence chords on its way down to the low register of the final chord.

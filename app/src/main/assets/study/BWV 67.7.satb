@@ -11,3 +11,8 @@ S C#5:1/4 A4:1/4 B4:1/4 C#5:1/4 E5:1/4 D5:1/4 D5:1/4 C#5:1/4^ E5:1/4 D5:1/4 C#5:
 A A4:1/4 F#4:1/4 G#4:1/4 A4:1/4 B4:1/4 A4:1/4 B4:1/4 A4:1/4^ A4:1/4 A4:1/4 A4:1/4 A4:1/4 G#4:1/4 A4:3/4^ G#4:1/4 E4:1/4 G#4:1/4 A4:1/4 G#4:1/4 F#4:1/4 G#4:1/4 E#4:1/4^ E#4:1/4 F#4:1/4 G#4:1/4 A4:1/4 E4:1/4 A4:1/4 A4:1/4 A4:1/4 G#4:1/4 E4:3/4^
 T E4:1/4 D4:1/4 D4:1/4 E4:1/4 E4:1/4 F#4:1/4 E4:1/4 E4:1/4^ E4:1/4 F#4:1/4 E4:1/4 F#4:1/4 E4:1/4 E4:3/4^ E4:1/4 B3:1/4 E4:1/4 E4:1/4 E4:1/8 D4:1/8 C#4:1/4 D4:1/4 C#4:1/4^ C#4:1/4 C#4:1/4 E4:1/4 E4:1/2 D4:1/4 E4:1/4 F#4:1/4 E4:1/8 D4:1/8 C#4:3/4^
 B A3:1/4 D4:1/8 C#4:1/8 B3:1/4@6 A3:1/4 G#3:1/4@6 F#3:1/4@6 G#3:1/4@6,5 A3:1/4^ C#3:1/4@6 F#3:1/8@6 G#3:1/8@6,5 A3:1/4 D3:1/4@6,5 E3:1/4 A2:3/4^ E3:1/8 F#3:1/8 G#3:1/4@6 E3:1/4 A3:1/4 E3:1/4 F#3:1/4 B2:1/4@7,5 C#3:1/4^@# C#3:1/4 F#3:1/4 E3:1/4 A3:1/4 G#3:1/4@6 F#3:1/4@6 E3:1/4@6,4 D3:1/4@6,5 E3:1/4 A2:3/4^
+why 1 0 RANGE The bass starts high, leaping up to D and stepping down D–C♯–B–A: a light opening register before it descends.
+why 1 1/8 RANGE Still the high start; the bass is back on A by the next beat.
+why 6 0 LEADING_TONE A deceptive move to F♯ minor (vi): the soprano takes A, so the alto's G♯ steps down to F♯ and comes straight back to G♯, as a neighbor.
+why 8 0 PROGRESSION The bass walks down G♯–F♯–E–D toward the final cadence; V⁶ and IV⁶ are passing chords on that line.
+why 9 0 SIMILAR_MOTION The final cadence: every voice falls into the A chord, the alto's G♯ to E, the seventh D to C♯ and the bass to A.

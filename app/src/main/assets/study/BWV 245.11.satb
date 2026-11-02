@@ -11,3 +11,28 @@ S C#5:1/4 A4:1/4 B4:1/4 C#5:1/8 D5:1/8 E5:1/4 D5:1/2 C#5:1/4^ C#5:1/4 E5:1/4 E5:
 A A4:1/4 F#4:1/4 G#4:1/4 A4:1/8 B4:1/8 C#5:1/4 C#5:1/4 B4:1/8 A4:1/8 G#4:1/4^ A4:1/4 A4:1/4 A4:1/4 G#4:1/4 B4:1/8 A4:1/8 F#4:1/2 E4:1/4^ B3:1/4 E4:1/4 F#4:1/8 G#4:1/8 A4:1/8 B4:1/16 C#5:1/16 B4:1/8 A4:1/8 G#4:3/4^ G#4:1/4 F#4:1/4 E4:1/4 E4:1/4 F#4:1/4 F#4:1/4 E#4:1/4 F#4:1/4^ F#4:1/4 E4:1/4 A4:1/8 G#4:1/8 F#4:1/4 E4:1/8 D#4:1/16 C#4:1/16 F#4:1/2 E4:1/4^ E4:1/4 E4:1/4 D4:1/4 C#4:1/8 E4:1/8 A4:1/4 A4:1/4 G#4:1/4 E4:1/4^
 T E4:1/4 D4:1/4 D4:1/4 E4:1/4 A3:1/4 A3:1/4 B3:1/4 C#4:1/4^ F#4:1/4 E4:1/4 E4:1/4 E4:1/4 E4:1/4 E4:1/4 D#4:1/4 G#3:1/4^ G#3:1/4 A3:1/4 D4:1/4 E4:1/8 A3:1/8 G#3:1/8 A3:1/8 E4:3/4^ C#4:1/4 C#4:1/4 B3:1/4 A3:1/8 B3:1/8 C#4:1/4 B3:1/4 G#3:1/4 A#3:1/4^ A3:1/4 A3:1/4 A3:1/4 A3:1/4 G#3:1/4 C#4:1/4 B3:1/4 B3:1/4^ C#4:1/4 C#4:1/4 B3:1/4 E4:3/8 F#4:1/8 E4:1/4 D4:1/4 C#4:1/4^
 B A3:1/4 D4:1/4 C#4:1/8@7,5,2 B3:1/8 A3:3/8 G3:1/8@6,4,2 F#3:1/2@6,5 E#3:1/4^@6,5 F#3:1/4 C#3:1/8@6 B2:1/8 C#3:1/8 D3:1/8 E3:1/4 A2:1/4 B2:1/4@7,5 B#2:1/4 C#3:1/4^@5 D3:1/4@6,4,2 C#3:1/4@6 B2:1/4@5 A2:1/4 D3:1/4@6 E3:3/4^ E#3:1/4@6 F#3:1/4 G#3:1/4@6 A3:1/4 A#3:1/4@6,5 B3:1/2@5 F#3:1/4^@# F#3:1/4@n C#3:1/8@6 B2:1/8 C#3:1/4@6 D#3:1/4@6,5 E3:1/4@6 E3:1/4@6,4,2 D#3:1/4@6,5 E3:1/4^ C#3:1/4 F#3:1/8@7 E3:1/8 F#3:1/8@6,4 G#3:1/8 A3:1/4 C#3:1/8@6 D3:1/8 E3:1/4@6,4 E3:1/4@5,3 A2:1/4^
+why 1 0 RANGE The bass starts high, leaping up to D and stepping down D–C♯–B–A: a light opening register before it descends.
+why 1 1/4 RANGE Still the high start; the bass steps back down to A by the next beat.
+why 1 3/4 SPACING The alto climbs A–B–C♯ alongside the soprano while the tenor drops to A near the bass. For a beat the upper pair moves as a duet.
+why 1 7/8 SPACING The same open spacing: alto high with the soprano, tenor low with the bass.
+why 2 0 SPACING Still open; the tenor climbs to B and C♯ over the next beat and the gap closes.
+why 2 1/4 DOUBLING A passing chord over the bass's held F♯; its doubled B is the alto and tenor moving through, not a real ⁶₄.
+why 2 1/4 SIX_FOUR The bass holds F♯ while the upper voices move over it; the B minor sound is a passing chord before the bass slips to E♯.
+why 4 1/2 LEADING_TONE A deceptive cadence in E: B⁷ moves to C♯ minor. The alto already has E, so the tenor's D♯ drops to G♯, the chord's fifth.
+why 4 1/2 LEAPS The tune walks down D–C♯–B–A–G♯ by step to the fermata. A scale line hides the tritone between its ends.
+why 5 5/8 SPACING As in bar 1, the alto climbs with the soprano in a duet while the tenor stays low.
+why 5 11/16 SPACING The same open spacing, for one sixteenth.
+why 5 3/4 SPACING Still open: the tenor is on G♯ near the bass and the alto high on B.
+why 5 3/4 SIX_FOUR A passing chord on the way to the cadence: over the bass's D the upper voices sound G♯–B–D, a dominant sound without its root.
+why 5 7/8 DOUBLING Alto (B–A–G♯) and tenor (G♯–A) pass through A at the same moment. It is a passing note in the alto, so no real seventh is doubled.
+why 5 7/8 PROGRESSION These eighth-note chords decorate the approach to the half cadence on E; the soprano's line D–C♯–B leads the way, not the chords.
+why 6 0 SEVENTH The tenor's A was a passing note in the moving chord before; at the fermata the tenor leaps up to E to double the root of the dominant.
+why 7 3/4 SIMILAR_MOTION Everything rises toward B minor (ii): the bass's A♯ is the leading tone of B and the tune climbs to E. Each line has its own reason to rise.
+why 8 0 LEAPS The bass climbs E♯–F♯–G♯–A–A♯–B, a rising line full of leading tones. The tritone between its ends is not heard as a leap.
+why 8 1/4 CROSSING The tenor dips to G♯ under the bass's held B to reach A♯ at the fermata by step. Then the bass drops to F♯ and the order is back.
+why 11 1/4 DOUBLING A passing ⁶₄ over the bass's step F♯; its doubled B follows the soprano and tenor lines.
+why 11 1/4 SIX_FOUR The bass climbs E–F♯–G♯–A by step, and the chord over F♯ is a passing ⁶₄ on that line.
+why 11 1/2 CROSSING The alto steps down D–C♯ while the tenor leaps up to E, so they trade places for a beat. The alto then climbs E–A over the next eighths.
+why 11 1/2 DOUBLING Soprano (B–C♯) and alto (D–C♯) meet on C♯ by step from opposite sides.
+why 11 1/2 PROGRESSION The bass climbs F♯–G♯–A; the ⁶₄ was a passing chord on that climb, so arriving at I is not a step backward.
+why 12 1/2 SIMILAR_MOTION The final cadence: every voice falls into the A chord, the alto's G♯ to E, the seventh D to C♯ and the bass to A.

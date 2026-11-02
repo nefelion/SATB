@@ -10,3 +10,12 @@ S A4:1/4 D5:1/4 C5:1/4 Bb4:1/8 A4:1/8 Bb4:1/4 A4:1/4 G4:1/4 A4:1/8 Bb4:1/8 G4:1/
 A F4:1/4 G4:1/4 G4:1/4 F4:3/8 E4:1/8 F4:3/8 E4:1/8 F4:1/4 F4:1/4 E4:1/4 C4:1/2^ F4:1/4 G4:1/8 A4:1/8 G4:1/4 G4:1/4 A4:1/8 B4:1/8 A4:1/4 A4:1/4 A4:1/4 A4:1/4 G#4:1/4 E4:1/2^ r:1/4 C#4:1/4 D4:1/4 E4:1/4 E4:1/4 D4:1/4 C#4:1/2^ D4:1/4 A3:1/4 D4:1/4 C4:1/4 C4:1/4 F4:1/4 E4:1/4 D4:1/8 E4:1/8 F4:1/8 E4:1/16 D4:1/16 E4:1/4 F#4:1/2^
 T D4:1/4 D4:1/4 E4:1/4 D4:1/4 D4:1/8 Bb3:1/8 C4:1/4 C4:1/4 C4:1/4 D4:1/8 Bb3:1/8 G3:1/8 C4:1/8 A3:1/2^ C4:1/8 D4:1/8 E4:1/8 D4:1/8 D4:1/4 E4:1/4 D4:1/8 B3:1/8 E4:1/4 E4:1/4 F4:1/4 B3:1/8 E4:1/4 D4:1/8 C#4:1/2^ r:1/4 E3:1/4 D3:1/4 A3:1/4 A3:1/2 A3:1/2^ A3:1/4 A3:1/4 A3:1/8 Bb3:1/8 A3:1/8 G3:1/8 F3:1/8 A3:1/8 G3:1/8 F3:1/8 G3:1/4 A3:1/8 Bb3:1/8 A3:1/4 A3:1/4 A3:1/2^
 B D3:1/4 C3:1/8@5,2 Bb2:1/8 A2:1/4@7 D3:1/4@6 G2:1/4@7 A2:1/8@6 Bb2:1/8 C3:1/4 F3:1/4 Bb2:1/4@6,5 C3:1/4 F2:1/2^ F3:1/4 E3:1/8@6 F#3:1/8@6,5 G3:1/8@n F3:1/8 E3:1/4@n5 F#3:1/8@6 G#3:1/8@6,5 A3:1/4 C3:1/4@6 D3:1/4 E3:1/4@4 E2:1/4@# A2:1/2^ r:1/4 A2:1/4@# B2:1/4@6 C#3:1/4@6,5 D3:1/4@9 D2:1/4@8 A2:1/2^@# F3:1/4@6 C#3:1/4@6 D3:1/4 E3:1/4@6 F3:1/4@5 E3:1/8@7,n5 D3:1/8 E3:1/4@#6 F3:1/8@6 G3:1/8 A3:1/4@4 A2:1/4@# D3:1/2^
+why 2 0 HARMONIC_RHYTHM The chord over the bass's G is really iv⁷ (G–B♭–D–F), reached as the bass leaps D–G. The checker hears the B♭ chord held over the bar line; the bass's move makes it a new harmony.
+why 2 1/8 LEAPS The tenor falls E–D and skips to B♭. Its ends form a tritone, but the line moves mostly by step through two chords.
+why 3 1/2 SIMILAR_MOTION A cadence on F (III): soprano G–F, the alto's E drops to C, tenor C–A and the bass to a low F. All the resolutions point down.
+why 5 3/4 LEAPS The tenor climbs from B to F through the bar, mostly by step. Its ends form a tritone, but no single leap spans it.
+why 6 1/8 LEAPS After its diminished leap down to B the tenor turns back up by a fourth to E, inside the leap. It returns inward, by a fourth instead of a step.
+why 6 1/4 SPACING The bass drops an octave to a low E for the dominant of the half cadence while the tenor stays in its middle range. The deep bass gives the cadence weight.
+why 6 3/8 SPACING The same wide gap; at the fermata the bass moves to A and the gap narrows.
+why 8 1/4 RANGE The bass drops to a deep D under the held D minor chord, preparing the half cadence on A.
+why 10 0 SEVENTH The tune rises G–A as written. The F that the seventh G would fall to arrives in the tenor and bass instead.

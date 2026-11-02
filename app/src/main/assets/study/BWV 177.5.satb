@@ -11,3 +11,20 @@ S D5:1/4 C5:1/8 Bb4:1/8 A4:1/8 Bb4:1/16 C5:1/16 Bb4:1/8 A4:1/8 G4:1/8 A4:1/8 Bb4
 A A4:1/4 G4:1/4 F#4:1/4 G4:1/8 F#4:1/8 G4:1/8 F#4:1/8 G4:3/8 A4:1/8 F#4:1/4^ G4:1/4 F4:1/4 F4:1/4 G4:1/4 F4:1/4 Eb4:1/8 G4:1/4 F#4:1/8 G4:1/4^ F4:1/8 Bb4:1/16 Ab4:1/16 G4:1/4 A4:1/4 A4:1/4 Bb4:1/4 Bb4:1/8 C5:1/8 A4:1/4 F4:1/4^ F4:1/8 G4:1/8 A4:1/8 C5:1/8 Bb4:1/8 A4:1/8 G4:1/8 F#4:1/8 G4:1/4 G4:1/4 F#4:1/4 G4:1/2^ G4:3/8 F4:1/4 E4:1/16 D4:1/16 E4:1/4 C4:1/4^ C4:1/4 F4:1/4 Eb4:1/8 F4:1/8 G4:1/8 Eb4:1/8 C4:1/4 G4:1/4^ G4:1/4 G4:1/8 F#4:1/8 G4:1/8 A4:1/8 G4:1/8 F#4:1/8 G4:1/4 G4:1/4 F#4:1/4 D4:1/4^
 T D4:1/4 D4:1/8 Eb4:1/4 D4:1/16 C4:1/16 D4:5/8 D4:1/8 C4:1/16 Bb3:1/16 A3:1/16 G3:1/16 A3:1/4^ Bb3:1/4 C4:1/4 Bb3:1/8 Ab3:1/8 G3:1/4 A3:1/8 B3:1/8 C4:1/8 Bb3:1/8 A3:1/4 Bb3:1/4^ Bb3:1/4 Bb3:1/8 Eb4:1/8 D4:1/8 C4:1/8 D4:3/8 Eb4:1/8 F4:1/8 G4:1/8 F4:1/8 Eb4:1/8 D4:1/4^ Bb3:1/4 A3:1/4 G3:1/4 C4:1/8 D4:1/8 Eb4:1/4 D4:1/8 C4:1/4 Bb3:1/8 Bb3:1/2^ C4:1/4 C4:1/4 D4:1/4 C4:1/8 Bb3:1/8 A3:1/4^ A3:1/4 Bb3:1/8 Ab3:1/8 G3:1/8 Bb3:1/8 Eb4:1/8 G4:1/8 G4:1/8 F4:1/8 B3:1/4^ C4:1/8 Bb3:1/8 A3:1/4 G3:1/8 D4:1/8 D4:3/8 Eb4:1/8 D4:3/8 C4:1/8 B3:1/4^
 B F#3:1/4@6 G3:5/8@5 A3:1/8@#6 Bb3:1/8@6 A3:1/8@#6 G3:1/8 F3:1/8@6,4,2 Eb3:1/4@6 D3:1/4^@# G3:1/4@5 A3:1/4@6 Bb3:1/4@8 Eb3:1/8@5 F3:1/8 Eb3:1/8@6,n4,2 D3:1/8@n6 C3:1/2@5 G2:1/4^@5 D3:1/4@6 Eb3:1/4 F3:1/4@8,6 F#3:1/4@6 G3:1/4 F3:1/8@6,4 Eb3:1/8@6 F3:1/4@5,3 Bb2:1/4^ Bb3:1/4@5 F#3:1/4@6 G3:1/8 F3:1/8 Eb3:1/4@6,3 D3:1/8@6,4 C3:1/8@6,5 D3:1/2@8,4 Eb3:1/2^@5,3 E3:1/4@6,5 F3:1/4@9 Bb2:1/4@6,5 C3:1/4@n F3:1/4^ F3:1/8 Eb3:1/8 D3:1/4@6 Eb3:1/8@5 D3:1/8 C3:1/8 Bb2:1/8 Ab2:1/4@7 G2:1/4^@n C3:1/4@8 D3:1/4@4 E3:1/8@6 F#3:1/8@6,5 G3:1/8 A3:1/8@#6 Bb3:1/8@6 C4:1/8@6,5 D4:1/4@6,4 D3:1/4@5,# G3:1/4^
+why 2 7/16 SPACING The tenor runs down C–B♭–A–G in sixteenths while the alto holds A; the gap opens for one sixteenth before the cadence.
+why 3 3/8 CROSSING The tenor passes down B♭–A♭–G under the bass's held B♭ for one eighth. On the next beat the bass drops to E♭ and the order is back.
+why 3 1/2 DOUBLING Alto (F–G) and tenor (A♭–G) meet on G by step; the tenor's A♭ was a passing note that has to fall.
+why 5 0 PARALLEL_OCTAVES Soprano and alto go from F to G an octave apart, but the alto fills the beat with a figure, F–B♭–A♭–G. Bach treats the decoration as enough to separate the lines; strict exercises still count it.
+why 6 1/2 SIMILAR_MOTION A cadence on B♭ (III): soprano C–B♭, the alto's leading tone A drops to F, the seventh E♭ falls to D and the bass to B♭. Every resolution points down.
+why 7 1/8 SPACING The alto climbs to C as a neighbor note while the tenor sits low on A and G. The gap lasts a beat; then the tenor climbs C–D.
+why 7 1/4 SPACING Still the alto high on B♭ over the low tenor G, in a bright i chord.
+why 7 3/8 SPACING The alto steps down to A and the tenor rises to C on the next beat, closing the gap.
+why 7 5/8 LEAPS The alto walks down C–B♭–A–G–F♯ by step to the leading tone. A scale line hides the tritone between its ends.
+why 8 0 PARALLEL_FIFTHS Soprano and tenor fall B♭–A and E♭–D a fifth apart, the soprano an eighth earlier. Staggered like this Bach accepts them; strict exercises still count them.
+why 11 1/8 CROSSING Alto and tenor trade places: the tenor leaps up to G as the alto falls G–E♭–C. Each line keeps its own shape over the bass's descent.
+why 11 1/8 SPACING The bass walks down C–B♭–A♭–G toward the fermata while the tenor has leapt up high, so the gap between them is wide for a beat.
+why 11 1/4 CROSSING The alto drops further, to C, while the tenor holds G above it.
+why 11 1/4 SPACING The bass's descent reaches A♭ while the tenor is still high on G.
+why 11 3/8 CROSSING The tenor steps down G–F as the alto waits on C; at the fermata the alto rises to G and is on top again.
+why 11 3/8 SPACING The tenor steps down to F; at the fermata it drops to B and the gap closes.
+why 13 0 RANGE The bass climbs B♭–C–D and then drops an octave to D for V. The high D carries the ⁶₄ chord; the drop gives the cadence weight.

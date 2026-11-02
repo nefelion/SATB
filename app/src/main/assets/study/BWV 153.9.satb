@@ -10,3 +10,14 @@ S C5:1/4 C5:1/4 C5:1/4 A4:1/4 B4:1/4 C5:1/4 D5:1/4 C5:1/4 B4:1/4 A4:3/4^ A4:1/4 
 A E4:1/4 G4:1/4 G4:1/4 F4:1/4 G4:1/4 G4:1/4 A4:1/2 G4:1/4 F#4:3/4^ F#4:1/4 G4:1/4 G4:1/4 G4:1/2 G4:1/4 G4:1/4 G4:1/4 F#4:1/4 G4:3/4^ G4:1/4 E4:1/4 G#4:1/4 A4:1/4 B4:1/4 C#5:1/4 D5:1/4 C5:1/2 G4:3/4^ G4:1/4 B4:1/4 C5:1/4 C5:1/4 B4:1/4 E4:1/4 A4:1/4 G4:1/2 G4:3/4^
 T G3:1/4 C4:1/4 E4:1/4 C4:1/4 D4:1/4 E4:1/4 D4:1/2 D4:1/4 D4:3/4^ D4:1/4 D4:1/4 E4:1/4 D4:1/2 E4:1/4 D4:1/4 D4:3/8 C4:1/8 B3:3/4^ C4:1/4 B3:1/4 E4:1/4 E4:1/4 F4:1/4 G4:1/4 F4:1/4 G4:1/4 C4:1/4 B3:3/4^ C4:1/4 F3:1/4 G3:1/4 A3:1/4 B3:1/4 C4:1/4 D4:1/4 D4:1/2 E4:3/4^
 B C3:1/4 E3:1/4 C3:1/4 F3:1/2@5,3 E3:1/4@6 F#3:1/2@6 G3:1/4 D3:3/4^@# D3:1/4@# G3:1/4 E3:1/4@6 B2:1/2@6 C3:1/4 G3:1/4 D3:1/2@4 G2:3/4^ C4:1/4@5 G#3:1/4@6 E3:1/4@# A3:1/2 A2:1/4@7,# D3:1/4 E3:1/4@6 F3:1/4@7,5 G3:3/4^ E3:1/4@6 D3:1/4@6 C3:1/4 F3:1/4@6,5 G3:1/4 A3:1/4 F#3:1/4@6,5 G3:1/4 G2:1/4 C3:3/4^
+why 16 0 LEADING_TONE At the final cadence the leading tone B rises to C in the soprano.
+why 9 1/4 CROSS_RELATION The alto's G, then G♯ in the bass: the music turns suddenly toward A minor. The G♯ is the bass's leading tone into A, so the ear follows it as part of the bass line.
+why 9 1/2 LEAPS After falling a diminished fourth, C to G♯, the bass leaps down to E instead of stepping back up. It is outlining the E major chord (V of A minor) before reaching A.
+why 10 1/2 SEVENTH The bass's A is the root of the next chord, A major (V of D minor), not a seventh to resolve: the harmony changes over it and the bass drops an octave to make that clear.
+why 10 1/2 SPACING The bass drops an octave to a low A for weight under V of D minor, while the tenor stays high on G. The gap lasts one beat.
+why 11 1/4 PROGRESSION The bass climbs D–E–F–G to the dominant at the fermata. I⁶ is a passing chord on that climb, not a step backward.
+why 13 1/4 SPACING The tenor drops low, F–G, while the alto stays high under the soprano. The upper three voices sound bright; the tenor moves with the bass.
+why 13 1/2 SPACING The same open spacing, with the tenor low near the bass and the alto high near the soprano.
+why 14 0 SPACING Still open: the tenor climbs A–B–C over these beats and meets the alto again.
+why 14 1/4 DOUBLING Alto and tenor both touch the leading tone B for a moment. The tenor steps on B–C, resolving it, so the alto is free to drop to E.
+why 14 1/2 LEADING_TONE A deceptive move to vi (A minor). The tenor's B rises to C, so the alto's B is free to drop to E, the fifth of the chord.

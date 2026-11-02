@@ -11,3 +11,20 @@ S A4:1/8 B4:1/8 C#5:1/4 D5:1/4 E5:1/4 D5:1/4 C#5:1/4 B4:1/4 C#5:1/4^ C#5:1/4 C#5
 A E4:1/4 A4:1/4 A4:1/4 G#4:1/4 F#4:1/8 G#4:1/8 A4:1/4 G#4:1/4 A4:1/4^ E4:1/4 F#4:1/4 F#4:1/8 E4:1/8 D4:1/8 E4:1/8 E4:1/4 E4:1/8 A4:1/8 G#4:1/4 E4:1/4^ E4:1/4 E4:1/4 E4:1/4 D4:1/8 E4:1/8 F#4:1/4 F#4:1/8 E4:1/8 E4:1/8 D4:1/16 C#4:1/16 D4:1/4^ E4:1/4 E4:1/4 F#4:1/4 G#4:1/4 F#4:1/4 E4:1/4 D4:1/8 F#4:1/16 E#4:1/16 F#4:1/4^ F#4:1/4 F#4:1/4 E4:1/4 D4:1/4 E4:1/4 E4:1/8 F#4:1/8 E4:1/4 E4:1/4^
 T C#4:1/8 D4:1/8 E4:1/4 F#4:1/4 B3:1/8 C#4:1/8 D4:1/4 E4:1/4 E4:1/4 E4:1/4^ A3:1/4 A3:1/2 G#3:1/8 A3:1/8 G#3:1/4 E4:1/8 C#4:1/8 D4:1/16 C#4:1/16 D4:1/8 C#4:1/4^ C#4:1/4 G#3:1/4 A#3:1/4 B3:1/4 A#3:1/4 B3:1/4 A#3:1/4 F#3:1/4^ B3:1/4 A3:1/4 A3:1/4 B3:1/4 A3:1/8 B3:1/8 C#4:1/4 F#3:1/8 G#3:1/8 A3:1/4^ C#4:1/4 F#3:1/8 G#3:1/8 A3:1/4 A3:1/4 G#3:1/4 A3:1/8 D4:1/8 B3:1/4 C#4:1/4^
 B A2:1/4 A3:1/8 G#3:1/8 F#3:1/4@6 E3:1/4 B2:1/4@5 C#3:1/8@6 D3:1/8 E3:1/4 A2:1/4^ A3:1/8 G#3:1/8 F#3:1/8 E3:1/8 D3:1/8@6,5 C#3:1/8 B2:1/8@7 A2:1/8 G#2:1/4@6,5 C#3:1/8@6 A2:1/8 E3:1/4 A2:1/4^ A2:1/4 E3:1/4 D3:1/8@7,#5 C#3:1/8 B2:1/4 E3:1/8@6,4,2 F#3:1/8 G3:1/4@7 F#3:1/4@7,# B2:1/4^ G#3:1/4@6 A3:1/8 G#3:1/8 F#3:1/4@6 E3:1/4 F#3:1/8@6 G#3:1/8 A3:1/8 A#3:1/8 B3:1/4@5 F#3:1/4^ F#3:1/8 E3:1/8 D3:1/4@6 C#3:1/4@6 B2:1/8@7 C#3:1/8 D3:1/4@6,4,2 C#3:1/8@6 D3:1/8 E3:1/4 A2:1/4^
+why 3 3/4 PARALLEL_OCTAVES Tenor and bass step from A to G♯ an octave apart on a weak eighth note. For a moment the bass is simply doubled; in exercises, keep the voices apart.
+why 4 0 LEADING_TONE Tenor and bass both hold the leading tone G♯. The bass skips to C♯ first and reaches A an eighth later; the tenor leaps up to E, the fifth, to fill out the chord.
+why 1 0 SIMILAR_MOTION The upbeat's passing notes all rise into the downbeat while the bass leaps an octave within the same A chord. Nothing changes harmonically, so no voice loses its independence.
+why 1 3/4 PROGRESSION The bass walks down A–G♯–F♯–E and then back up B–C♯–D–E. The chords on the way are passing harmonies; the goal is the V on beat 3 of the next bar.
+why 2 0 PROGRESSION I⁶ is a passing chord over the C♯ of the bass's climb B–C♯–D–E to the dominant, not a new goal.
+why 3 3/4 DOUBLING Tenor and bass both fall A–G♯ an octave apart on a weak eighth, doubling the leading tone for an instant. Each line is heading somewhere else at once.
+why 4 1/8 LEAPS After its leap up, the tenor turns back down by a third, E–C♯, outlining the A chord rather than stepping.
+why 4 1/2 SIMILAR_MOTION At the cadence every voice falls into the final chord: the seventh D to C♯, the soprano B to A and the bass to the root. All the pulls of V⁷ point down here.
+why 8 0 DOUBLING Soprano (D–C♯) and tenor (B–C♯) both move by step onto C♯, the third. Smooth lines come before the textbook doubling.
+why 8 1/4 CROSSING The bass climbs A–A♯–B toward the F♯ minor cadence while the tenor drops early to F♯ below it. For a beat the two lines trade places, each still moving by step.
+why 8 1/4 DOUBLING This is not really a ⁶₄: the tenor has dipped under the bass. Over Bach's bass B the chord is a plain B minor chord, iv of the F♯ minor cadence.
+why 8 1/4 SIX_FOUR Only the tenor's dip below the bass makes this look like a ⁶₄. The bass has B, so the ear hears B minor in root position.
+why 8 1/4 LEAPS The alto steps down G♯–F♯–E–D and turns back up. A stepwise line hides the tritone between its ends.
+why 8 3/8 CROSSING The same swap: the tenor climbs F♯–G♯–A under the bass's B. At the fermata the voices are back in order.
+why 8 7/16 CROSSING The last sixteenth of the swap. At the fermata the bass drops to F♯ and the tenor sits on A above it again.
+why 10 1/8 DOUBLING The soprano's melody falls A–F♯ and the alto rises E–F♯ by step, so both land on F♯. The root D is still in tenor and bass.
+why 10 1/8 LEAPS The tenor resolves the leading tone G♯ to A and then leaps to D. The tritone G♯–D spans two different chords, so it is not heard as one interval.

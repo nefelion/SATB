@@ -11,3 +11,26 @@ S G4:1/8 A4:1/8 Bb4:1/4 A4:1/8 G4:1/8 F#4:1/4 G4:1/8 A4:1/8 Bb4:1/4 A4:1/4 G4:1/
 A D4:1/4 G4:1/8 F4:1/8 Eb4:1/4 D4:1/4 D4:1/8 F#4:1/8 G4:1/4 F#4:1/4 D4:1/4^ G4:1/4 F4:1/8 G4:1/8 A4:1/4 Bb4:1/4 D4:1/4 G4:1/8 Bb4:1/8 A4:1/8 G4:1/8 F#4:1/4^ G4:1/4 G4:1/8 A4:1/8 Bb4:1/4 C5:1/4 Bb4:1/4 A4:1/8 Bb4:1/4 A4:1/8 F4:1/4^ A4:1/4 G4:1/4 G4:1/8 F#4:1/8 G4:1/4 F#4:1/4 G4:1/8 Eb4:1/8 D4:1/4 D4:1/2^
 T Bb3:1/8 C4:1/8 D4:1/4 C4:1/8 Bb3:1/8 A3:1/4 Bb3:1/8 C4:1/8 D4:1/8 Eb4:1/8 A3:1/8 D4:1/8 Bb3:1/4^ D4:1/4 C4:1/4 F4:1/4 F4:1/4 G4:1/4 G4:1/4 C4:1/16 D4:1/16 Eb4:1/8 A3:1/4^ Bb3:1/4 C4:1/4 F3:1/4 F3:1/4 F4:1/4 Eb4:1/8 D4:1/8 Eb4:1/8 C4:1/8 D4:1/4^ D4:1/4 D4:1/4 C4:1/4 D4:1/4 D4:1/8 C4:1/8 Bb3:1/4 A3:1/8 B3:1/16 C4:1/16 B3:1/2^
 B G2:1/4 G3:1/4 C3:1/4@8,6 D3:1/8@# C4:1/8 Bb3:1/8@6 A3:1/8@#6 G3:1/8 C3:1/8@7,5 D3:1/4@# G2:1/4^ G3:1/4 A3:1/4@6 F3:1/4 Bb3:1/8 A3:1/8 G3:1/8 F3:1/8 Eb3:1/8@6 D3:1/8 Eb3:1/4@6,4 D3:1/4^@# G3:1/4 C3:1/4@5 Bb2:1/4 A2:1/4@6 Bb2:1/4 F3:1/4@5,3 F3:1/4@5,4 Bb2:1/4^ F#3:1/4@6 G3:1/8 G2:1/8 A2:1/4@7 Bb2:1/8@6 C3:1/8 D3:1/4@# Eb3:1/8 C3:1/8@7,5 D3:1/4@# G2:1/2^
+why 1 0 SIMILAR_MOTION The upbeat rises into the first downbeat while the bass leaps an octave on G. Within one G minor chord, rising together loses nothing.
+why 1 1/4 SIMILAR_MOTION All voices step down into ii°⁶, the bass by a fifth. The line descends toward the half cadence.
+why 1 5/8 CROSSING The bass leaps up a seventh, D to C, to sound the dominant's seventh, then falls C–B♭–A by step. Going up keeps it near the tenor; for an eighth it is above it.
+why 1 5/8 MELODIC The bass leaps up a seventh, D–C, adding the seventh to the dominant in the bass. It then resolves by step, C–B♭, which settles the leap.
+why 2 1/8 LEAPS The tenor climbs A–B♭–C–D–E♭ by step. A scale line hides the tritone between its ends.
+why 2 1/4 PARALLEL_FIFTHS Tenor and bass move from D/G to A/D a fifth apart, with E♭ and C passing between them. Bach treats the passing notes as enough to separate them; strict exercises still count them.
+why 2 3/8 LEAPS After its diminished leap down to A the tenor turns back up by a fourth to D, inside the leap. It returns inward, by a fourth instead of a step.
+why 2 1/2 SIMILAR_MOTION A cadence where every resolution falls: soprano A–G, the alto's F♯ drops to D, tenor D–B♭ and the bass to G.
+why 3 3/4 CROSSING The alto drops a sixth to D below the tenor's G, then leaps back up to G on the next beat. The two inner voices trade places for one beat.
+why 3 7/8 CROSSING The same crossing for one more eighth.
+why 4 0 LEAPS After its leap down the alto turns back up by a fourth to G, not a step, and keeps rising to B♭.
+why 4 1/4 DOUBLING A passing chord within the tenor's run; its doubled C is the soprano's held note.
+why 4 1/4 SIX_FOUR The tenor runs up C–D–E♭ over the bass's E♭, so the chord changes every sixteenth. The ⁶₄ is a passing moment in that run.
+why 5 1/4 SPACING The alto rises with the soprano while the tenor holds F low, near the bass. For a beat the upper pair moves as a duet.
+why 5 3/8 SPACING The same duet over the tenor's held F.
+why 5 1/2 SPACING The widest point: alto on C, tenor still on F.
+why 5 5/8 SPACING The tenor leaps up to F an octave higher on the next beat and the gap closes.
+why 6 1/8 DOUBLING On a weak eighth the B♭ chord sounds over the bass's held F: a passing ⁶₄ within the cadence on B♭. Its doubled B♭ is soprano and alto meeting for a moment.
+why 6 1/4 UNRESOLVED_NCT The bass's F is the root of the dominant of B♭; above it the alto holds B♭ as a suspension that falls to A. Heard so, the F is no dissonance at all.
+why 6 1/4 DOUBLING This is V of B♭ with a suspended B♭ in the alto; the ⁶₄ reading comes from the suspension, so its doubling rule does not apply.
+why 6 1/4 SIX_FOUR Not a real ⁶₄: the alto's B♭ is a 4–3 suspension over the dominant F, falling to A an eighth later.
+why 8 1/4 PARALLEL_FIFTHS Tenor and bass move from B♭/E♭ to A/D a fifth apart, with the bass dipping to C in between. For Bach the bass's skip breaks them up; strict exercises still count them.
+why 8 1/4 LEAPS The tune walks down C–B♭–A–G–F♯ by step. A scale line hides the tritone between its ends.

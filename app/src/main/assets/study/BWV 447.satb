@@ -11,3 +11,19 @@ S D4:1/4 F4:1/4 G4:1/4 A4:1/4^ D5:1/4 C5:3/8 B4:1/8 A4:1/8 B4:1/8 C5:1/4 B4:1/2 
 A A3:1/4 D4:3/8 E4:1/8 F4:1/4^ A4:1/4 A4:1/4 G#4:1/4 A4:1/8 G#4:1/8 A4:1/4 A4:1/8 G#4:1/16 F#4:1/16 G#4:1/4 E4:1/4^ A4:1/4 A4:1/8 G4:1/8 B4:1/4 A4:1/4^ A4:1/8 G4:1/8 F4:1/4 F4:1/4 G4:1/4 F4:1/4 F4:1/8 E4:1/16 D4:1/16 E4:1/4 C4:1/4^ D4:1/4 D4:1/4 C#4:1/4 A3:1/4^ F4:3/8 E4:1/8 F4:1/4 E4:1/4 F4:1/8 G4:1/8 F4:1/4^ F4:1/4 F4:1/4 F4:1/4 F4:1/4^ G4:3/8 F4:1/16 E4:1/16 D4:1/4 D4:1/4 C#4:1/4 A3:1/2^
 T F3:1/4 A3:1/4 Bb3:1/4 D4:1/4^ F4:1/4 E4:1/4 E4:3/16 D4:1/16 C4:1/8 D4:1/8 E4:1/8 F4:1/8 B3:1/8 E4:1/4 D4:1/8 C#4:1/4^ D4:1/4 D4:1/8 E4:1/8 F4:1/4 E4:1/4^ A3:1/4 A3:1/4 D4:3/8 C4:1/8 C4:1/4 D4:1/8 Bb3:1/8 G3:1/8 C4:1/16 Bb3:1/16 A3:1/4^ Bb3:1/4 Bb3:1/4 A3:1/8 G3:1/8 F3:1/4^ D4:1/4 C4:1/4 C4:1/4 C4:1/8 A3:1/8 D4:1/8 C4:1/8 C4:1/4^ D4:1/4 C4:3/8 Bb3:1/8 C4:1/4^ C4:1/4 C4:1/4 Bb3:3/8 G3:1/8 E3:1/8 A3:1/16 G3:1/16 F#3:1/2^
 B D3:1/4 D3:1/4 G2:1/4@5 D2:1/4^ D3:1/4 A3:1/4 E3:1/4@6,n F3:1/4 C3:1/8 D3:1/8 E3:1/4 E2:1/4 A2:1/4^ F3:1/4@6 Bb3:1/4 A3:1/8 G#3:1/8@n A3:1/4^ C#3:1/4 D3:1/8 E3:1/8 F3:3/8 E3:1/8 F3:1/4 Bb2:1/4 C3:1/4 F2:1/4^ Bb2:1/4 G2:1/4 A2:1/4 D2:1/4^ D3:1/4 A2:1/8 G2:1/8 A2:1/8 Bb2:1/8 C3:1/4 D3:1/8 E3:1/8 F3:1/4^ D3:1/4 A2:1/4 Bb2:1/4 F2:1/4^ E2:1/4 F2:1/4 Bb2:1/4 G2:1/4 A2:1/4 D2:1/2^
+why 1 1/2 RANGE At the fermata the bass drops to a deep D, an octave lower than usual, for a full cadence.
+why 1 1/2 SPACING The bass's drop to a low D leaves two octaves to the tenor's D: a deep, resonant cadence chord.
+why 2 1/2 DOUBLING Soprano (B–A) and alto (G♯–A) meet on A; the alto's G♯ is a leading tone and must rise.
+why 2 3/4 SEVENTH The bass's F leaps down to C instead of falling to E, and reaches E two eighths later by way of D. The resolution is delayed, not skipped.
+why 2 3/4 TENDENCY The tenor rises D–E–F instead of falling, climbing toward the E chord. A rising line through the dominant area.
+why 3 1/8 LEAPS After its diminished leap down to B the tenor turns back up by a fourth to E, inside the leap. It returns inward, by a fourth instead of a step.
+why 3 1/4 SPACING The bass drops an octave to a low E for the half cadence while the tenor stays in its middle range. The deep bass gives the dominant weight.
+why 3 3/8 SPACING The same wide gap; at the fermata the bass moves to A and the tenor to C♯.
+why 4 1/4 CROSS_RELATION The bass's B♭, then B♮ in the alto: the music turns toward the dominant, A major. The B♮ belongs to a diminished chord leaning into A, so the ear hears it in the alto's line.
+why 7 1/2 RANGE Again the bass drops to a deep D at the fermata for a full cadence.
+why 8 5/8 UNRESOLVED_NCT The tenor skips C–A–D through the notes of the coming chords; the A sounds a moment early against the C chord.
+why 8 3/4 PARALLEL_OCTAVES Tenor and bass move C to D an octave apart, with the tenor's A in between. For Bach the skip breaks up the octaves; strict exercises still count them.
+why 8 3/4 SIMILAR_MOTION All voices rise together into the B♭ chord, each by its own step or skip.
+why 10 1/4 SPACING The bass dips to a low E between two F's, a neighbor note under the tenor's held C. The deep register lasts a beat.
+why 10 3/4 LEAPS The bass steps E–F and leaps up a fourth to B♭. The tritone E–B♭ spans two chords.
+why 11 1/2 RANGE The final chord has the bass on a deep D, as at the other fermatas, for a full, solemn ending.

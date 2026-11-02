@@ -11,3 +11,20 @@ S B4:1/4 C5:1/4 B4:1/4 A4:1/4 E5:1/4 E5:1/8 D5:1/8 C5:1/4 B4:1/4^ D5:1/4 C5:1/4 
 A G#4:1/4 A4:1/4 G#4:1/4 A4:1/4 G#4:1/8 A4:1/8 B4:1/4 E4:1/8 F#4:1/8 G#4:1/4^ G#4:1/4 A4:1/4 G#4:1/4 A4:1/8 G4:1/8 F4:1/4 E4:1/2 E4:1/4^ D4:1/4 D4:1/8 D#4:1/8 E4:1/4 D#4:1/4 E4:1/8 D#4:1/8 E4:1/8 G4:1/8 F#4:1/8 E4:1/8 D#4:1/4^ B3:1/4 A3:1/4 A4:1/4 G#4:1/4 A4:1/4 E4:1/4 E4:1/4 E4:1/4^ E4:1/4 E4:1/4 E4:1/4 F4:1/4 G4:1/4 F#4:1/8 G#4:1/8 A4:1/4 E4:1/4^
 T E4:1/4 E4:1/4 D4:1/4 E4:1/4 D4:1/8 C4:1/8 B3:1/4 C4:1/8 D4:1/8 E4:1/4^ F4:1/4 E4:1/4 E4:1/8 D4:1/8 C4:1/4 D4:1/4 G#3:1/8 A3:1/4 G#3:1/8 C4:1/4^ A3:1/4 G3:1/8 A3:1/8 B3:1/4 B3:1/4 B3:1/8 A3:1/8 B3:1/4 C4:1/4 F#3:1/4^ E4:1/8 D4:1/8 C4:1/8 D4:1/8 E4:1/4 E4:1/4 E4:1/8 D4:1/8 C4:1/4 B3:1/4 C4:1/4^ C4:1/4 B3:1/4 A3:1/4 A3:1/4 Bb3:1/4 A3:1/8 E3:1/8 F#3:1/4 G#3:1/4^
 B E3:1/4@# A3:1/4 B3:1/4@#6 C4:1/4 B3:1/8@#6,4,3 A3:1/8 G#3:1/4@6,5 A3:1/4 E3:1/4^@# B2:1/4@#6,n5 C3:1/8@6 D3:1/8 E3:1/4@# F3:1/4 E3:1/8 D3:1/8 E3:1/2@6,# A2:1/4^ F#3:1/4@6 G3:1/8 F#3:1/8@#6 E3:1/4 B3:1/8@# A3:1/8 G3:1/8@6 F#3:1/8@#6 E3:1/8 D3:1/8 C3:1/4@6 B2:1/4^@# E3:1/4@8 F3:1/4@5 C3:1/8@6 D3:1/8 E3:1/4@# A2:1/8 B2:1/8 C3:1/8@6 D3:1/8 E3:1/4@# A2:1/4^ A3:1/4 G#3:1/4@6 A3:1/8 G3:1/8 F3:1/8 E3:1/8 D3:1/8 C#3:1/8@b7,5 D3:1/4@# D#3:1/4@7,5 E3:1/4^@#
+why 3 1/2 LEAPS The bass climbs B–C–D–E–F by step. A scale line hides the tritone between its ends.
+why 4 1/2 TENDENCY The tenor's G♯, leading tone of A, leaps up to C, the third of the A minor chord at the fermata. Rising to A would leave the chord without its third.
+why 6 1/4 SIX_FOUR This ⁶₄ passes: the bass steps down E–D–C–B to the dominant at the fermata, and the C under the chord is one step of that line.
+why 6 3/4 CROSSING After the fermata the new phrase starts with tenor and alto swapped, the alto low on B–A and the tenor above it on E–D–C. That lets the alto leap up an octave in bar 7 while the tenor keeps its stepwise line.
+why 6 7/8 CROSSING Still swapped: the tenor steps down E–D–C above the alto's B.
+why 7 0 CROSSING The swap continues: the alto drops to A under the tenor's C.
+why 7 1/8 SPACING With the alto down on A, it lies more than an octave below the soprano. Its octave leap on the next beat closes the gap.
+why 7 1/8 CROSSING The tenor climbs back C–D–E above the alto's held A. On the next beat the alto leaps up an octave and the order is restored.
+why 7 1/4 TENDENCY The checker reads E minor here, but this phrase is in A minor, where the F chord is plain VI, not a Neapolitan. Its bass F has no need to fall to E.
+why 7 1/4 PROGRESSION In A minor this is VI to iv⁶ on the way to the dominant E, not a step backward; the checker hears the passage in E minor.
+why 8 0 SEVENTH The bass climbs A–B–C–D–E by step, and the chord over its B is a passing one. The alto's A is held from the A minor chord, not a seventh, and leaps down to E.
+why 9 1/2 DOUBLING F is chromatic only in E minor, the key the checker assumes. The music passes through D minor here, where F is the chord's third and fine to double.
+why 9 3/4 TENDENCY The alto rises F–G into a diminished seventh chord heading for D minor. In D minor F is a stable note, not one that must fall.
+why 10 1/8 SPACING The tenor drops to a low E so it can climb E–F♯–G♯ to the last chord, while the alto climbs to G♯ and A. The gap lasts two eighths.
+why 10 1/8 LEAPS The tenor falls B♭–A and then leaps to E. The tritone B♭–E spans two chords, so it is not heard as one interval.
+why 10 1/4 SPACING The tenor is climbing back from its low E while the alto holds its high A; the gap closes at the fermata.
+why 10 1/2 TENDENCY With the tenor already on G♯, the alto leaps down to E instead of falling to G♯, so the major third is not doubled in the last chord.

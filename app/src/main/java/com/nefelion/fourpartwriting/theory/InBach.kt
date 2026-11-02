@@ -2,57 +2,97 @@ package com.nefelion.fourpartwriting.theory
 
 /**
  * A spot in a bundled study chorale (assets/study/[study].satb) where Bach keeps a rule ([breaks] false) or breaks it.
- * [bar] is the bar number as shown (a pickup is bar 0). StudySpotsTest checks each one against the checker.
+ * [bar] is the bar number as shown (a pickup is bar 0). The chorale's "why" comment on the rule in that bar explains it.
+ * StudySpotsTest checks each one against the checker and the comments.
  */
-class BachSpot(val study: String, val bar: Int, val breaks: Boolean, val note: String)
+class BachSpot(val study: String, val bar: Int, val breaks: Boolean)
 
-/** The rule cards' "In Bach's chorales" lists. */
+/** The rule cards' "In Bach's chorales" lists: the spots whose comments teach the most. */
 val IN_BACH: Map<Rule, List<BachSpot>> = mapOf(
     Rule.PARALLEL_FIFTHS to listOf(
-        BachSpot("BWV 13.6", 3, true, "Soprano and tenor go from a twelfth to a fifth in opposite directions. Strict exercises forbid this too, but the contrary motion keeps the two lines apart."),
-        BachSpot("BWV 26.6", 4, true, "Soprano and tenor fall by step together on a weak eighth note. The fifths pass between the beats, so they are hardly heard."),
+        BachSpot("BWV 13.6", 3, true),
+        BachSpot("BWV 26.6", 4, true),
+        BachSpot("BWV 139.6", 4, true),
     ),
     Rule.PARALLEL_OCTAVES to listOf(
-        BachSpot("BWV 104.6", 3, true, "Tenor and bass step from A to G♯ an octave apart on a weak eighth note. For a moment the bass is simply doubled; in exercises, keep the voices apart."),
+        BachSpot("BWV 104.6", 3, true),
+        BachSpot("BWV 20.7", 1, true),
     ),
     Rule.LEADING_TONE to listOf(
-        BachSpot("BWV 153.9", 16, false, "At the final cadence the leading tone B rises to C in the soprano."),
-        BachSpot("BWV 139.6", 8, false, "The alto's leading tone D♯ drops to B, the fifth of the last chord, so that chord has all its notes. The soprano still ends on the tonic."),
-        BachSpot("BWV 104.6", 4, true, "The leading tone G♯ in the bass skips to C♯ first and reaches A only an eighth later."),
+        BachSpot("BWV 153.9", 16, false),
+        BachSpot("BWV 139.6", 8, false),
+        BachSpot("BWV 133.6", 6, true),
+        BachSpot("BWV 104.6", 4, true),
     ),
     Rule.SEVENTH to listOf(
-        BachSpot("BWV 140.7", 36, false, "In the final V⁷ the tenor's A♭, the seventh, falls by step to G."),
+        BachSpot("BWV 140.7", 36, false),
+        BachSpot("BWV 16.6", 7, true),
     ),
     Rule.DOUBLING to listOf(
-        BachSpot("BWV 113.8", 3, true, "In the D major chord (III in B minor) Bach doubles the third, F♯. F♯ is the dominant of the home key, a strong note to double."),
-        BachSpot("BWV 157.5", 2, true, "The leading tone C♯ is doubled in soprano and tenor, but only for an eighth: the tenor moves on to B at once."),
+        BachSpot("BWV 140.7", 14, true),
+        BachSpot("BWV 113.8", 3, true),
+        BachSpot("BWV 157.5", 2, true),
     ),
     Rule.SPACING to listOf(
-        BachSpot("BWV 113.8", 2, true, "The bass falls to a low F♯ for the dominant, two octaves under the tenor's F♯, which gives the chord a deep, full sound."),
+        BachSpot("BWV 113.8", 2, true),
+        BachSpot("BWV 40.3", 5, true),
     ),
     Rule.CROSSING to listOf(
-        BachSpot("BWV 102.7", 4, true, "The alto dips to B, a neighbor note, under the tenor's C for one eighth. The crossing is so short that both lines stay clear."),
+        BachSpot("BWV 102.7", 4, true),
+        BachSpot("BWV 135.6", 2, true),
     ),
     Rule.OVERLAP to listOf(
-        BachSpot("BWV 244.3", 8, true, "The bass leaps up an octave on the same chord, past where the tenor just was. The tenor has moved up too, so the lines do not get confused."),
+        BachSpot("BWV 11.6", 17, true),
+        BachSpot("BWV 244.3", 8, true),
     ),
     Rule.MELODIC to listOf(
-        BachSpot("BWV 245.26", 1, true, "The bass leaps down a diminished seventh, A♭ to B, then steps up to C. An expressive leap in the St John Passion, settled by the step after it."),
+        BachSpot("BWV 245.26", 1, true),
+        BachSpot("BWV 26.6", 9, true),
+    ),
+    Rule.LEAPS to listOf(
+        BachSpot("BWV 11.6", 12, true),
+        BachSpot("BWV 104.6", 10, true),
+    ),
+    Rule.RANGE to listOf(
+        BachSpot("BWV 117.4", 5, true),
+        BachSpot("BWV 245.40", 17, true),
     ),
     Rule.DIRECT to listOf(
-        BachSpot("BWV 244.15", 11, true, "The soprano leaps up to B while the bass steps up to B: hidden octaves going into the dominant of the cadence. The bass moves by step, which softens them."),
+        BachSpot("BWV 115.6", 5, true),
+        BachSpot("BWV 244.15", 11, true),
     ),
     Rule.CROSS_RELATION to listOf(
-        BachSpot("BWV 245.5", 12, true, "G in the soprano, then G♯ in the bass. The G♯ is the bass's leading tone into A, so the ear hears it as part of the bass line."),
+        BachSpot("BWV 245.5", 12, true),
+        BachSpot("BWV 245.26", 9, true),
     ),
     Rule.SIMILAR_MOTION to listOf(
-        BachSpot("BWV 113.8", 6, true, "All four voices fall into the B minor chord: the seventh E falls to D and the bass to the tonic, so every pull points down."),
+        BachSpot("BWV 113.8", 6, true),
+        BachSpot("BWV 140.7", 8, true),
+    ),
+    Rule.TENDENCY to listOf(
+        BachSpot("BWV 245.22", 7, true),
+    ),
+    Rule.UNRESOLVED_NCT to listOf(
+        BachSpot("BWV 20.7", 5, true),
+        BachSpot("BWV 174.5", 2, true),
+    ),
+    Rule.MISSING_THIRD to listOf(
+        BachSpot("BWV 26.6", 10, true),
+        BachSpot("BWV 43.11", 22, true),
     ),
     Rule.SIX_FOUR to listOf(
-        BachSpot("BWV 176.6", 18, false, "A cadential ⁶₄ on the downbeat over the bass G resolves to V: E♭ to D in the soprano, C to B in the tenor."),
+        BachSpot("BWV 176.6", 18, false),
+        BachSpot("BWV 244.25", 2, true),
+    ),
+    Rule.PROGRESSION to listOf(
+        BachSpot("BWV 139.6", 6, true),
+        BachSpot("BWV 245.28", 5, true),
+    ),
+    Rule.HARMONIC_RHYTHM to listOf(
+        BachSpot("BWV 11.6", 6, true),
     ),
     Rule.CADENCE to listOf(
-        BachSpot("BWV 20.7", 10, false, "An authentic cadence: V to I, both in root position, the soprano falling from G to the tonic F."),
-        BachSpot("BWV 244.62", 12, true, "The melody is in the Phrygian mode and ends on E, so Bach ends on the E major chord, which in A minor is V."),
+        BachSpot("BWV 20.7", 10, false),
+        BachSpot("BWV 244.62", 12, true),
     ),
 )

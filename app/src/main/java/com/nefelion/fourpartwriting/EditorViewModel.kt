@@ -55,6 +55,8 @@ data class UiState(
     val scoreName: String = "",
     /** The open score is the bundled study score with this id ("BWV 13.6"): read-only and never saved. */
     val study: String? = null,
+    /** The open study score's comments on its issues ("why" lines, keyed by ScoreCodec.whyKey). */
+    val why: Map<String, String> = emptyMap(),
     /** The open score is lesson n's saved exercise (index into Lessons.ALL): kept in the lesson, not in the score list. */
     val slot: Int? = null,
     /** Lessons that have a saved exercise to continue. */
@@ -172,8 +174,8 @@ data class UiState(
 /** Sounding length of written value [d] inside an n:m tuplet [t]. */
 fun tupletLength(d: Duration, t: Pair<Int, Int>?) = if (t == null) d.value else d.value * Fraction.of(t.second.toLong(), t.first.toLong())
 
-/** A bundled study score: [id] is its file name ("BWV 13.6"). */
-data class Study(val id: String, val title: String, val score: Score)
+/** A bundled study score: [id] is its file name ("BWV 13.6"); [why]: its comments on the issues. */
+data class Study(val id: String, val title: String, val score: Score, val why: Map<String, String> = emptyMap())
 
 /** File formats a score can be saved or shared as. */
 enum class FileFormat(val label: String, val about: String, val ext: String, val mime: String) {
@@ -975,7 +977,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val free = study == null && slot == null
         if (free) prefs.edit().putString("current", name).apply()
         _state.update {
-            it.copy(scoreName = name, score = score, study = study, slot = slot, freeName = if (free) name else it.freeName,
+            it.copy(scoreName = name, score = score, study = study, why = emptyMap(), slot = slot, freeName = if (free) name else it.freeName,
                 lessonSaved = slots(), scores = library.list(), undo = emptyList(), redo = emptyList(),
                 selected = null, selectedAt = null, placed = false, analysis = null, quiz = null, focusedIssue = null, reorder = emptyList(), note = null,
                 voice = Voice.entries.firstOrNull { v -> v !in score.given } ?: Voice.SOPRANO, locked = null,
@@ -1153,7 +1155,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun readStudy(id: String): Study? = runCatching {
         val text = getApplication<Application>().assets.open("study/$id.satb").use { it.reader().readText() }
-        ScoreCodec.decode(text)?.let { Study(id, ScoreCodec.title(text) ?: id, it) }
+        ScoreCodec.decode(text)?.let { Study(id, ScoreCodec.title(text) ?: id, it, ScoreCodec.comments(text)) }
     }.getOrNull()
 
     /** Fills [UiState.studies], by BWV number. */
@@ -1171,14 +1173,15 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Opens study score [id] read-only. With [rule], at a rule card's spot in bar [bar]: if Bach [breaks] it there, the check opens
-     * on that issue; otherwise the soprano's first note in the bar is selected. [note] is shown as a message.
+     * on that issue, with Bach's reason; otherwise the soprano's note there is selected and the comment on it shown.
      */
-    fun openStudy(id: String, rule: Rule? = null, bar: Int = 0, breaks: Boolean = false, note: String? = null) {
+    fun openStudy(id: String, rule: Rule? = null, bar: Int = 0, breaks: Boolean = false) {
         val study = readStudy(id) ?: return msg("Could not open $id.")
         flushScore()
         if (s.study == null) beforeStudy = s
         val sc = study.score
         show(study.title, sc, id)
+        _state.update { it.copy(why = study.why) }
         if (rule == null) return
         if (breaks) {
             // The rule is shown even if it is switched off in Settings
@@ -1186,10 +1189,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             val i = a.issues.indexOfFirst { it.rule == rule && sc.barNumber(a.slices[it.slice].time) == bar }
             _state.update { it.copy(analysis = a, focusedIssue = i.takeIf { i >= 0 }) }
         } else {
-            val start = sc.bar(bar - if (sc.pickup != null) 0 else 1).start
-            _state.update { it.copy(selected = refAt(sc, Voice.SOPRANO, start), selectedAt = start, followTick = it.followTick + 1) }
+            // The comment on the spot names where in the bar
+            val (key, text) = study.why.entries.firstOrNull { (k, _) -> k.split(" ").let { it[0] == "$bar" && it[2] == rule.name } }?.toPair() ?: ("" to null)
+            val start = sc.bar(bar - if (sc.pickup != null) 0 else 1).start +
+                (key.split(" ").getOrNull(1)?.split("/")?.takeIf { it.size == 2 }?.let { (n, d) -> Fraction.of(n.toLong(), d.toLong()) } ?: Fraction.ZERO)
+            _state.update { it.copy(selected = refAt(sc, Voice.SOPRANO, start), selectedAt = start, followTick = it.followTick + 1,
+                note = text?.let { t -> "$id, bar $bar · ${rule.label}, kept" to t }) }
         }
-        note?.let { n -> _state.update { it.copy(note = "$id, bar $bar · ${rule.label}, ${if (breaks) "bent" else "kept"}" to n) } }
     }
 
     /** What was open before a Bach chorale opened: back from the chorale returns to it as it was. */
@@ -1202,7 +1208,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (!s.bachOpen) return
         stop()
         _state.update {
-            it.copy(scoreName = b.scoreName, score = b.score, study = b.study, slot = b.slot, undo = b.undo, redo = b.redo, voice = b.voice,
+            it.copy(scoreName = b.scoreName, score = b.score, study = b.study, why = b.why, slot = b.slot, undo = b.undo, redo = b.redo, voice = b.voice,
                 selected = null, selectedAt = null, placed = false, analysis = b.analysis, quiz = b.quiz, focusedIssue = b.focusedIssue,
                 note = b.note, moving = b.moving, locked = b.locked, followTick = it.followTick + 1)
         }

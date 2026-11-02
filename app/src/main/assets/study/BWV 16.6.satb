@@ -11,3 +11,23 @@ S A4:1/4 A4:1/4 B4:1/4 C5:1/4 C5:1/4 B4:3/8 C5:1/8 D5:1/4^ E5:1/4 C5:1/4 A4:1/4 
 A E4:1/4 F4:1/4 F4:1/4 G4:1/4 A4:1/4 G4:1/2 A4:1/4^ E4:1/4 E4:1/4 A4:1/4 A4:1/4 G#4:1/4 E4:3/4^ E4:1/8 F#4:1/8 G#4:1/4 A4:1/8 G4:1/8 F4:1/4 E4:1/8 F#4:1/8 G#4:3/4^ G#4:1/4 A4:1/4 B4:1/4 C5:1/8 B4:1/8 A4:1/8 G4:1/8 A4:1/8 G4:1/8 F#4:1/4 G4:1/4^ G4:1/4 G4:1/4 G4:1/8 F4:1/8 E4:1/8 F4:1/8 G4:1/4 F4:1/8 G4:1/8 A4:1/4 G#4:1/4^ B4:1/4 A4:1/4 E4:1/4 F4:1/4 E4:1/8 D4:1/8 C#4:3/4^
 T C4:1/4 C4:1/4 D4:1/4 G3:1/4 D4:1/4 D4:1/4 E4:1/4 D4:1/4^ B3:1/4 C4:1/8 D4:1/8 E4:1/4 F4:1/4 E4:1/8 D4:1/8 C4:3/4^ G3:1/8 A3:1/8 B3:1/4 E4:1/8 C4:1/8 D4:1/8 B3:1/8 C4:1/4 B3:3/4^ E4:1/4 E4:1/4 F4:1/4 G4:1/4 C4:1/8 B3:1/8 A3:1/4 D4:1/4 D4:1/4^ D4:1/4 G3:1/4 A3:1/4 Bb3:1/4 A3:1/8 G3:1/8 A3:1/2 E4:1/4^ E4:1/4 E3:1/4 A3:1/4 A3:1/4 G#3:1/4 E3:3/4^
 B A3:1/8 G3:1/8 F3:1/4 E3:1/8 D3:1/8 E3:1/4 F#3:1/4 G3:1/4 F#3:1/8 E3:1/8 F#3:1/4^ G#3:1/4 A3:1/8 B3:1/8 C4:1/8 A3:1/8 D3:1/4 E3:1/4 A2:3/4^ C4:1/4 B3:1/4 A3:1/4 G#3:1/4 A3:1/4 E3:3/4^ E3:1/4 A3:1/4 G3:1/8@7,5,3 F3:1/8 C4:1/4 E3:1/4 F#3:1/4 E3:1/8 D3:1/8 G3:1/4^ G3:1/8 F3:1/8 E3:1/4 D3:1/4 C#3:1/4@b7,5 D3:1/8@9 E3:1/8 F3:1/4@6 E3:1/8@6,4,2 D3:1/8 E3:1/4^@# G#3:1/4@6 A3:1/4 C3:1/4 D3:1/4 E3:1/4 A2:3/4^
+why 3 1/2 LEAPS The tenor climbs B–D–E–F toward the cadence while the bass falls C–A–D to the predominant chord. The tenor's tritone is spread over a rising line, and the bass outlines the A minor chord before landing on D.
+why 4 0 SIMILAR_MOTION A cadence in A minor where every resolution falls: soprano B–A, the alto's G♯ drops to E, the seventh D to C and the bass to A.
+why 4 3/4 CROSSING After the fermata the bass starts the new phrase high on C, above the tenor's G. The bass steps down C–B–A, and the tenor climbs back above it by the next beat.
+why 4 3/4 DOUBLING This is not a real ⁶₄: the bass's C is above the tenor's G, so the chord is C major in root position, and the ⁶₄ doubling rule does not apply.
+why 4 3/4 SIX_FOUR Only the tenor below the bass makes this look like a ⁶₄. The ear follows the bass's C and hears C major in root position.
+why 4 7/8 CROSSING The tenor climbs G–A–B toward the bass's held C; on the next beat they meet in unison on B.
+why 5 1/2 CROSS_RELATION The alto's G is a passing note on its way down to F, and then the bass sharpens it to G♯, the leading tone of A. The clash is fleeting.
+why 5 3/4 TENDENCY The tenor outlines the diminished chord, D–B, before stepping up to C. The D reaches C in the end, by way of B.
+why 7 1/2 SEVENTH Both F's move up, but the note they lead to, E, arrives in the soprano (D–E): the resolution is handed to another voice. All four voices rise together into the C chord.
+why 7 1/2 SIMILAR_MOTION All voices rise into C major: soprano D–E, alto B–C, tenor F–G and the bass leaps up to C. A bright turn to the relative major.
+why 7 3/4 SIX_FOUR This ⁶₄ falls on the weak last beat, with alto and tenor passing A–G and C–B over the bass's E. A passing chord, not one that needs a cadence.
+why 9 1/2 LEAPS The bass descends G–E–D–C♯ to the leading tone of D minor and resolves to D. The tritone is spread over a line, and C♯ resolves at once.
+why 9 3/4 UNRESOLVED_NCT The tune repeats E over the D minor chord and falls to D: a suspension struck again instead of tied, resolving down by step.
+why 11 0 SPACING The tenor's octave drop to a low E leaves a wide gap under the alto. It closes as the tenor climbs back to A.
+why 11 0 CROSSING The tenor drops an octave to E, under the bass's A, while the bass gets ready to fall to C. On the next beat the order is back.
+why 11 0 DOUBLING Only the tenor's dip under the bass makes this look like a ⁶₄. Over the bass's A it is A minor in root position, with the soprano's D passing down to C.
+why 11 1/8 SPACING Still the tenor's low E under the alto, for one more eighth.
+why 11 1/8 CROSSING The same crossing for one more eighth, before the bass drops to C.
+why 11 1/4 LEAPS After its octave drop the tenor turns back up by a fourth to A instead of a step, going straight to a note of the A minor chord.
+why 12 0 SIMILAR_MOTION The piece ends on A major, a Picardy third. Every voice falls into it, and the tenor's G♯ drops to E so the last chord has its fifth.

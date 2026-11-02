@@ -11,3 +11,16 @@ S A4:1/4 A4:1/4 A4:1/4 E5:1/4 D5:1/4 E5:1/4 C5:1/4 B4:1/4^ A4:1/8 B4:1/8 C5:1/4 
 A E4:1/8 F4:1/8 E4:1/4 E4:1/8 D4:1/8 E4:1/4 F4:1/4 E4:1/4 E4:1/4 E4:1/4^ E4:1/4 A4:1/4 G#4:1/4 A4:1/4 G4:1/8 A4:1/8 B4:1/4 A4:1/4 G#4:1/4^ A4:1/4 D4:1/8 E4:1/8 F#4:1/4 F#4:1/4 G4:1/4 G4:1/4 F#4:1/4 D4:1/4^ E4:1/8 F4:1/8 G4:1/4 D4:1/4 E4:1/8 F4:1/8 G4:1/4 G#4:1/4 A4:1/4 G#4:1/4^ E4:1/4 D4:1/4 D4:1/4 E4:1/8 F4:1/8 G4:1/4 F4:1/8 E4:1/8 E4:1/4 E4:1/4^ G#4:1/4 A4:1/4 G4:1/4 F4:3/8 E4:1/8 F4:1/4 E4:1/8 F4:1/8 E4:1/8 F4:1/8 E4:1/8 D4:1/8 C#4:3/4^
 T C4:1/8 D4:1/8 C4:1/8 B3:1/8 A3:1/4 A3:1/8 C4:1/8 B3:1/8 A3:1/8 B3:1/4 A3:1/4 G#3:1/4^ A3:1/4 E4:1/4 E4:1/4 E4:1/4 E4:1/4 F4:1/4 E4:1/4 E4:1/4^ E4:1/4 A3:1/4 D4:1/4 D4:1/4 E4:1/4 D4:1/8 C4:1/16 B3:1/16 C4:1/4 B3:1/4^ C4:1/4 G3:1/8 A3:1/8 B3:1/8 A3:1/8 G3:1/4 C4:1/4 D4:1/4 E4:1/4 E4:1/4^ C4:1/8 B3:1/8 A3:1/4 B3:1/8 A3:1/8 G3:1/4 C4:1/4 C4:1/8 B3:1/8 B3:1/8 A3:1/8 G#3:1/4^ B3:1/4 C4:1/4 C#4:1/4 D4:3/8 E4:1/8 D4:1/4 C4:1/8 A3:1/8 G#3:1/8 A3:1/4 G#3:1/8 E3:3/4^
 B A2:1/4 A3:1/4 F3:1/4@7 C3:1/4@6 D3:1/4@6,5 G#2:1/4@6 A2:1/4 E3:1/4^@# C3:1/8@6 B2:1/8 A2:1/4 E3:1/4@# A3:1/8 B3:1/8 C4:1/4@n5 G#3:1/4@6,5 A3:1/4 E3:1/4^@# A3:1/8 G3:1/8 F#3:1/8@6 E3:1/8 D3:1/8@# C3:1/8 B2:1/4@#5 E3:1/8 C3:1/8@6,5 D3:1/2@4 G2:1/4^ C3:1/8 D3:1/8 E3:1/8@6 F3:1/8 G3:1/8 F3:1/8 E3:1/4 D3:1/8 C3:1/8 B2:1/4@#6 A2:1/4 E3:1/4^@# A3:1/8 G3:1/8 F#3:1/8@6,5 D3:1/8 G3:1/8 F3:1/8 E3:1/8@6 D3:1/8 C3:1/8@5 B2:1/8 A2:1/8@6,4,2 G#2:1/8@6,5 A2:1/4@9 E3:1/4^@# E3:1/4@# A3:1/8 G3:1/8 F3:1/8@7,#5 E3:1/8 F3:1/8@6 E3:1/8 D3:1/8 C3:1/8@6 D3:1/8@6 B2:1/8@#6 C3:1/8@6 D3:1/8@6,5 E3:1/8@5,# D3:1/8 E3:1/4@# A2:3/4^
+why 3 3/4 DOUBLING The tune climbs to E while the tenor keeps its E; the doubled third keeps the held note.
+why 5 0 OVERLAP The alto drops a fifth to D, below where the tenor was, while the tenor falls to A. They move down together, so the order stays clear.
+why 5 0 SIMILAR_MOTION All voices fall into the D major chord (IV⁶) as the new phrase starts, each by its own interval.
+why 6 0 PARALLEL_FIFTHS Soprano, tenor and bass all move from E–B to D–A, with passing C's in soprano and bass in between. Bach hears the passing notes as separating the chords; strict exercises still count these fifths.
+why 6 0 PARALLEL_OCTAVES Tenor and bass go from E to D in octaves, with the bass's passing C in between. For Bach the passing note breaks them up; strict exercises still count them.
+why 6 1/2 SIMILAR_MOTION A cadence on G: soprano A–G, the alto's F♯ drops to D, the seventh C to B and the bass to G. All the resolutions point down.
+why 7 1/4 DOUBLING Soprano (C–B) and tenor (A–B) meet on B by step from opposite sides.
+why 9 1/4 DOUBLING As in bar 7, soprano (C–B) and tenor (A–B) meet on B by step.
+why 9 5/8 DOUBLING Soprano (C–D–E) and bass (E–D–C) pass each other in contrary motion. D is a passing note in both, not a chordal seventh.
+why 9 3/4 SEVENTH The soprano's D is a passing note in the tune's climb C–D–E, not a seventh, so it rises.
+why 11 7/8 DOUBLING Alto (F–E) and tenor (D–E) meet on E by step from opposite sides.
+why 12 1/4 PARALLEL_OCTAVES Tenor and bass move D to C in octaves, with the bass's B in between. For Bach the bass's dip separates them; strict exercises still count it.
+why 13 0 SIMILAR_MOTION The piece ends on A major, a Picardy third. Every voice falls into it, and the tenor's G♯ drops to E so the last chord has its fifth.

@@ -10,3 +10,12 @@ S r:1/4 E5:1/4 C5:3/8 B4:1/8 A4:1/4^ E5:1/4 F5:1/4 E5:1/8 D5:1/8 C5:1/4 D5:1/4 E
 A r:1/4 A4:1/4 A4:1/4 G#4:1/4 E4:1/4^ A4:1/4 A4:1/4 G#4:1/4 E4:1/4 A4:1/4 G#4:1/4 G#4:1/4^ r:1/4 A4:1/4 G4:1/4 F4:1/2 E4:1/4^ r:1/4 G4:1/4 G4:1/4 G4:1/4 F4:1/2^ r:1/4 G4:1/4 F4:1/8 A4:1/8 G#4:1/4 A4:1/8 D4:1/8 E4:1/4 F4:1/4 E4:1/4 D4:1/4 A4:1/2 G#4:1/4 E4:1/2^
 T r:1/4 C4:1/8 D4:1/8 E4:1/4 E4:3/16 D4:1/16 C4:1/4^ C4:1/4 B3:1/4 B3:1/4 A3:1/8 C4:1/8 B3:1/8 A3:1/8 B3:1/4 B3:1/4^ r:1/4 E4:1/4 D4:1/4 D4:1/4 C4:1/2^ r:1/4 D4:1/4 C4:1/4 C4:1/8 Bb3:1/8 A3:1/2^ r:1/4 C#4:1/4 D4:3/8 C4:1/4 B3:1/4 A3:1/4 G#3:1/4 A3:1/8 B3:1/4 E4:1/4 E4:1/4 E4:1/8 D4:1/8 C#4:1/2^
 B r:1/4 A2:1/4 A3:1/4 E3:1/4@6,# A2:1/4^ A3:1/4 D3:1/4@6,5 E3:1/4@# A3:1/4 F3:1/4@6 E3:1/4@# E3:1/4^ r:1/4 A2:1/4 B2:1/2@6 C3:1/2^ r:1/4 B2:1/4@6 C3:1/4 E3:1/4@6 F3:1/2^ r:1/4 E3:1/4@6 D3:1/4@8 E3:1/4@7,# F3:1/4@6,5 E3:1/4@6,5 D3:1/4@6,5 C3:1/4@7,#5 B2:1/4@#6 A2:1/4 E3:1/4@4 E2:1/4@# A2:1/2^
+why 2 0 SIMILAR_MOTION A cadence in A minor where every voice falls: soprano B–A, the alto's G♯ drops to E, the seventh D to C and the bass to A.
+why 6 1/2 LEAPS The bass climbs B–C–E–F, mostly through chord notes. The tritone B–F is spread over several notes and two chords.
+why 8 5/8 LEAPS The tenor walks down D–C–B–A–G♯ by step. A scale line hides the tritone between its ends.
+why 9 1/8 SPACING The tune leaps up a sixth to E while the alto stays on D. The gap lasts an eighth, as the tune falls back D–C–B.
+why 9 1/4 LEADING_TONE The tune leaps up from G♯ to E, and Bach keeps the hymn melody. The A that G♯ leads to arrives in the alto at the same moment.
+why 9 1/4 OVERLAP Alto and tenor both leap up, D–A and B–E, as the tune leaps up. They move together, so the order stays clear.
+why 9 3/4 SPACING The bass drops an octave to a low E for the final dominant while the tenor stays in its middle range. The deep bass gives the cadence weight.
+why 9 7/8 SPACING The same wide gap, as the tenor adds the seventh D before the last chord.
+why 10 0 STRUCTURE The last bar holds only the final chord, a half note with a fermata, and the score stops there instead of filling the bar with rests. Nothing is wrong musically.

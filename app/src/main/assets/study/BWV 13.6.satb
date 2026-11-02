@@ -11,3 +11,27 @@ S D5:1/4 Bb4:1/4 C5:1/4 D5:1/8 Eb5:1/8 F5:1/4 Eb5:1/2 D5:1/4^ D5:1/8 Eb5:1/8 F5:
 A Bb4:1/4 G4:1/4 A4:1/4 Bb4:1/4 F4:1/4 G4:1/4 F4:1/4 F4:1/4^ F4:1/8 Eb4:1/8 D4:1/8 Eb4:1/8 F4:1/8 G4:1/8 A4:1/4 A4:1/4 G4:1/2 C4:1/4^ D4:1/4 D4:1/4 F4:1/4 F4:1/4 F4:1/4 F4:3/4^ A4:1/4 G4:1/4 F4:1/4 F4:1/4 G4:1/4 G4:1/2 G4:1/4^ F4:1/4 F4:1/8 G4:1/8 A4:1/8 Bb4:1/8 C5:1/8 Bb4:1/8 A4:1/8 G4:1/8 F4:1/4 G4:1/4 F4:1/4^ C4:1/4 F4:1/4 G4:1/8 A4:1/8 Bb4:1/4 A4:1/8 G4:1/8 F4:1/4 F4:1/8 Eb4:1/8 D4:1/4^
 T F4:1/4 Eb4:1/4 Eb4:1/4 F4:1/4 C4:1/4 Bb3:1/4 C4:1/4 Bb3:1/4^ Bb3:1/4 Bb3:1/4 Bb3:1/4 F4:1/4 F4:1/4 F4:1/4 E4:1/4 A3:1/4^ A3:1/4 Bb3:1/4 A3:1/4 Bb3:1/4 Bb3:1/4 A3:3/4^ D4:1/4 D4:1/4 C4:1/4 Bb3:1/8 C4:1/8 D4:1/4 D4:1/4 C4:1/4 B3:1/4^ Bb3:1/4 C4:1/8 Bb3:1/8 A3:1/8 G3:1/8 F3:1/8 G3:1/8 A3:1/4 D4:1/4 C4:1/4 C4:1/4^ A3:1/4 Bb3:1/4 Eb3:1/4 F3:1/8 G3:1/8 A3:1/4 Bb3:1/4 A3:1/4 F3:1/4^
 B Bb3:1/4 Eb4:1/8 D4:1/8 C4:1/4@6 Bb3:1/4 A3:1/4@6 G3:1/4@6 A3:1/4@6,5 Bb3:1/4^ Bb2:1/8 C3:1/8 D3:1/8@6 C3:1/8 D3:1/8 Eb3:1/8 F3:1/4 D3:1/4 G3:1/2@7 F3:1/4^ D3:1/4@5 G3:1/4@5 F3:1/8@5 Eb3:1/8 D3:1/8@6 C3:1/8 Bb2:1/4 F3:3/4^ F#3:1/4@6 G3:1/4 A3:1/4@6 Bb3:1/4 B3:1/4@6,5 C4:1/4@9 C3:1/4@8 G3:1/4^@n Bb3:1/4@5 A3:1/8@6 G3:1/8 F3:1/8 G3:1/8 A3:1/4@6 F3:1/4@6 D3:1/4@6,5 E3:1/4@6,5 F3:1/4^ Eb3:1/4@6,4,2 D3:1/4@6 C3:1/4@6,3 Bb2:1/4 C3:1/4@6,3 D3:1/8@6 Eb3:1/8 F3:1/4@8 Bb2:1/4^
+why 3 1/2 PARALLEL_FIFTHS Soprano and tenor go from a twelfth to a fifth in opposite directions. Strict exercises forbid this too, but the contrary motion keeps the two lines apart.
+why 1 0 RANGE The bass starts high, stepping E♭–D–C–B♭ in step with the opening of the tune. Bach begins in a light, high register and only later takes the bass down.
+why 1 1/8 RANGE Still the high start: the bass steps down D–C–B♭ toward its usual range.
+why 3 0 SPACING The soprano climbs to its high F while the alto sits low on D. The alto climbs E♭–F–G over the next beats and the gap closes.
+why 3 1/8 SPACING The same gap; the alto is climbing toward the soprano.
+why 4 1/2 OVERLAP The alto drops a fifth to C at the fermata, below the tenor's last note E. The tenor leaps down to A at the same moment, so the voices stay in order.
+why 4 1/2 LEADING_TONE Instead of rising to F, the tenor's E leaps down to A, the third of the chord. Soprano and alto have C and the bass F, so without the tenor's A there would be no third.
+why 7 3/4 SIMILAR_MOTION All four voices rise as the music turns toward C minor. The bass's B♮ is a leading tone heading for C, and the soprano's climb E♭–F is the tune.
+why 8 0 LEAPS The bass climbs F♯–G–A–B♭–B♮–C, a rising line full of leading tones that drives into C minor. The tritone between its ends is not heard as a leap.
+why 9 1/8 LEADING_TONE This whole bar holds the F chord (V) with scales in alto, tenor and bass. The bass's A is part of a line A–G–F–G–A around the dominant, not a leading tone being left.
+why 9 1/4 DOUBLING Alto and tenor pass through A at the same moment in contrary scales, the alto rising and the tenor falling. A passing doubling inside one dominant chord.
+why 9 3/8 SPACING The alto climbs and the tenor falls in contrary scales, so the gap between them widens for a few eighths. It closes again by the end of the bar.
+why 9 3/8 LEADING_TONE The tenor walks down C–B♭–A–G–F through the dominant harmony. Its A is a passing note, not a leading tone to resolve.
+why 9 1/2 SEVENTH The soprano holds F, the root of the dominant, through the bar; the bass's passing G only makes it look like a seventh. Then the tune leaps down to C.
+why 9 1/2 SPACING The contrary scales reach their widest point, alto up at C and tenor down at F. Both turn back at once.
+why 9 1/2 CROSSING The tenor's scale runs down to F, under the bass's A, while the bass circles A–G–F–G–A. The lines cross briefly inside one held dominant chord.
+why 9 5/8 SPACING The gap starts to close: the alto turns down to B♭ and the tenor climbs back to G.
+why 9 5/8 CROSSING The tenor climbs back G–A above the bass, which drops to F; by the next beat the order is normal again.
+why 11 1/4 SPACING The tenor drops low, E♭–F–G, to move with the bass while the alto rises with the melody. The open space lies between alto and tenor.
+why 11 3/8 SPACING The same open spacing: alto climbing with the soprano, tenor low with the bass.
+why 11 1/2 SPACING Still open: tenor and bass move together low while the upper pair moves high.
+why 11 5/8 SPACING The tenor climbs G–A toward the alto, and the gap closes by the next beat.
+why 11 3/4 DOUBLING Alto (B♭–A) and tenor (G–A) meet on the leading tone by step. The alto's A passes on down to G; the tenor's A rises to B♭ as it should.
+why 12 1/2 SIMILAR_MOTION In the final cadence every voice falls: soprano C–B♭, the seventh E♭ to D, the tenor's A to F and the bass F to B♭. Each resolution goes down.

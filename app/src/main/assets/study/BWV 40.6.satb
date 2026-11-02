@@ -10,3 +10,18 @@ S D5:1/4 A4:1/4 D5:1/4 E5:1/4 F5:1/4 D5:1/4 E5:1/2^ C5:1/4 C5:1/4 C5:1/4 Bb4:1/8
 A A4:1/4 A4:1/4 Bb4:1/4 Bb4:1/4 A4:1/4 G4:1/4 G4:1/2^ A4:1/4 A4:1/8 G4:1/8 F4:1/4 F4:1/8 E4:1/8 D4:1/8 C#4:1/8 D4:1/4 C#4:1/2^ A4:1/4 A4:1/4 G4:1/8 F4:1/8 E4:1/4 A4:1/8 G4:1/8 F4:1/4 E4:1/2^ E4:1/4 A4:1/4 A4:1/4 G4:1/8 A4:1/8 Bb4:1/4 C5:1/4 F#4:1/2^ A4:1/4 G4:1/4 G4:1/4 A4:1/4 A4:1/4 E4:1/4 A4:1/2^ E4:1/4 A4:1/4 G4:1/4 A4:1/4 A4:3/8 G4:1/8 F4:1/2^ A4:1/4 G4:1/4 G4:1/4 G4:1/4 F4:1/4 G4:1/4 E4:1/2^ F4:1/4 F4:1/4 E4:1/4 D4:1/8 E4:1/8 F4:1/8 E4:1/16 D4:1/16 E4:1/4 F#4:1/2^
 T F4:1/4 E4:1/4 F4:1/4 G4:1/4 C4:1/4 D4:1/4 C4:1/2^ E4:1/4 F4:1/4 A3:1/8 G3:1/8 F3:1/4 F3:1/4 E3:1/8 D3:1/8 E3:1/2^ A3:1/4 D4:1/8 C4:1/8 Bb3:1/4 B3:1/4 C#4:1/4 D4:1/8 C4:1/8 B3:1/2^ C4:1/8 D4:1/8 Eb4:1/4 D4:1/4 D4:1/4 D4:1/8 Bb3:1/8 A3:1/8 G3:1/8 D4:1/2^ D4:1/4 D4:1/4 C4:1/4 C4:1/4 C4:1/8 B3:1/16 A3:1/16 B3:1/4 E4:1/2^ C#4:1/4 D4:1/4 E4:1/4 F4:1/4 E4:1/2 D4:1/2^ C4:1/4 D4:1/4 C4:1/8 Bb3:1/8 A3:1/4 A3:1/4 Bb3:1/4 A3:1/2^ D4:1/4 D4:1/4 G3:1/4 A3:1/8 Bb3:1/8 A3:1/2 A3:1/2^
 B D4:1/4 C4:1/4@6 Bb3:1/4 G3:1/4@6 A3:1/4@6 B3:1/4@6,5 C4:1/2^ A3:1/8 G3:1/8 F3:1/8 E3:1/8 D3:3/8@7 C3:1/8@6 Bb2:1/2@6,5 A2:1/2^@# F3:1/4@6 F#3:1/4 G3:1/4 G#3:1/4@6,5 A3:1/4@6,# Bb3:1/8 A3:1/8 G#3:1/2^@6 A3:1/4 G3:1/4 F#3:1/4@6,5 G3:1/8 F3:1/8 Eb3:1/2@7 D3:1/2^@# D4:1/8 C4:1/8 B3:1/8@6,5 G3:1/8 C4:1/8 Bb3:1/8 A3:1/8 G3:1/8 F#3:1/4@6,5 G#3:1/4@6,5 A3:1/2^@# G3:1/4@6,4,2 F3:1/4@6,n4 E3:1/4@#6 D3:1/4 A3:1/4@4 A2:1/4@# Bb2:1/2^@5 A2:1/4@6 B2:1/4@6,5 C3:1/4 C#3:1/4@6,5 D3:1/4 G2:1/4@6 G3:1/2^@6,4,2 F3:1/4@6 E3:1/8@7,n5,2 D3:1/8 E3:1/4@#6 F3:1/8@6 G3:1/8@6,5 A3:1/4@6,4 A2:1/4@5,# D3:1/2^
+why 1 0 RANGE The bass starts high on D and walks down D–C–B♭: a light opening that descends through the phrase.
+why 3 5/8 LEAPS After its leap down the tenor keeps falling A–G–F before turning, reaching the low F of the coming chord by step.
+why 5 1/2 DIRECT The tune leaps up a fourth to D while the bass steps up F♯–G: a hidden fifth softened by the step in the bass. The leap belongs to the hymn tune.
+why 6 0 SIMILAR_MOTION Everything rises out of V of V: the bass's G♯ resolves to A, the tenor's B to C♯, and the tune climbs to F. Each line rises for its own reason.
+why 6 1/4 DOUBLING The tenor's C♯ rises to D as a leading tone should, while the tune falls a third to D. Both land on D.
+why 7 1/4 CROSS_RELATION The alto's E, then E♭ in the tenor: the music turns from A minor toward G minor. The E♭ is a leaning note in the tenor's line D–E♭–D, so the ear follows it as part of that line.
+why 8 0 CROSSING The tune holds G while the alto climbs A–B♭–C above it, so for a beat the alto is on top. Bach lets the inner line rise while the melody waits.
+why 8 1/8 CROSSING The alto stays above the soprano's held G.
+why 8 1/4 CROSSING The alto reaches C, its high point, still above the held soprano.
+why 8 1/4 SPACING The alto climbs while the tenor falls B♭–A–G, so the space between them opens for a beat.
+why 8 3/8 CROSSING The last eighth of the crossing; at the fermata the soprano moves up to A and is on top again.
+why 8 3/8 SPACING The widest point; at the fermata the alto falls to F♯ and the gap closes.
+why 8 1/2 SEVENTH The tenor's D, the seventh of the E♭ chord, falls away through B♭–A–G and returns to D for the fermata, where D is the root of the D major chord.
+why 9 0 RANGE The new phrase starts with the bass high on D, walking down D–C–B–B♭–A. Starting high gives it room to descend.
+why 10 0 LEAPS The bass walks down C–B–B♭–A–G–F♯ by step. A scale line hides the tritone between its ends.

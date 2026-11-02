@@ -11,3 +11,17 @@ S F#4:1/4 F#4:1/2 F#4:1/4 C#5:1/2 D#5:1/4 E5:1/4 D#5:1/4 C#5:1/4 B4:1/2^ C#5:1/4
 A C#4:1/4 D#4:1/2 D#4:1/4 C#4:1/2 F#4:1/4 E4:1/4 B4:1/4 F#4:1/4 F#4:1/2^ F#4:1/4 F#4:1/2 G#4:1/4 F#4:1/4 G#4:1/4 A4:1/4 G#4:1/4 A4:1/4 G#4:1/4 E#4:1/2^ F#4:1/4 E4:1/4 G#4:1/4 A4:1/4 F#4:1/2 E4:1/4 E4:1/2 D#4:1/4 B3:1/2^ B3:1/4 E4:1/4 F#4:1/4 G#4:1/4 A4:1/2 G#4:1/4 F#4:1/4 B4:1/4 G#4:1/4 A4:1/2^ F#4:1/4 F#4:1/2 E#4:1/4 C#4:1/2^
 T A#3:1/4 B3:1/2 B3:1/4 F#3:1/4 G#3:1/4 A#3:1/4 B3:1/2 A#3:1/4 D#4:1/2^ A#3:1/4 B3:1/2 B3:1/4 C#4:1/2 C#4:1/4 C#4:1/2 B#3:1/4 G#3:1/2^ A3:1/4 B3:1/4 E4:1/4 E4:1/4 F#4:1/4 D#4:1/4 B3:1/4 A3:1/4 C#4:1/4 F#3:1/4 G#3:1/2^ G#3:1/4 A3:1/2 D4:1/4 E4:1/4 F#4:1/4 C#4:1/4 C#4:1/4 B3:1/4 E4:1/4 E4:1/2^ B3:1/4 C#4:1/4 D4:1/4 C#4:1/4 A#3:1/2^
 B F#3:1/4@# B3:1/4 A#3:1/4 G#3:1/4@7 A#3:1/4@6 G#3:1/4 F#3:1/4@6 G#3:1/4@6 E3:1/4@7,5 F#3:1/4@# B2:1/2^ F#3:1/4@# B3:1/4 A3:1/4 G#3:1/4@#6 A3:1/4@6 G#3:1/4 F#3:1/4 G#3:1/4@6,4 F#3:1/4@6,5,n G#3:1/4@5,# C#3:1/2^@# F#3:1/4 G#3:1/4@6 E3:1/4 A3:1/4 D#3:1/4@6 B2:1/4@7 E3:1/4 C#3:1/4@6 A2:1/4@7,5 B2:1/4 E3:1/2^ D3:1/4@6,4,2 C#3:1/4@6 C#4:1/4 B3:1/4@6 A3:1/4 D#3:1/4@7,5 E#3:1/4@6,5 F#3:1/4 G#3:1/4@6 E3:1/4 A3:1/2^ D3:1/4@6 C#3:1/4@6,4 B2:1/4@6,5 C#3:1/4@5,# F#2:1/2^
+why 1 0 OVERLAP The bass leaps up a fourth to B while the tenor resolves A♯ to B, so they meet in unison.
+why 2 0 SEVENTH The soprano's F♯ belongs to the B major chord, held over the bass's passing G♯; it is not a seventh. The tune then leaps up to C♯ as written.
+why 2 0 CROSSING The tenor drops to F♯ under the bass's A♯ for one beat, then climbs G♯–A♯. The bass's neighbor motion and the tenor's dip cross briefly.
+why 2 0 PARALLEL_FIFTHS Soprano and tenor move from F♯/B to C♯/F♯ in contrary motion, the soprano leaping up and the tenor down. Bach accepts contrary fifths; strict exercises avoid them.
+why 4 0 LEADING_TONE The tenor's A♯, leading tone of B, leaps up to D♯, the third of the B chord at the fermata. Rising to B would leave the chord without its third.
+why 5 0 OVERLAP As in bar 1, the bass leaps up a fourth to B while the tenor resolves A♯ to B, meeting in unison.
+why 6 1/2 DIRECT The tune leaps down F♯–C♯ while the bass steps G♯–F♯: a hidden fifth softened by the step in the bass. The leap belongs to the hymn tune.
+why 7 0 SIX_FOUR This is a cadential ⁶₄ in C♯: the chord over G♯ moves to G♯ major and then to C♯ at the fermata.
+why 8 0 SIMILAR_MOTION A cadence on C♯ where every voice falls: soprano D♯–C♯, alto G♯–E♯, the tenor's B♯ drops to G♯ and the bass to C♯.
+why 10 1/4 LEAPS After its leap down to D♯ the bass keeps falling to B before turning up to E, outlining the B chord on the way.
+why 13 1/4 CROSSING The bass leaps up an octave to C♯, above the tenor's A, and steps down to B: a short crossing caused by the octave leap.
+why 13 1/4 RANGE The bass's octave leap takes it up to C♯ for a beat before it steps down again.
+why 15 1/4 OVERLAP The tune leaps up to E and the alto leaps up to B with it, above where the soprano was. They move together, so the order stays clear.
+why 18 0 SIMILAR_MOTION The final cadence: every voice falls into the F♯ major chord, the alto's E♯ to C♯ and the bass to a low F♯.

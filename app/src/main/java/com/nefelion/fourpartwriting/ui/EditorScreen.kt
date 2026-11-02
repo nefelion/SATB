@@ -908,12 +908,14 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
             onIgnoreHere = if (i < 0 || lesson) null else ({ info = null; vm.ignoreIssue(i); onUndoable("Issue ignored") }),
             onIgnoreInScore = if (lesson) null else ({ info = null; vm.ignoreRuleInScore(r); onUndoable("${r.label} ignored in this score") }),
             // Over a chorale, the next one replaces it; otherwise this card is back when you return from it
-            onStudy = { if (st.bachOpen) info = null; vm.openStudy(it.study, r, it.bar, it.breaks, it.note) },
+            onStudy = { if (st.bachOpen) info = null; vm.openStudy(it.study, r, it.bar, it.breaks) },
         ) { info = null }
     }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    @Composable fun IssueRow(i: Int, issue: com.nefelion.fourpartwriting.theory.Issue, prefix: String = "", onClick: () -> Unit) {
+    /** [full]: with Bach's reason, if this is a chorale with a comment on the issue. */
+    @Composable fun IssueRow(i: Int, issue: com.nefelion.fourpartwriting.theory.Issue, prefix: String = "", full: Boolean = st.focusedIssue == i, onClick: () -> Unit) {
         val t = a.slices.getOrNull(issue.slice)?.time ?: Fraction.ZERO
+        val why = st.why[com.nefelion.fourpartwriting.model.ScoreCodec.whyKey(st.score, t, issue.rule.name)]?.takeIf { full }
         Row(
             Modifier.fillMaxWidth().height(IntrinsicSize.Min)
                 .background(if (st.focusedIssue == i) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
@@ -923,7 +925,11 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
             val quiz = st.quiz?.takeIf { it.revealed && issue.severity == Severity.ERROR }
             val head = prefix + "${where(t, st.score)} · ${issue.rule.label}" + (quiz?.let { if (it.found(issue)) " · found ✓" else " · missed" } ?: "")
             val pad = Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 6.dp)
-            if (oneLine) Row(pad, verticalAlignment = Alignment.CenterVertically) {
+            if (why != null) Column(pad) {
+                Text(head, style = MaterialTheme.typography.labelLarge)
+                Text(issue.message, style = MaterialTheme.typography.bodySmall, color = muted)
+                Text(why, Modifier.padding(top = 2.dp), style = MaterialTheme.typography.bodySmall)
+            } else if (oneLine) Row(pad, verticalAlignment = Alignment.CenterVertically) {
                 Text(head, style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.width(10.dp))
                 Text(issue.message, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -962,7 +968,9 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (a.issues.size > 1) PanelIcon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Previous issue", enabled = i > 0) { vm.showIssue(i - 1) }
-                        Box(Modifier.weight(1f)) { IssueRow(i, issue, if (a.issues.size > 1) "${i + 1}/${a.issues.size} · " else "") { vm.showIssue(i) } }
+                        Box(Modifier.weight(1f).heightIn(max = maxList).verticalScroll(rememberScrollState())) {
+                            IssueRow(i, issue, if (a.issues.size > 1) "${i + 1}/${a.issues.size} · " else "", full = true) { vm.showIssue(i) }
+                        }
                         if (a.issues.size > 1) PanelIcon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Next issue", enabled = i < a.issues.lastIndex) {
                             vm.showIssue(if (st.focusedIssue == null) 1 else i + 1)
                         }
@@ -1161,7 +1169,7 @@ private fun RulesDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> Unit)
     }
     // After the page, so it stays above it when both come back
     info?.let { r -> RuleInfoDialog(r, r in st.rules, onToggle = { vm.toggleRule(r) },
-        onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null } }
+        onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks) }) { info = null } }
 }
 
 /** The rules in the order Settings lists them, by what they look at. */

@@ -311,7 +311,7 @@ private fun ScoreRulesPage(name: String, sc: Score, st: UiState, vm: EditorViewM
         }
     }
     info?.let { r -> RuleInfoDialog(r, locked || r.name !in sc.rulesOff, onToggle = if (locked) null else ({ vm.toggleScoreRule(name, r) }),
-        onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null } }
+        onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks) }) { info = null } }
 }
 
 /** "D major · 3/4 · 12 bars". */

@@ -11,3 +11,17 @@ S G4:1/4 G4:1/4 A4:1/4 Bb4:1/4 C5:1/4 D5:3/4^ D5:1/4 D5:1/4 C5:1/4 Bb4:1/4 C5:1/
 A D4:1/4 Eb4:1/4 E4:1/8 F#4:1/8 G4:1/4 G4:1/4 F#4:3/4^ F#4:1/4 G4:1/4 G4:1/8 F#4:1/8 G4:1/4 A4:1/4 F#4:3/4^ F#4:1/4 G4:1/4 A4:1/4 Bb4:1/4 Bb4:1/4 Bb4:1/4 A4:1/8 G4:1/8 A4:1/4^ F#4:1/4 D4:1/4 C4:1/4 F4:1/4 G4:1/4 G4:1/4 F4:1/8 Eb4:1/8 D4:1/4^ F4:1/4 F4:1/4 F4:1/8 G4:1/8 A4:1/4 G4:1/4 G4:1/8 F4:1/8 G4:1/8 E4:1/8 F4:1/4^ F4:1/8 Eb4:1/8 D4:1/4 E4:1/8 F#4:1/8 G4:1/4 G4:1/4 G4:1/4 F#4:1/4 D4:1/4^
 T Bb3:1/4 C4:1/4 C4:1/4 D4:1/4 Eb4:1/4 A3:3/4^ A3:1/4 Bb3:1/4 C4:1/4 D4:1/4 Eb4:1/4 D4:3/4^ D4:1/4 D4:1/4 Eb4:1/4 F4:1/4 F4:1/4 G4:1/4 F4:1/8 Eb4:1/8 D4:1/4^ A3:1/4 Bb3:1/4 F4:1/8 Eb4:1/8 D4:1/8 C4:1/8 Bb3:1/4 Bb3:1/4 A3:1/4 F3:1/4^ Bb3:1/4 C4:1/4 D4:1/4 D4:1/8 C4:1/8 Bb3:1/4 Bb3:1/8 A3:1/8 Bb3:1/8 G3:1/8 A3:1/4^ A3:1/4 Bb3:1/4 A3:1/4 G3:1/8 Bb3:1/8 Eb4:1/4 D4:1/8 C4:1/16 Bb3:1/16 C4:1/4 B3:1/4^
 B G3:1/4 C4:1/8 Bb3:1/8 A3:1/4@n5 G3:1/8 F3:1/8 Eb3:1/4@6 D3:3/4^@# C3:1/4@6,4,2 Bb2:1/4@6 A2:1/4@7 G2:1/4 C3:1/4@6 D3:3/4^@# D3:1/4 G3:1/4 F3:1/8@7,5 Eb3:1/8 D3:1/8@6 C3:1/8 Bb2:1/4 Eb3:1/4@6,5 F3:1/4@8 F#3:1/4^@6 D3:1/4@# G3:1/4 A3:1/4@6 Bb3:1/8 A3:1/8 G3:1/8@5 F3:1/8 Eb3:1/4@6,5 F3:1/4 Bb2:1/4^ Bb3:1/4 A3:1/4@6 Bb3:1/4@5 F#3:1/4@6 G3:1/8 F3:1/8 E3:1/4@6,5 C3:1/4@7,n F3:1/4^ F3:1/4 Bb2:1/4 C3:1/8@6,n D3:1/8@7,# Eb3:1/4 D3:1/8@7,4,b2 C3:1/8 D3:1/2@5,4 G2:1/4^@n
+why 1 0 OVERLAP The bass leaps up a fourth to C while the tenor steps B♭–C, so they meet in unison.
+why 1 1/2 PROGRESSION The bass walks down C–B♭–A–G–F–E♭ by step; the chords over it are passing ones, not a step backward.
+why 3 3/4 SIMILAR_MOTION All voices rise into ii°⁶ before the half cadence, the bass by a fourth. Each line moves by its own interval.
+why 3 3/4 LEAPS The tenor climbs A–C–D–E♭ toward the half cadence. Its ends form a tritone, but the line moves mostly by step.
+why 5 1/2 SEVENTH The tenor's E♭ rises to F while the bass takes over the E♭ and falls to D. The seventh's resolution happens in the bass.
+why 7 1/4 CROSSING The alto falls D–C while the tenor leaps up to F, so they trade places for a beat. The tenor then steps down E♭–D.
+why 7 1/4 LEAPS The alto falls F♯–D–C toward the F chord. The tritone F♯–C is spread over three notes and two chords.
+why 7 3/8 CROSSING The tenor steps down to E♭, still above the alto's C; on the next beat the alto leaps up to F and is on top again.
+why 7 1/2 DOUBLING Soprano (C–D) and tenor (E♭–D) meet on D from opposite sides by step.
+why 8 1/2 SIMILAR_MOTION A cadence on B♭ (III): soprano C–B♭, the seventh E♭ to D, the tenor's A drops to F and the bass to B♭. All the resolutions point down.
+why 9 1/4 DOUBLING The tune falls F–D while the tenor steps C–D; both land on D, the third of the B♭ chord.
+why 11 0 DOUBLING Soprano (C–D) and alto (E♭–D) meet on D by step from opposite sides.
+why 11 1/2 DOUBLING The alto's F♯ rises to G as a leading tone should, and the tenor steps A–G; both reach G. A correct resolution beats the ideal doubling.
+why 12 1/2 SIMILAR_MOTION The piece ends on G major, a Picardy third. Every voice falls into it: the seventh C to B, the alto's F♯ to D and the bass to G.

@@ -195,7 +195,7 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
 
         if (spots.isNotEmpty()) add("In Bach's chorales" to {
             Text("Where Bach keeps or bends these rules. Tap to open.", style = body)
-            for ((r, spot) in spots) Column(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.openStudy(spot.study, r, spot.bar, spot.breaks, spot.note) }.padding(4.dp)) {
+            for ((r, spot) in spots) Column(Modifier.fillMaxWidth().clip(SHAPE).clickable { vm.openStudy(spot.study, r, spot.bar, spot.breaks) }.padding(4.dp)) {
                 Text("${r.label}: ${spot.study}, bar ${spot.bar} · ${if (spot.breaks) "breaks it" else "keeps it"}", style = MaterialTheme.typography.labelLarge,
                     color = if (spot.breaks) colors.warnText else colors.ok)
             }
@@ -254,7 +254,7 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
     // Back from a Bach example, the card is here again
     if (LocalOnTop.current) info?.let { r ->
         RuleInfoDialog(r, true, onToggle = null,
-            onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks, it.note) }) { info = null }
+            onStudy = { vm.openStudy(it.study, r, it.bar, it.breaks) }) { info = null }
     }
     Overlays { if (settings) SettingsDialog(st, vm) { settings = false } }
     if (replacing) ReplaceLessonDialog(i, vm) { replacing = false }

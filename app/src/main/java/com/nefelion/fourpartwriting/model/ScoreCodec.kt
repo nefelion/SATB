@@ -58,6 +58,18 @@ object ScoreCodec {
         return undo to redo
     }
 
+    /**
+     * Comments on a study score's issues: lines "why <bar> <offset in bar> <RULE> <text>" ("why 4 1/8 CROSSING The alto ..."),
+     * keyed by [whyKey]. A comment with no issue at its place tells how the rule is kept there.
+     */
+    fun comments(text: String): Map<String, String> = text.lineSequence().filter { it.startsWith("why ") }.associate { l ->
+        val w = l.split(" ", limit = 5)
+        "${w[1]} ${w[2]} ${w[3]}" to w.getOrElse(4) { "" }.trim()
+    }
+
+    /** "<bar> <offset> <RULE>" of a comment on [rule] at time [t] of [s]. */
+    fun whyKey(s: Score, t: Fraction, rule: String) = s.inBar(t).let { o -> "${s.barNumber(t)} ${if (o.num == 0L) "0" else "${o.num}/${o.den}"} $rule" }
+
     /** The name stored by [encode], if any. */
     fun title(text: String): String? =
         text.lineSequence().firstOrNull { it.startsWith("title ") }?.removePrefix("title ")?.trim()?.ifEmpty { null }
