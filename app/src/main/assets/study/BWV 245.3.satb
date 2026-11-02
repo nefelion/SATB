@@ -13,15 +13,12 @@ T Bb3:1/4 Bb3:1/4 A3:1/8 G3:1/8 A3:1/4^ F#3:1/4 G3:1/4 C4:1/4 D4:1/4 D4:1/4 Eb4:
 B G3:1/4 C3:1/8@7,5 D3:1/8 Eb3:1/4@6,4 D3:1/4^@# C3:1/4@4 Bb2:1/4@6 A2:1/4@#6 G2:1/4 G3:1/4 F#3:1/4@7,5 G3:1/4 D3:1/4^@# D3:1/4 G3:1/4 C4:1/4@6 Bb3:1/4 Ab3:1/4@2 G3:1/4@6 Gb3:1/4@6 F3:1/4@6,4 E3:1/4@b7,5 F3:1/2@4 Bb2:1/4^ G2:1/4 C3:1/4@6 C#3:1/4@7,5 D3:1/4 D3:1/8 C3:1/8 Bb2:1/8 C3:1/8 D3:1/8@6 Bb2:1/8 Eb3:1/4 F3:1/4@6 G3:1/4@6,5 A3:1/4@6,5 Bb3:1/4^ Bb3:1/4 F#3:1/4@7,5 G3:1/4 C#3:1/4@6,5 D3:1/4@8,# G2:3/4^@n
 why 4 1/4 SIMILAR_MOTION All voices rise as the phrase climbs toward B♭ (III), the bass by another fourth. The upper three move by step, so the lines stay distinct.
 why 4 1/4 LEAPS The bass rises D–G–C in fourths, roots moving by fifths: strong forward motion toward III.
-why 4 3/4 SIMILAR_MOTION All voices step down together into a chord that leans toward E♭ (VI); the bass's B♭–A♭ starts a descent.
 why 5 1/2 DOUBLING The bass slides down chromatically, G–G♭–F–E, and the B♭ chord over its F is a passing one on that slide. Its doubled D follows the soprano and tenor lines.
 why 6 0 TENDENCY The alto holds B♭ into the F chord and then falls to A: it does resolve down by step, a beat later, as a suspension.
-why 6 1/2 SIMILAR_MOTION A cadence on B♭ (III): soprano C–B♭, the alto's A drops to F, the seventh E♭ to D and the bass to B♭. All the resolutions point down.
 why 7 1/8 UNRESOLVED_NCT The alto moves E♭–D–E♮: a neighbor note D whose return comes back raised to E♮ for the next chord. Bach bends the neighbor figure chromatically.
 why 8 0 OVERLAP The tenor rises to B♭, above where the alto was, while the alto leaps up to D. They move up together.
 why 9 1/4 CROSSING The melody lies very low here, down to D, so tenor and bass cross: the tenor drops to F while the bass climbs G–A–B♭. Bach keeps the bass's rising line.
 why 9 1/2 CROSSING The fermata chord has the tenor's F under the bass's B♭; after it the voices spread out again an octave higher.
-why 9 1/2 DOUBLING Only the crossing makes this look like a ⁶₄. Over the bass's B♭ it is a B♭ chord in root position.
+why 9 1/2 DOUBLING The crossing puts the tenor's F at the bottom, so the B♭ chord sounds as a ⁶₄. Bach's continuo doubled the bass's B♭ an octave lower, so in his performance the chord stood in root position.
 why 10 0 SIMILAR_MOTION All voices fall into the diminished seventh chord on F♯ that leads to the final cadence. The bass's drop B♭–F♯ gives it a sharp edge.
 why 10 0 CROSS_RELATION The tenor's F, then F♯ in the bass: the turn to the dominant of G minor is sudden. The F♯ is the bass's leading tone into G, so the ear follows it as part of the bass line.
-why 11 0 SIMILAR_MOTION The piece ends on G major, a Picardy third. Every voice falls into it: the seventh C to B, the alto's F♯ to D and the bass to a low G.

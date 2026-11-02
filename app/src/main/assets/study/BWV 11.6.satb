@@ -13,19 +13,13 @@ B D3:1/8 C#3:1/8 B2:1/4 A2:1/4 D3:3/8@5 E3:1/8@7,# F#3:1/4 D3:1/8@6,5 B2:1/8 E3:
 why 6 0 HARMONIC_RHYTHM The D chord carries over the bar line while soprano, alto and bass move in passing eighths. In this flowing 3/4 the decorations, not chord changes, keep the music moving.
 why 6 1/2 CROSSING The tenor steps down A–G–F♯ while the bass leaps up to B and walks back down A–G–E. For a beat the bass is above the tenor; both lines keep their own shape.
 why 6 1/2 DOUBLING Only the crossing makes this a ⁶₄. With Bach's bass on B it is a B minor chord (vi) in root position, and B is doubled correctly.
-why 6 1/2 SIX_FOUR The tenor's F♯ is the lowest note only because the bass has leapt above it. The ear follows the bass's B and hears vi in root position.
+why 6 1/2 SIX_FOUR The bass leaps above the tenor, so the tenor's F♯ is the lowest note and vi sounds as a ⁶₄. Bach's continuo doubled the bass an octave lower, so B stayed at the bottom in his performance.
 why 6 5/8 CROSSING The same crossing: the bass passes A on its way down to G and E, and by the next beat it is below the tenor again.
-why 9 1/4 OVERLAP The bass leaps up an octave on the A chord and then walks down A–G–F♯. The tenor is on A too, so the leap lands in unison instead of tangling the lines.
 why 12 0 LEAPS The bass rises F♯–B–E in fourths: roots moving by fifths (V of ii, then ii), the strongest bass motion there is. The fermata ends the line there.
 why 14 3/8 CROSSING The tenor walks down G–F♯–E into the bass's register while the bass climbs E–F♯–G, then jumps back up an octave. Both lines keep moving by step.
 why 14 1/2 CROSSING The tenor leaps up an octave to E just as the alto drops to B, so they trade places for a beat. Then the alto leaps back up to G.
 why 14 5/8 CROSSING The swap goes on: the tenor steps down E–D–C♯ while the alto waits on B; on the downbeat the alto is above it again.
-why 15 1/4 LEAPS The bass walks down G–F♯–E–D–C♯ by step toward the leading tone of B minor. A stepwise line hides the tritone between its ends.
-why 17 0 OVERLAP The bass leaps up a fourth, F♯ to B, to start the new phrase, and lands in unison with the tenor, which has just resolved A♯ to B.
 why 17 3/8 CROSSING The tenor leaps down to F♯ while the bass walks down B–A–G–F♯. For an eighth the bass is above it, then the tenor climbs back as the bass reaches F♯.
-why 18 1/8 DOUBLING Alto (C♯–D–E) and bass (E–D–C♯) pass each other in contrary motion. D is a passing note in both, not a chordal seventh.
-why 18 1/4 SEVENTH The alto's D is a passing note on its way up C♯–D–E, not a real seventh, so it does not need to fall.
-why 19 0 OVERLAP The bass leaps up to A just as the tenor resolves G♯ up to A, so they meet in unison on the dominant. The bass then drops an octave for the cadence.
 why 20 1/4 DOUBLING The soprano holds B while the tenor climbs G–A–B by step toward C♯ and D. The tenor's line matters more than the doubling.
 why 20 5/8 MELODIC The bass drops a seventh, B to C♯, instead of rising a step, to stay low for the cadence. It is the step B–C♯ moved down an octave, and the bass goes on by step to D.
 why 20 5/8 OVERLAP The bass has just leapt far down, so the tenor's A lies below where the bass was a moment ago. With the bass now an octave lower, the lines stay clear.

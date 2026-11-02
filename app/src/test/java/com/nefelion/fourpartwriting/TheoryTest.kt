@@ -238,7 +238,7 @@ class TheoryTest {
 
     @Test fun lineAndSpacing() {
         assertTrue("Spacing" in warnings(score(C, "G5 E5 C5 C3")))
-        val line = score(C, "F4 C4 A3 F3", "G4 C4 A3 F3", "A4 C4 A3 F3", "B4 D4 G3 G3", "G4 D4 G3 G3")
+        val line = score(C, "F4 C4 A3 F3", "A4 C4 A3 F3", "A4 C4 A3 F3", "B4 D4 G3 G3", "G4 D4 G3 G3")
         assertTrue(messages(line).any { "tritone" in it })
         // T: B3 up to F4 (d5), then on up (bad) or back by step (fine)
         assertTrue(messages(score(C, "D5 G4 B3 G2", "D5 A4 F4 D3", "E5 C5 G4 C3")).any { "diminished leap" in it })

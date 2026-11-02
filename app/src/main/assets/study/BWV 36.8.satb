@@ -10,10 +10,7 @@ S B4:1/4 B4:1/4 A4:1/4 D5:1/4 C#5:1/8 B4:1/8 C#5:1/4 B4:1/2^ B4:1/8 C#5:1/8 D5:1
 A F#4:1/4 E4:1/4 F#4:1/4 F#4:1/8 G4:1/16 A4:1/16 G4:1/8 F#4:1/8 E4:1/4 D4:1/2^ F#4:3/8 G#4:1/8 A4:3/8 B4:1/8 C#5:1/4 D5:1/8 F#4:1/8 G4:1/2^ A4:1/4 A4:1/4 A4:1/8 A#4:1/8 B4:1/4 C#5:1/8 B4:1/8 A#4:1/4 F#4:1/2^ F#4:1/4 E#4:1/4 F#4:1/8 G#4:1/8 A4:1/8 B4:1/8 F#4:1/8 B4:1/4 A#4:1/8 F#4:1/2^
 T D4:1/4 C#4:1/8 B3:1/8 C#4:1/4 B3:1/4 B3:3/8 A#3:1/8 F#3:1/2^ D4:1/8 C#4:1/8 B3:1/4 C#4:1/4 D4:1/4 G3:1/4 A3:1/8 B3:1/16 C4:1/16 B3:1/2^ A3:1/4 E4:1/4 D4:1/8 C#4:1/8 B3:1/4 G4:1/4 C#4:1/8 F#4:1/8 D4:1/2^ D4:1/4 C#4:1/8 B3:1/8 C#4:1/4 F#4:1/4 E4:1/8 D4:1/8 C#4:1/16 D4:1/16 E4:1/8 D#4:1/2^
 B B3:1/8 A3:1/8 G3:1/4@6,4,3 F#3:1/8 E3:1/8 D3:1/8@6 B2:1/8 E3:1/8@6,5 D3:1/8@6 E3:1/8@6,5 F#3:1/8@# B2:1/2^ B2:1/4 B3:1/4@5 A3:1/8 G3:1/8 F#3:1/4@6,3 E3:1/4@6 D3:1/4@8 G3:1/2^ F#3:1/8@6 E3:1/8 D3:1/8@5,2 C#3:1/8 D3:1/4@3,5 G3:1/8@5,3 F#3:1/8 E3:1/4@6,8 F#3:1/4@# B2:1/2^ B3:1/8 A3:1/8 G#3:1/4@#6,4,3 F#3:1/8 E3:1/8 F#3:1/8@6 G#3:1/8@7,5 A#3:1/8@6,5 B3:1/8 F#3:1/4@4 B2:1/2^
-why 2 3/8 UNRESOLVED_NCT With the bass on F♯, the chord here is V⁷ (F♯–A♯–C♯–E), and the tenor's A♯ is its third, a chord tone. The checker still hears the chord before.
 why 2 1/2 PARALLEL_FIFTHS Tenor and bass move from B/E to F♯/B a fifth apart, with the V⁷ chord in between. The cadence passes through V, which breaks them up for Bach; strict exercises still count them.
-why 2 1/2 PROGRESSION The dominant is there, on the last eighth before the fermata (F♯ in the bass, A♯ in the tenor). The cadence is ii⁶₅–V⁷–i, as it should be.
-why 2 1/2 SIMILAR_MOTION A cadence where every resolution falls: soprano C♯–B, the seventh E to D, the tenor's A♯ drops to F♯ and the bass to B.
 why 4 0 SPACING The alto climbs with the soprano a third below it while the tenor stays low near the bass. For a beat the upper pair sings as a duet.
 why 4 1/4 SPACING The same duet; then the alto drops an octave to F♯ and the gap closes.
 why 4 1/2 PARALLEL_OCTAVES Alto and bass move from D to G an octave apart, but the alto first drops an octave to F♯. For Bach this breaks the parallel; strict exercises still count it.
@@ -21,8 +18,4 @@ why 5 3/4 DOUBLING Alto (A♯–B) and tenor (C♯–B) meet on B; the alto's A�
 why 5 3/4 LEAPS The bass steps C♯–D and leaps a fourth to G. The tritone C♯–G spans two chords, so it is not heard as one interval.
 why 6 1/4 LEAPS The tenor leaps up to G and back down to C♯, moving through chord notes, G for ii°⁶ and C♯ for V, instead of stepping.
 why 6 3/8 LEAPS From C♯ the tenor leaps up to F♯ and then falls to D at the fermata. Its leaps outline V before landing inside, on D.
-why 6 1/2 SIMILAR_MOTION A cadence where every resolution falls: soprano C♯–B, the alto's A♯ drops to F♯, tenor F♯–D and the bass to B.
 why 7 3/4 SIMILAR_MOTION Every voice rises as the tune leaps up a fourth to D; the others rise into the D major chord with it.
-why 7 7/8 LEAPS The alto climbs E♯–F♯–G♯–A–B by step. A scale line hides the tritone between its ends.
-why 8 3/8 UNRESOLVED_NCT The tenor's E is the seventh of the dominant (F♯–A♯–C♯–E), reached by passing C♯–D–E, and it falls to D♯ in the last chord, as a seventh should.
-why 8 1/2 SIMILAR_MOTION The piece ends on B major, a Picardy third. Every voice falls into it: the seventh E to D♯, the alto's A♯ to F♯ and the bass to B.

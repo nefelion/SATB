@@ -11,10 +11,5 @@ A G4:1/4 G4:1/8 F#4:1/8 E4:1/4 E4:1/4 E4:1/4 D#4:1/4 B3:1/2^ G4:1/4 G4:1/4 A4:1/
 T E4:1/4 D4:1/4 C4:1/4 B3:1/4 C4:1/4 B3:1/8 A3:1/8 G3:1/2^ E4:1/4 D4:1/4 A3:1/8 B3:1/8 C4:1/4 B3:1/4 C#4:1/4 B3:1/2^ B3:1/4 E4:1/4 E4:1/4 D#4:1/4 B3:1/1^ E4:1/4 B3:1/4 A3:1/4 G3:1/4 E4:1/4 D4:1/4 B3:1/2^ D4:1/4 E4:1/4 A#3:1/4 B3:1/4 A#3:1/4 B3:1/4 B3:1/4 A#3:1/4 F#3:1/2^ G#3:1/4 G#3:1/4 A3:1/8 C4:1/8 B3:1/4 C#4:1/4 B3:1/8 A3:1/8 G#3:1/1^
 B E3:1/8 F#3:1/8 G3:1/4 C3:1/8@6 D3:1/8 E3:1/4 A2:1/4@6,5 B2:1/4@# E3:1/2^ E3:1/8 F#3:1/8 G3:1/4@5,3 F#3:1/8@#5 G3:1/8 A3:1/4@4,2 G#3:1/4@6 A#3:1/4@6,5 B3:1/2^@# G3:1/8@6 F#3:1/8 E3:1/4 B3:1/4@5,4 B2:1/4@# E3:1/1^ E3:1/8 F#3:1/8 G3:1/4@6 C3:1/8@6 D3:1/8 E3:1/4 C#3:1/4@6,5 D3:1/4 G2:1/2^ G3:1/8@6 F#3:1/8 E3:1/4@#6 F#3:1/8@6,# E3:1/8 D3:1/4@6 C#3:1/4@#6,5 D3:1/8@6 E3:1/8 F#3:1/2@5,4 B2:1/2^@# B2:1/8@#6,n C#3:1/8 D3:1/4@6,n C#3:1/8@6 D#3:1/8 E3:1/4 A#2:1/4@6,5 B2:1/4@# E2:1/1^@#
 why 1 1/2 SIMILAR_MOTION All voices step down into iv⁶, the bass by a fifth. The phrase descends toward its cadence.
-why 3 5/8 DOUBLING The bass climbs F♯–G–A while the alto falls A–G–F♯, so they pass through G at the same moment. G is a passing note, not a chordal seventh.
-why 3 5/8 PROGRESSION These chords pass over the bass's climb F♯–G–A toward B; they decorate the approach rather than progress.
-why 3 3/4 SEVENTH The bass's G is a passing note in its climb F♯–G–A, not a seventh, so it rises.
 why 3 3/4 CROSS_RELATION The soprano's C♯, then C♮ in the tenor: the harmony turns from the dominant of the dominant to a diminished chord leading to A minor. The C♮ is a chromatic note in the tenor's line.
-why 11 0 SIMILAR_MOTION A half cadence on B where every voice falls: soprano C♯–B, the seventh E to D♯, the tenor's A♯ to F♯ and the bass to B.
 why 12 1/8 CROSS_RELATION The bass's C♯, then C♮ in the tenor: the music turns from A major color back to E minor. The C♮ belongs to the diminished seventh chord that leads there.
-why 13 0 SIMILAR_MOTION The piece ends on E major, a Picardy third. Every voice falls into it: the alto's D♯ drops to B, the seventh A to G♯ and the bass to a deep E.

@@ -12,10 +12,7 @@ A B3:1/4 E4:1/4 E4:1/8 D#4:1/8 E4:1/4 E4:1/4 B3:1/4 B3:1/8 C#4:1/8 D#4:1/4^ F#4:
 T G#3:1/8 A3:1/8 B3:1/4 A3:1/4 G#3:1/4 G#3:1/4 F#3:1/4 G#3:1/8 A3:1/8 B3:1/4^ D#4:1/4 C#4:1/4 A#3:1/4 B3:1/4 B3:1/4 B3:1/4 A#3:1/4 B3:1/4^ G#3:1/4 C#4:1/4 C#4:1/8 B3:1/8 A3:1/4 A3:1/8 G#3:1/8 A3:1/4 B3:1/8 C#4:1/8 D#4:1/4^ D#4:1/4 C#4:1/4 B3:1/4 C#4:1/8 B3:1/8 A3:1/4 B3:3/8 A3:1/8 G#3:1/4^
 B E2:1/4 E3:1/4 F#3:1/4@7 G#3:1/4@6 C#3:1/4@7 D#3:1/4@6,5 E3:1/4 B2:1/4^ B3:1/4 A#3:1/4@6 G#3:1/8@5,2 F#3:1/8 G#3:1/4@6 F#3:1/8@6,4 E3:1/8@6,5 F#3:1/4@4 F#2:1/4@# B2:1/4^ E3:1/8 D#3:1/8 C#3:1/4 F#3:1/8@6,5 G#3:1/8@3 A3:1/4 D#3:1/8@6,5 E#3:1/8@6,5 F#3:1/4@5 G#3:1/8@6 A#3:1/8 B3:1/4^ G#3:1/4@5 C#3:1/8@6 D#3:1/8 E3:1/4 A2:1/8@6,5 B2:1/8@6 C#3:1/4@6 B2:1/8@6,4 A2:1/8 B2:1/4@5,3 E2:1/4^
 why 8 1/2 LEADING_TONE The alto's leading tone D♯ drops to B, the fifth of the last chord, so that chord has all its notes. The soprano still ends on the tonic.
-why 1 0 SIMILAR_MOTION The upbeat rises into the first downbeat: the tune steps up while the bass leaps an octave within the E chord. The harmony stays the same, so nothing is lost.
 why 2 1/4 DOUBLING Soprano (A–G♯) and tenor (F♯–G♯) meet on G♯ by step. The tenor moves on at once to A and B.
 why 4 0 PARALLEL_FIFTHS Soprano and alto fall D♯–C♯ and G♯–F♯ a fifth apart, but the soprano moves an eighth earlier, so the fifths are staggered. Bach accepts that; in exercises they still count as parallel fifths.
-why 6 1/4 PROGRESSION The bass climbs F♯–G♯–A♯–B to the dominant at the fermata. I⁶ is a passing chord on that climb, not a step backward.
 why 6 1/2 DOUBLING At the fermata alto (E–D♯) and tenor (C♯–D♯) both reach D♯ by step. It is a half cadence, so the leading tone need not resolve here, and the fifth F♯ is in the soprano.
 why 7 0 SIMILAR_MOTION Every voice falls into IV⁶ as the new phrase heads down; the bass's leap G♯–C♯ gives it energy.
-why 8 1/2 SIMILAR_MOTION In the final cadence every voice falls: F♯–E in the soprano, the alto's D♯ to B, the seventh A to G♯ and the bass to E.

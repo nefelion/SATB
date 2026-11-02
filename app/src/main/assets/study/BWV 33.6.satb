@@ -12,20 +12,13 @@ A E4:1/4 E4:1/8 D4:1/8 C4:1/8 D4:1/8 E4:1/8 F4:1/8 G4:1/4 G4:3/8 F#4:1/8 G4:1/4 
 T A3:1/8 B3:1/8 C4:1/8 B3:1/8 A3:1/4 G3:1/4 G3:1/8 A3:1/8 B3:1/8 A3:1/16 B3:1/16 C4:1/8 D4:1/8 E4:1/4 D4:1/4 E4:3/4^ C4:1/4 B3:3/8 A3:1/8 G3:1/8 A3:1/8 B3:1/4 C4:1/4 D4:1/8 E4:1/8 F4:1/8 E4:1/8 E4:1/4 F4:1/8 D4:1/8 B3:1/8 C4:1/16 D4:1/16 C4:1/4^ C4:1/4 C4:1/4 B3:1/8 A3:1/8 B3:1/4 C4:1/8 B3:1/8 A3:1/4 A3:1/4 D4:1/4^ B3:1/4 C4:1/4 D4:1/4 C4:1/4 C4:1/4 C4:1/4 B3:1/4 C4:1/4^ E4:1/4 D4:1/4 E4:1/4 B3:1/4 C#4:1/4 A3:1/4 A3:1/4 A3:1/4^ A3:1/4 B3:1/8 A3:1/8 G3:1/2 G3:1/4 G3:1/4^ E4:1/4 D4:1/4 D4:1/4 E4:1/8 D4:1/8 C4:1/8 B3:1/8 A3:1/8 B3:1/8 C4:1/8 D4:1/16 E4:1/16 F4:1/4 E4:1/8 D4:1/8 C#4:1/4^
 B A3:1/4 E3:1/4@6 F3:1/4@5,3 E3:1/8@6 D3:1/8 C3:1/4@5 G3:1/4 A3:1/4@7 G3:1/4@6,4 G3:1/4@5,3 C3:3/4^ C3:1/4 G3:1/4@8 A3:1/4@9 E3:3/8 D3:1/8 C3:1/8@6,3 C4:1/8@4 B3:1/8@#6 A3:1/8 G#3:1/4@7 A3:1/4 D3:1/4@6,5 E3:1/4@# A2:1/4^ A3:1/4 D3:1/8@7 E3:1/8 F3:1/4@6,4,3 E3:1/4@# A3:1/8 G3:1/8 F3:1/8@6 E3:1/8 D3:1/8@5,4,2 C#3:1/8 D3:1/4^ G#3:1/4@6 A3:1/4@6 B3:1/4@7 C4:1/4 E3:1/4@6 F#3:1/4@6,5 G#3:1/4@6 A3:1/4^ E3:1/8@6 F#3:1/8 G3:1/4@8 C#3:1/8@6 D#3:1/8 E3:1/4 A2:1/4@6,# D3:1/8@5 F3:1/8 E3:1/8 D3:1/8 A3:1/4^@# F3:1/2@n5 E3:1/8@6 D3:1/8 E3:1/8@6 F3:1/8 G3:1/4 C3:1/4^ C4:1/4 C4:1/8@6,4,2 D4:1/8 C4:1/8@7,5,2 B3:1/8 A3:1/8 B3:1/8 A3:1/8 G3:1/8 F3:3/8@6 E3:1/8@6,4 D3:1/4@6,5 E3:1/4@8,# A2:1/4^@#
 why 1 1/4 DOUBLING Soprano (G–A) and tenor (B–A) meet on A by step from opposite sides.
-why 1 5/8 DOUBLING Soprano (C–D–E) and bass (E–D–C) pass each other in contrary motion. D is a passing note in both, not a chordal seventh.
-why 1 3/4 SEVENTH The soprano's D is a passing note in the tune's climb C–D–E, not a seventh, so it rises as the melody goes.
-why 2 1/2 SIX_FOUR This is the cadential ⁶₄ of a cadence in C major, the relative major: the C chord over G moves to G and then to C at the fermata. It just falls on beat 3 instead of a downbeat.
 why 6 0 PARALLEL_FIFTHS The soprano's B is a passing note between two C's, so the fifth B/E lasts only an eighth. Bach treats it as decoration; strict exercises still count it.
 why 6 1/4 LEAPS The tenor falls F–D–B through the notes of a diminished chord into V. Its ends form a tritone, but each step is a third through chord notes.
-why 6 1/2 SIMILAR_MOTION A cadence in A minor where every resolution falls: soprano B–A, the alto's G♯ drops to E, the seventh D to C and the bass to A.
 why 8 1/4 UNRESOLVED_NCT The tenor's A is the root of the dominant of D minor (A–C♯–E–G), with a passing D in the bass under it. Heard so, A is a chord tone.
 why 8 1/2 PARALLEL_FIFTHS Soprano and tenor move from E/A to A/D a fifth apart in contrary motion, the soprano down and the tenor up. Bach accepts contrary fifths at a cadence; strict exercises avoid them.
 why 9 0 SIMILAR_MOTION Every voice rises out of the dominant: the bass's G♯ to A, the tenor's B to C, the alto leaps to A and the tune climbs to F. A deceptive move to VI, each line rising for its own reason.
 why 10 1/2 OVERLAP The tune falls a fifth, E to A, below where the alto was, while the alto falls to E. They move down together, so the order stays clear.
 why 12 0 TENDENCY The tenor's C♯, leading tone of D, drops to A, the fifth of D minor, while the alto supplies D. An accepted move in an inner voice.
-why 12 1/8 LEAPS The alto walks down G–F–E–D–C♯ by step. A scale line hides the tritone between its ends.
 why 12 3/4 DOUBLING The tune leaps up to A while the tenor keeps its A from the fermata chord. The doubled third keeps the held note.
 why 14 1/4 DOUBLING After the fermata the voices regroup an octave higher: the alto keeps E and the tenor leaps up to E too. A fresh start, with the chord placed where the next lines need it.
 why 14 5/8 RANGE The bass, restarted high on C, rises to D and walks back down C–B–A: a short high stretch.
-why 15 1/4 SEVENTH The chord with the alto's A is a passing one over the bass's B; A belongs to the A minor chords on both sides. The alto then leaps to E.
-why 16 1/2 SIMILAR_MOTION The piece ends on A major, a Picardy third. Every voice falls into it: the alto's G♯ to E, the seventh D to C♯ and the bass to A.

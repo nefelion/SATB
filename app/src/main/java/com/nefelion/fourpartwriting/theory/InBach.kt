@@ -38,12 +38,12 @@ val IN_BACH: Map<Rule, List<BachSpot>> = mapOf(
         BachSpot("BWV 40.3", 5, true),
     ),
     Rule.CROSSING to listOf(
-        BachSpot("BWV 102.7", 4, true),
+        BachSpot("BWV 125.6", 8, true),
         BachSpot("BWV 135.6", 2, true),
     ),
     Rule.OVERLAP to listOf(
-        BachSpot("BWV 11.6", 17, true),
-        BachSpot("BWV 244.3", 8, true),
+        BachSpot("BWV 126.6", 22, true),
+        BachSpot("BWV 140.7", 34, true),
     ),
     Rule.MELODIC to listOf(
         BachSpot("BWV 245.26", 1, true),
@@ -66,15 +66,15 @@ val IN_BACH: Map<Rule, List<BachSpot>> = mapOf(
         BachSpot("BWV 245.26", 9, true),
     ),
     Rule.SIMILAR_MOTION to listOf(
-        BachSpot("BWV 113.8", 6, true),
-        BachSpot("BWV 140.7", 8, true),
+        BachSpot("BWV 145.5", 15, true),
+        BachSpot("BWV 117.4", 9, true),
     ),
     Rule.TENDENCY to listOf(
         BachSpot("BWV 245.22", 7, true),
     ),
     Rule.UNRESOLVED_NCT to listOf(
-        BachSpot("BWV 20.7", 5, true),
-        BachSpot("BWV 174.5", 2, true),
+        BachSpot("BWV 20.7", 5, false),
+        BachSpot("BWV 248.46", 11, true),
     ),
     Rule.MISSING_THIRD to listOf(
         BachSpot("BWV 26.6", 10, true),
@@ -82,11 +82,11 @@ val IN_BACH: Map<Rule, List<BachSpot>> = mapOf(
     ),
     Rule.SIX_FOUR to listOf(
         BachSpot("BWV 176.6", 18, false),
-        BachSpot("BWV 244.25", 2, true),
+        BachSpot("BWV 174.5", 5, true),
     ),
     Rule.PROGRESSION to listOf(
-        BachSpot("BWV 139.6", 6, true),
-        BachSpot("BWV 245.28", 5, true),
+        BachSpot("BWV 145.5", 15, true),
+        BachSpot("BWV 113.8", 5, true),
     ),
     Rule.HARMONIC_RHYTHM to listOf(
         BachSpot("BWV 11.6", 6, true),

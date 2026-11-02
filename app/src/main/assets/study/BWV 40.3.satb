@@ -12,7 +12,6 @@ A D4:1/8 F#4:1/8 G4:1/4 F#4:1/4 G4:1/4^ Eb4:1/4 E4:1/4 F#4:1/4 D4:1/4^ D4:1/8 Eb
 T Bb3:1/8 C4:1/8 D4:1/4 D4:1/8 C4:1/8 Bb3:1/4^ C4:1/4 G3:1/4 D4:1/4 Bb3:1/4^ F3:1/8 G3:1/8 A3:1/4 Bb3:1/8 C4:1/8 D4:1/4^ D4:1/4 D4:1/4 Eb4:1/4 Eb4:1/8 D4:1/8 C4:1/4 F4:1/4 G4:1/4 Eb4:1/4 D4:1/4 Eb4:1/4 D4:1/8 C4:1/8 Bb3:1/4^ Bb3:1/4 A3:1/4 G3:1/4 F#3:1/4^ Bb3:1/4 Bb3:1/8 G3:1/8 C4:1/4 C4:1/4^ C#4:1/4 D4:1/8 C4:1/8 Bb3:1/8 A3:1/8 G3:1/8 G4:1/8 F4:1/8 Eb4:1/8 D4:1/4 D4:1/4 G3:1/8 A3:1/8 Bb3:1/8 G3:1/8 E4:1/4 D4:1/8 C4:1/8 B3:1/4^
 B Bb3:1/8@6 A3:1/8@#6 G3:1/4 D3:1/4@8,# Eb3:1/4^ C3:1/4 C#3:1/4@b7,5 D3:1/4@# G2:1/4^ Bb2:1/4 F3:1/4@5 G3:1/4 D3:1/4^@# D3:1/4 G3:1/8 F3:1/8 Eb3:1/8@5 D3:1/8 C3:1/4@5 F3:1/8@5 Eb3:1/8 D3:1/8@6 C3:1/8 Bb2:1/8@6 A2:1/8 G2:1/8@b6,4,2 F#2:1/8@6,5 G2:1/4@5 C3:1/4@6,5 D3:1/4@# G2:1/4^ Bb2:1/4 F3:1/4 G3:1/4 D3:1/4^ Bb3:1/4 E3:1/4@6,5 C3:1/4@7,n F3:1/4^ A3:1/4@# D3:1/4@6,# Eb3:1/4@5 E3:1/4@6,5 F3:1/4@5 F#3:1/4@6,5 G3:1/4 Eb3:1/4@6 D3:1/4@6,4 C#3:1/4@6,5 D3:1/4@5,4 G2:1/4^
 why 2 1/4 TENDENCY The tenor leaps up from G to D, the root of the dominant, instead of falling to F♯. The alto already takes F♯, so the tenor fills in the root.
-why 2 1/2 SIMILAR_MOTION A cadence where every resolution falls: soprano A–G, the alto's F♯ drops to D, tenor D–B♭ and the bass D–G.
 why 2 3/4 DOUBLING The tune leaps up to D for the new phrase while the alto keeps D from the fermata chord. The doubled third keeps the held note.
 why 5 1/4 SPACING The bass walks down a scale, D–C–B♭–A–G–F♯, into its low register while the tenor stays high. The wide gap gives this cadence a deep, full sound.
 why 5 3/8 SPACING The bass continues its descent to A; the tenor holds G above.
@@ -20,10 +19,7 @@ why 5 1/2 SPACING The bass reaches a low G; the tenor drops to E♭, but the gap
 why 5 1/2 SIMILAR_MOTION All voices step down together toward the cadence while the bass continues its descending scale.
 why 5 5/8 SPACING The bass touches F♯, its lowest point, before resolving to G.
 why 5 3/4 PROGRESSION The chord over the bass's F♯ is a diminished seventh, F♯–A–C–E♭, which works as a dominant. So the move to i is a normal resolution.
-why 8 1/4 SEVENTH The seventh B♭ of the C⁷ chord does resolve to A, but in the soprano, which falls B♭–A into the fermata. The tenor outlines G–C instead.
 why 8 1/4 LEAPS After its diminished leap down to E the bass falls further to C and then to F for the cadence. Bach treats E as part of the C⁷ chord, so the bass moves through chord notes rather than turning back.
 why 10 1/2 SIMILAR_MOTION Every voice falls into iv⁶ as the last phrase heads for the cadence; the tenor drops an octave, the others move by step.
-why 10 5/8 LEAPS The alto walks down C–B♭–A–G–F♯ by step. A scale line hides the tritone between its ends.
 why 10 3/4 DOUBLING A passing ⁶₄ over the bass's descent E♭–D–C♯ to the dominant. Its doubled B♭ follows the soprano and tenor lines.
 why 11 0 LEAPS The bass falls G–E♭–D–C♯ toward the dominant. Its ends form a tritone, but it moves mostly by step, and C♯ resolves to D at once.
-why 11 1/2 SIMILAR_MOTION The piece ends on G major, a Picardy third. Every voice falls into it: the seventh C to B, the alto's F♯ to D and the bass to G.

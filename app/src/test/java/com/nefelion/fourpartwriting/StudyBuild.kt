@@ -24,8 +24,9 @@ class StudyBuild {
         assumeTrue(dir != null && dir.isDirectory)
         val titles = readTitles(File(dir, "reference_table.csv"))
         val out = File("src/main/assets/study")
-        // The comments on Bach's rule breaks are written by hand: kept across a rebuild
+        // The comments on Bach's rule breaks, and the keys of chorales and passages that modulate, are set by hand: kept across a rebuild
         val why = out.listFiles().orEmpty().associate { f -> f.name to f.readLines().filter { it.startsWith("why ") } }
+        val keys = out.listFiles().orEmpty().associate { f -> f.name to ScoreCodec.decode(f.readText())?.let { it.key to it.changes } }
         out.deleteRecursively(); out.mkdirs()
         val report = StringBuilder()
         val src = File(dir, "FB_source/musicXML_master").listFiles { f -> f.name.endsWith(".musicxml") }!!.sortedBy { it.name }
@@ -43,14 +44,15 @@ class StudyBuild {
                 .filter { it.fifths in -7..7 }.firstOrNull { it.tonic.semis == bass }
                 ?: if (bass == (Key(sc.key.fifths, Mode.MINOR).tonic.semis + 7) % 12) Key(sc.key.fifths, Mode.MINOR) else continue
             // Bach's figures are for the continuo player, who fills in what the four voices leave out: not checked against them
-            sc = sc.copy(key = key, tempo = Math.round(76 / (sc.time.beatLength.toDouble() * 4)).toInt(), rulesOff = setOf(Rule.FIGURES.name))
+            val hand = keys["BWV ${number(bwv)}.satb"]
+            sc = sc.copy(key = hand?.first ?: key, changes = hand?.second ?: sc.changes, tempo = Math.round(76 / (sc.time.beatLength.toDouble() * 4)).toInt(), rulesOff = setOf(Rule.FIGURES.name))
                 .withArrangement(Arrangement.CLOSED)
             val a = VoiceLeading.check(sc)
             val bars = sc.bars(sc.length).size
             // A lot of crossings, range or missing voices points at an encoding slip, not at Bach
             val odd = a.issues.count { it.rule == Rule.CROSSING || it.rule == Rule.RANGE || it.rule == Rule.MISSING_VOICE }
             if (odd > bars / 2) continue
-            val number = bwv.substringBefore('a').let { n -> n.substringBefore('.') + (n.substringAfter('.', "").trimStart('0').let { if (it.isEmpty()) "" else ".$it" }) }
+            val number = number(bwv)
             val text = titles[bwv.removeSuffix("a")] ?: imp.title
             val title = "${TYPOS[text] ?: text} (BWV $number)"
             out.resolve("BWV $number.satb").writeText(ScoreCodec.encode(sc, title) + why["BWV $number.satb"].orEmpty().joinToString("") { it + "\n" })
@@ -72,6 +74,9 @@ class StudyBuild {
         }
         System.getenv("STUDY_REPORT")?.let { File(it).writeText(report.toString()) }
     }
+
+    /** "BWV_013.06" → "13.6" (as in the study file names). */
+    private fun number(bwv: String) = bwv.substringBefore('a').let { n -> n.substringBefore('.') + (n.substringAfter('.', "").trimStart('0').let { if (it.isEmpty()) "" else ".$it" }) }
 
     /** Slips in the dataset's verse lines. */
     private val TYPOS = mapOf(

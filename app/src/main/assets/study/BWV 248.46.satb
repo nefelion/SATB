@@ -12,12 +12,9 @@ A F#4:1/4 E4:1/8 F#4:1/8 G#4:1/8 A4:1/8 B4:1/4 E4:1/4 D#4:1/4 E4:1/4 D4:1/8 A4:1
 T C#4:1/8 D4:1/8 E4:1/4 D4:1/8 C#4:1/8 B3:1/4 A3:1/4 B3:1/4 A3:1/8 G3:1/8 A3:1/4 E4:1/8 D4:1/8 C#4:1/2^ r:1/4 A3:1/4 A3:1/4 G#3:1/4 B3:1/8 A3:1/8 B3:1/4 B3:1/8 E4:1/4 D#4:1/8 E4:1/4^ E4:1/4 F#4:1/4 F#4:1/4 F#4:1/4 E4:1/4 E4:1/8 D4:1/8 C#4:1/8 D#4:1/8 E4:1/4^ E4:1/4 D4:1/8 C#4:1/8 D4:1/8 E4:1/8 F#4:1/4^ F#4:1/8 E4:1/8 D4:1/4 E4:1/4 A3:1/4^ A3:1/4 B3:1/4 C#4:1/8 D#4:1/8 E4:5/8 C#4:1/8 A3:1/8 C#4:1/8 F#4:1/8 D4:1/8 B3:1/8 E4:1/8 C#4:3/4^
 B F#3:1/4@5 C#4:1/4@6 B3:1/8@6,4,3 A3:1/8 G#3:1/4@6 A3:3/8@4 G3:1/8@6 F#3:1/8@7,5 E3:1/8 F#3:1/8@6 D3:1/8@7,5 E3:1/4 A2:1/2^ r:1/4 D3:1/4 D#3:1/8@6,5 E3:1/4@9,4 E#3:1/4@6,5 F#3:1/8@6 G#3:1/8@6 A3:1/8@4,2 G#3:1/8@6 E3:1/8 B3:1/4@4 E3:1/4^ A3:1/8 G#3:1/8 F#3:1/8 E3:1/8 D3:1/8@7,#5,2 C#3:1/8 B2:1/4@8 E3:1/8@6 D3:1/8@6,4 C#3:1/8@6 B2:1/8@5 A2:1/4 E3:1/4^ A2:1/4 D3:1/8 E3:1/8 D3:1/8@6 C#3:1/8@5 B2:1/4^ F#3:1/4@8,# G3:1/8@5 F#3:1/8 E3:1/4@6,n D3:1/4^ A2:1/4 E3:5/8@5,4 F#3:1/8 G#3:1/8@6 E3:1/8@7 A3:1/8@9 G#3:1/8 F#3:1/8@6 E3:1/8@6,4 D3:1/8@6,5 B2:1/8 E3:1/4 A2:3/4^
 why 1 0 RANGE The bass leaps up to C♯ for I⁶ and steps down C♯–B–A: a brief high point at the start of the phrase.
-why 3 0 SIMILAR_MOTION A cadence where every resolution falls: soprano B–A, the alto's G♯ drops to E, the seventh D to C♯ and the bass to A.
 why 5 0 HARMONIC_RHYTHM The dominant arrives on the last beat and carries into the next bar while the tune leaps up to E. The bass's neighbor note A decorates it; the harmony is simply held.
-why 5 1/4 LEAPS The alto climbs D♯–E–F♯–G♯–A by step. A scale line hides the tritone between its ends.
 why 7 1/4 DOUBLING Soprano (B–C♯) and tenor (D–C♯) meet on C♯ by step from opposite sides.
 why 9 0 DOUBLING Soprano (C♯–B) and alto (A♯–B) meet on B by step; the alto's A♯ is a leading tone and must rise. Bach then surprises with a G major chord under it.
 why 11 0 UNRESOLVED_NCT The alto holds B over the A chord as a suspension and then leaps down to E instead of falling to A. Bach lets it go by a leap in this busy final bar; in exercises, resolve it by step.
 why 11 1/8 DOUBLING The bass walks down A–G♯–F♯–E–D toward the final cadence, and the chord over its G♯ is a passing one. Its doubled C♯ follows the soprano and tenor.
 why 11 3/8 DOUBLING Still the bass's walk down: the A chord over its E is a passing ⁶₄, not the cadence.
-why 12 0 SIMILAR_MOTION The final cadence: every voice falls into the A chord, the bass from E to a low A.

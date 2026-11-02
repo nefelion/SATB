@@ -3,6 +3,8 @@ title Drum so laßt uns immerdar (BWV 115.6)
 key 1 MAJOR
 time 4 4 NUMERIC
 tempo 76
+change 6 key 2 MAJOR
+change 8 key 1 MAJOR
 arr 0 0 1 1
 clefs TREBLE BASS
 off FIGURES
@@ -10,12 +12,8 @@ S B4:1/4 C5:1/4 D5:1/4 D5:1/4 G4:1/4 A4:1/4 B4:1/2^ E5:1/4 F#5:1/4 G5:1/4 B4:1/4
 A G4:1/4 G4:1/4 A4:1/8 G4:1/8 F#4:1/4 G4:1/4 G4:1/8 F#4:1/8 G4:1/2^ G4:1/4 A4:1/4 G4:1/8 F#4:1/8 G4:1/4 G4:1/4 F#4:1/4 D4:1/2^ A4:1/8 G4:1/8 F#4:1/8 A4:1/8 G4:1/2^ E4:1/4 E4:1/4 E4:1/2^ A4:1/4 A4:1/4 A4:1/8 G4:1/8 F#4:1/4 E4:1/4 E4:1/4 F#4:1/2^ A4:1/4 A4:1/4 G4:1/4 G4:1/4 G4:1/4 F#4:1/4 D4:1/2^
 T D4:1/4 E4:1/4 A3:1/4 B3:1/4 B3:1/4 E4:1/8 D4:1/8 D4:1/2^ C4:1/4 C4:1/4 D4:1/4 D4:1/4 E4:1/4 D4:1/8 C4:1/8 B3:1/2^ D4:1/4 D4:1/4 D4:1/2^ B3:1/8 A3:1/8 G#3:1/8 B3:1/8 A3:1/2^ D4:1/8 E4:1/8 F#4:1/4 F#4:1/8 E4:1/8 D4:1/8 C#4:1/8 B3:1/4 A3:1/4 A3:1/2^ C4:1/4 D4:1/4 D4:1/4 D4:1/4 E4:1/8 D4:1/16 C4:1/16 D4:1/8 C4:1/8 B3:1/2^
 B G3:1/8 F#3:1/8 E3:1/8 G3:1/8 F#3:1/8 E3:1/8 D3:1/8 F#3:1/8 E3:1/8 D3:1/8 C3:1/8 D3:1/8 G2:1/2^ C3:1/8 B2:1/8 A2:1/8@6 C3:1/8 B2:1/8@6 A2:1/8 G2:1/8 B2:1/8 C3:1/8@6,5 A2:1/8 D3:1/4 G2:1/2^ F#3:1/8@6 E3:1/8 D3:1/8 F#3:1/8 G3:1/2^ G#3:1/8@6 F#3:1/8 E3:1/8@# G#3:1/8@6,n5 A3:1/2^@# F#3:1/8@6 E3:1/8 D3:1/8 F#3:1/8 G3:1/8@9,7 A3:1/8@7,5 B3:1/8@5 A3:1/8 G3:1/8@6,5 E3:1/8 A3:1/4@# D3:1/2^ A2:1/8@5 B2:1/8 C3:1/8@6,4,2 A2:1/8 B2:1/8@6 C3:1/8 D3:1/8@6,4 B2:1/8 C3:1/8@6,5 A2:1/8 D3:1/4@5,3 G2:1/2^
-why 2 1/4 LEAPS The bass walks down F♯–E–D–C by step and then turns up to D and G for the cadence. A stepwise line hides the tritone between its ends.
 why 3 5/8 SPACING The melody sits on its high G, the peak of the phrase, while the alto passes down G–F♯. The gap lasts one eighth and closes as the soprano falls to B.
 why 4 0 LEAPS The hymn tune itself drops a sixth from its high G and keeps falling A–G to the cadence. Bach harmonizes the melody as it is; he did not write it.
-why 4 1/2 SIMILAR_MOTION A cadence where every resolution goes down: soprano A–G, alto F♯–D, the seventh C–B and the bass D–G. Each note does its own job; they just agree on direction.
 why 5 1/4 DIRECT The tune leaps down D–A while the bass steps down to D. Hidden fifths with a step in the bass are mild, and the leap belongs to the hymn tune.
 why 7 1/4 DIRECT The same figure as in bar 5: D–A in the tune over a bass stepping down to D, harmonized the same way.
-why 7 1/2 LEADING_TONE The music is heading for D, where F♯ is no longer a leading tone but the third of the goal chord. The tenor falls F♯–E–D with that new key in mind.
 why 10 0 LEAPS The same melodic cadence as bar 4: the hymn tune drops from its high G and keeps falling by step.
-why 10 1/2 SIMILAR_MOTION The final cadence repeats bar 4's: every voice resolves downward into the last G chord.

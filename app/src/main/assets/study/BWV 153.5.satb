@@ -12,13 +12,11 @@ A B3:1/4 E4:1/4 E4:1/4 D4:1/4 C#4:1/4 D4:1/2 C#4:1/4^ E4:1/4 D#4:1/4 E4:1/4 F#4:
 T G#3:1/4 A3:1/4 Bb3:1/4 A3:1/4 G3:1/4 A3:1/8 G3:1/16 F3:1/16 G3:1/8 D3:1/8 A3:1/4^ B3:1/4 A3:1/4 A3:1/4 A3:1/4 G#3:1/4 A3:3/4^ A3:1/4 D4:1/4 B3:1/4 C4:1/4 D4:1/4 C4:1/8 Bb3:1/8 A3:1/4 G3:1/4^ C4:1/4 C4:1/4 C#4:1/8 D4:1/8 A3:1/4 A3:1/4 A3:3/4^ A3:1/4 G3:1/8 A3:1/8 B3:1/4 C4:1/4 D4:1/4 E4:1/4 D4:1/4 D4:1/4^ C4:1/8 B3:1/8 A3:1/4 G3:1/4 A3:1/4 G3:1/8 A3:1/8 B3:1/4 A3:1/4 G#3:1/4^
 B D3:1/4@6,4,2 C3:1/4@6 C#3:1/4@b7,5 D3:1/4 E3:1/4@#6 F3:1/4@6 Bb2:1/4@6 A2:1/4^@# G3:1/4@6 F#3:1/4@#6,5 E3:1/4@6,4 D#3:1/4@6,5 E3:1/4 A2:3/4^ A3:1/4@5 G3:1/4 F3:1/4@6,4,2 E3:1/4@6,4 D3:1/4@6 E3:1/4@6 F3:1/4 C3:1/4^ E3:1/4@6 F3:1/4 Bb3:1/4@6,4,2 C#3:1/4@6 D3:1/4 A2:3/4^@# F#3:1/4@6,5 G3:1/4 G2:1/4 A2:1/4@7 B2:1/4 C3:1/4@6,5 D3:1/4@# G2:1/4^ C3:1/4 D3:1/4 E3:1/4@6 F#3:1/4@6,5 G3:1/4 G#3:1/4@6,5 A3:1/4 E3:1/4^
 why 2 1/2 PARALLEL_FIFTHS Soprano and tenor move from D/G to E/A a fifth apart, with the tenor dipping to D in between. Bach treats the tenor's leap as breaking up the fifths; in exercises they still count.
-why 4 0 LEAPS The alto walks down F♯–E–D–C by step to the fermata. A scale line hides the tritone between its ends.
-why 5 1/4 SIMILAR_MOTION Every voice falls through the G chord, the bass stepping to F for its seventh. The phrase moves down within one harmony, so the voices stay distinct.
 why 7 1/4 LEAPS The bass steps E–F and leaps up to B♭. The tritone E–B♭ spans two chords, and the B♭ belongs to a diminished seventh that moves on at once.
-why 7 1/2 SEVENTH The B♭ is resolved, but in another voice: the tenor takes the A right where the bass leaves B♭, while the bass leaps down to C♯.
 why 7 1/2 MELODIC The bass leaps down a diminished seventh, B♭ to C♯, inside one diminished chord. The leap stays within the chord and the bass goes on by step to D, so the line holds together.
 why 7 1/2 OVERLAP The tenor drops to A, below where the bass just was, because it takes over the bass's B♭ and resolves it. The bass has leapt far down, so the lines do not tangle.
 why 10 3/4 CROSSING The tune leaps down from B to E, below the alto's G, at the start of a new phrase. Bach keeps the alto's G rather than moving it under the melody.
 why 10 7/8 CROSSING The same beat: the soprano holds E under the alto's G; the alto falls to D on the next beat.
 why 11 3/4 DIRECT The tune leaps up a fourth to G while the bass steps up to G: hidden octaves, softened by the step in the bass. The leap belongs to the hymn tune.
 why 12 1/2 CADENCE The melody ends on E, so Bach closes on the E major chord, which in A minor is V: a Phrygian ending, common in chorales.
+why 7 1/2 SEVENTH The B♭ is resolved, but in another voice: the tenor takes the A right where the bass leaves B♭, while the bass leaps down to C♯.

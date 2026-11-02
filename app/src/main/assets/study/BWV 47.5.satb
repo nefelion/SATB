@@ -18,8 +18,5 @@ why 4 0 CROSSING The tune drops to G and climbs back G–A–B–C while the alt
 why 4 1/8 CROSSING The tune climbs to A, still under the alto's C; by the fermata it is on top again.
 why 5 1/2 SPACING The tenor drops to F♯, the leading tone, while the alto stays high on A. It resolves to G on the next beat and the gap closes.
 why 7 0 HARMONIC_RHYTHM The new phrase starts on the tonic just before the bar line and keeps it into the downbeat, with the voices moving to a higher position. The upbeat chord is simply held.
-why 7 0 SIMILAR_MOTION All voices rise within the same G minor chord, the bass by an octave. Only the spacing changes, not the harmony.
 why 8 0 SPACING The tenor's dip to F leaves a wide gap under the alto's A♭ for one beat; it leaps up an octave right after.
 why 8 0 CROSSING The bass leaps up to B♭ while the tenor slips down to F below it, so they cross for a beat. Then the tenor leaps up an octave to F.
-why 9 3/4 PROGRESSION The bass moves D–E♭–D as a neighbor around the dominant; iv⁶ over E♭ is a passing chord within the cadence, not a step backward.
-why 10 1/2 SIMILAR_MOTION The piece ends on G major, a Picardy third. Every voice falls into it: the seventh C to B, the alto's F♯ to D and the bass to G.

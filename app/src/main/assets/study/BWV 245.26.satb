@@ -12,15 +12,10 @@ A Bb3:1/4 Eb4:1/4 G4:1/4 Ab4:1/4 G4:1/4 G4:1/2 G4:1/4^ C5:1/4 C5:1/4 Ab4:1/4 G4:
 T G3:1/4 Bb3:1/4 Eb4:1/4 Eb4:1/4 D4:1/4 C4:1/2 C4:1/4^ Eb4:1/4 C4:1/4 C4:1/4 Bb3:1/4 Bb3:1/4 Bb3:3/4^ Bb3:1/4 Eb4:1/4 Eb4:1/4 F4:1/4 F4:1/4 F4:1/8 Eb4:1/8 F4:1/4 D4:1/4^ F4:1/4 Eb4:1/4 F4:1/4 G4:1/4 F4:1/8 Eb4:1/8 D4:3/4^ Bb3:1/4 Bb3:1/4 Eb4:1/4 Eb4:1/4 Db4:1/4 C4:1/2 C4:1/4^ G3:1/4 Ab3:1/4 Bb3:1/4 C4:1/4 Bb3:1/8 Ab3:1/8 G3:3/4^
 B Eb3:1/4 G3:1/4@6 Eb3:1/4 Ab3:1/4 B2:1/4@6 C3:1/2 C3:1/4^ C4:1/4 Ab3:1/4@6 F3:1/4@7,5 Bb3:1/4@6,4 Bb2:1/4@5,3 Eb3:3/4^ Eb3:1/4 Eb4:1/8 D4:1/8 C4:1/8 Bb3:1/8 A3:1/4@6 F3:1/4@7,n Bb3:1/2 Bb2:1/4^ Ab3:1/4@6,4,2 G3:1/4@6 F3:1/4@6,4 Eb3:1/4@6,5 F3:1/4@n Bb2:3/4^ D3:1/4@6 Eb3:1/4 Db3:1/4@6,4,2 C3:1/8@6 D3:1/8 E3:1/4@b7,5 F3:1/2@9,4 C3:1/4^ Db3:1/4@6,4,2 C3:1/4@6 Bb2:1/4@6,4 Ab2:1/4@6,5 Bb2:1/4@8 Eb3:3/4^
 why 1 3/4 MELODIC The bass leaps down a diminished seventh, A♭ to B, then steps up to C. An expressive leap in the St John Passion, settled by the step after it.
-why 1 0 SIMILAR_MOTION The tune opens with a leap up a fifth, E♭–B♭, and the lower voices rise with it within the same E♭ chord. The harmony does not change, so the voices keep their independence.
-why 5 0 OVERLAP The bass leaps up an octave on the same E♭ chord and meets the tenor in unison, as the whole texture climbs with the tune to its high G.
 why 5 0 RANGE The octave leap lifts the bass to a high E♭ to keep the chord close under the climbing tune; it walks back down D–C–B♭–A at once.
-why 5 0 SIMILAR_MOTION All voices rise with the tune's climb E♭–F–G; the bass only changes octave within the same chord.
 why 5 1/8 RANGE Still high: the bass is stepping down from E♭ and is back in its usual range two beats later.
 why 6 1/8 DOUBLING Over the bass's held B♭ the upper voices make a neighbor figure, D–C–D, B♭–A–B♭ and F–E♭–F. A passing sound over a held bass, so the ⁶₄ doubling rule does not apply.
-why 6 1/2 SIMILAR_MOTION At the fermata every voice drops within the same B♭ chord, the bass by an octave. Only the spacing changes, not the harmony.
 why 6 1/2 DIRECT The tune leaps D–B♭ as the bass drops an octave, both within one B♭ chord. Nothing new is hidden, since the chord stays the same.
 why 7 1/2 LEADING_TONE The tune falls D–C–B♭ to the half cadence, and Bach keeps the hymn melody. The music is heading for B♭ (V), where D is not a leading tone.
-why 8 0 SIMILAR_MOTION A half cadence on B♭: soprano C–B♭, the alto's leading tone A drops to F, the seventh E♭ to D and the bass to B♭. All the resolutions point down.
 why 9 3/4 CROSS_RELATION Tenor and bass move chromatically in opposite directions, E♭–D♭ and D–E, into a diminished seventh chord that leads to F minor. Two chromatic lines crossing like this give the passage its sharp pain.
 why 10 0 TENDENCY The tune holds B♭ into the F minor chord and then falls by step, A♭–G, to the fermata. It does fall, a beat later, as the melody wants.

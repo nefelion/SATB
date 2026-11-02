@@ -11,19 +11,14 @@ S G4:1/4 C5:1/4 D5:1/4 Eb5:1/4 D5:1/4 C5:1/4 D5:1/4 B4:1/4 G4:1/4^ r:1/4 Bb4:1/4
 A Eb4:1/4 G4:1/4 G4:1/4 G4:1/4 G4:1/8 F4:1/8 Eb4:1/4 Ab4:1/4 G4:1/4 D4:1/4^ r:1/4 G4:1/4 G4:1/4 F4:1/4 Eb4:1/4 G4:1/4 G4:1/4 G4:1/4 G4:3/4^ G4:1/4 G4:1/4 Bb4:1/4 Bb4:1/4 Bb4:1/4 C5:1/4 Bb4:1/8 Ab4:1/8 G4:1/2^ r:1/4 Bb4:1/4 Ab4:1/4 A4:1/4 B4:1/4 C5:1/4 C5:1/4 G4:1/8 F4:1/8 E4:3/4^
 T C4:1/4 Eb4:1/4 D4:1/4 C4:1/4 B3:1/4 C4:1/4 F4:1/4 D4:1/4 B3:1/4^ r:1/4 D4:1/4 Eb4:1/4 F4:1/8 Bb3:1/8 Bb3:1/4 C4:1/8 D4:1/8 Eb4:1/4 D4:1/4 Eb4:3/4^ B3:1/4 C4:1/4 D4:1/4 Eb4:1/4 Eb4:1/4 Eb4:1/4 D4:1/4 Bb3:1/2^ r:1/4 Eb4:1/4 Eb4:1/8 D4:1/8 C4:1/8 A3:1/8 D4:1/8 Eb4:1/16 F4:1/16 Eb4:1/4 A3:1/8 B3:1/16 C4:1/16 B3:1/4 G3:3/4^
 B C3:1/4 C4:1/4 B3:1/4@6 C4:1/4 G3:1/4@n Ab3:1/4@5 F3:1/4@6 G3:1/4@n G2:1/4^ r:1/4 G3:1/4 C3:1/4@7 D3:1/4@6,b5 Eb3:3/8@5 F3:1/8@6,5 G3:1/4@6,4 G2:1/4@5,n C3:3/4^ G3:1/4@n C4:1/4 Bb3:1/8 Ab3:1/8 G3:1/4@6 F3:1/8@7,5 Eb3:1/8 Ab3:1/4@6,5 Bb3:1/4 Eb3:1/2^ r:1/4 Eb3:1/4 F3:1/4@7,b F#3:1/4@7,5 G3:1/4@8,n Ab3:1/8@5 G3:1/8 F#3:1/4@7,5 G3:1/4@n C3:3/4^
-why 1 0 SIMILAR_MOTION The tune leaps up a fourth to C and all voices rise into the same C minor chord, the bass by an octave. Only the spacing changes, not the harmony.
 why 1 0 DIRECT The tune leaps G–C while the bass leaps an octave on C, both within one chord. Nothing new is hidden, since the harmony stays the same.
 why 2 1/4 OVERLAP The tenor leaps up to F, above where the alto was, while the alto leaps up to A♭. They move up together.
 why 2 1/4 LEAPS The tenor rises B–C and leaps to F. The tritone B–F spans two chords, so it is not heard as one interval.
-why 2 3/4 SIMILAR_MOTION At the fermata every voice drops within the same G major chord, the bass by an octave. Only the spacing changes, not the harmony.
 why 2 3/4 DIRECT The tune falls B–G while the bass drops an octave on G, within one chord. Nothing new is hidden.
 why 2 3/4 LEAPS Alto (A♭–G–D) and tenor (F–D–B) fall through the dominant chord's notes into the fermata. Their tritones span several notes and two chords.
-why 6 0 OVERLAP The bass leaps up a fourth to C while the tenor steps B–C, meeting in unison.
-why 7 1/2 SIMILAR_MOTION A cadence on E♭ (III): soprano F–E♭, alto A♭–G, tenor D–B♭ and the bass B♭–E♭. All the resolutions point down.
 why 8 7/8 LEAPS The tenor falls E♭–D–C and skips to A within the diminished chord. Its ends form a tritone, spread over a line.
 why 9 0 TENDENCY The tenor leaves C by a skip down to A and then rises to D, the fifth of V, moving through the diminished chord's notes instead of falling by step.
 why 9 1/4 PARALLEL_FIFTHS Tenor and bass move from D/G to E♭/A♭ a fifth apart, with the tenor's run E♭–F in between. Bach treats the run as separating them; strict exercises still count them.
 why 9 1/2 SPACING The alto holds a high C while the tenor drops to A and climbs back B–C. The gap lasts two sixteenths.
 why 9 5/8 SPACING The tenor is climbing back toward the alto; the gap closes on the next note.
 why 9 3/4 TENDENCY The alto's C leaps down to G, the root of V, instead of stepping to B. The tenor already has B, so the alto doubles the root.
-why 10 0 SIMILAR_MOTION The piece ends on C major, a Picardy third. Every voice falls into it: the alto's F to E, the tenor's B to G and the bass to C.

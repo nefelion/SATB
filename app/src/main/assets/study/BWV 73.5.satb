@@ -11,28 +11,20 @@ S G4:1/4 C5:1/4 D5:1/4 Eb5:1/4 F5:1/4 D5:1/2 Bb4:1/4^ Bb4:1/4 C5:1/4 C5:1/4 D5:1
 A Eb4:1/4 G4:1/4 G4:1/4 G4:1/4 F4:1/4 F4:1/8 G4:1/8 A4:1/4 G4:1/4^ G4:1/4 Eb4:1/4 F4:1/4 F4:1/8 Ab4:1/8 G4:1/8 F4:1/8 Eb4:3/4 Eb4:1/4 G4:1/4 G4:1/4 G4:1/4 F4:1/4 F4:1/8 G4:1/8 A4:1/4 G4:1/4^ G4:1/4 Eb4:1/4 F4:1/4 F4:1/8 Ab4:1/8 G4:1/8 F4:1/8 Eb4:3/4 C5:1/4 C5:1/4 C5:1/4 Bb4:1/4 Bb4:1/4 Bb4:3/4^ Bb4:1/4 Bb4:1/4 Ab4:1/4 Bb4:1/4 C5:1/8 Bb4:1/8 A4:1/8 G4:1/8 A4:1/4 F4:1/4^ Bb4:1/4 Bb4:1/4 G4:1/4 Eb4:1/4 Ab4:3/8 G4:1/8 A4:1/4 G4:1/4^ F4:1/4 Eb4:1/4 F4:1/4 G4:1/4 G4:1/4 G4:3/4^
 T C4:1/4 Eb4:1/4 D4:1/4 C4:1/4 C4:1/4 Bb3:1/4 A3:1/4 D4:1/4^ Eb4:1/4 C4:1/4 Ab3:1/4 G3:1/4 G3:1/4 C4:3/4 C4:1/4 Eb4:1/4 D4:1/4 C4:1/4 C4:1/4 Bb3:1/4 A3:1/4 D4:1/4^ Eb4:1/4 C4:1/4 Ab3:1/4 G3:1/4 G3:1/4 C4:3/4 Eb4:1/4 F4:1/4 Ab4:1/4 G4:1/4 F4:1/4 G4:3/4^ F4:1/4 Eb4:3/8 D4:1/4 Bb3:1/8 Eb4:1/8 D4:1/8 C4:1/8 Eb4:1/8 D4:1/8 C4:1/8 Bb3:1/4^ F4:1/4 Eb4:1/4 Bb3:1/4 C4:1/8 D4:1/8 Eb4:1/4 F4:1/4 Eb4:1/4 D4:1/4^ Bb3:1/4 Bb3:1/4 C4:1/8 D4:1/8 Eb4:1/8 D4:1/16 C4:1/16 D4:1/8 F4:1/8 E4:3/4^
 B C3:1/4 C4:1/4 B3:1/4@6 C4:1/4 A3:1/4@6 Bb3:1/4 F#3:1/4@6,5 G3:1/4^ Eb3:1/4 Ab3:1/4 F3:1/4 B2:1/4@6,5 B2:1/4 C3:3/4 C3:1/4 C4:1/4 B3:1/4@6 C4:1/4 A3:1/4@6 Bb3:1/4 F#3:1/4@6,5 G3:1/4^ Eb3:1/4 Ab3:1/4 F3:1/4 B2:1/4@6,5 B2:1/4 C3:3/4 C4:1/4 Ab3:1/4@6 F3:1/4@7,5 Bb3:1/4@6,4 Bb2:1/4@5,3 Eb3:3/4^ Bb3:1/4 G3:1/4@6 F3:1/4@6 Eb3:1/4 C3:1/4 F3:1/2@7 Bb2:1/4^ Bb3:1/4 G3:1/4@6 Eb3:1/4@7,5 Ab3:1/4 G3:1/4@5,4,b2 F3:1/4@6 F#3:1/4@b7,5 G3:1/4^ D3:1/4@6,5 Eb3:1/4 Ab3:1/4@6 G3:1/4@6,4 G2:1/4@5,n C3:3/4^@n
-why 1 0 SIMILAR_MOTION The tune leaps up a fourth to C and all voices rise into the same C minor chord, the bass by an octave. Only the spacing changes, not the harmony.
 why 1 0 DIRECT The tune leaps G–C while the bass leaps an octave on C, both within one chord. Nothing new is hidden, since the harmony stays the same.
-why 2 1/4 LEAPS The tenor walks down E♭–D–C–B♭–A by step. A scale line hides the tritone between its ends.
 why 3 0 DOUBLING The tune steps up B♭–C while the tenor drops to C; both land on the third of the A♭ chord. The tenor's leap keeps it clear of the alto.
 why 3 1/2 LEAPS The bass falls A♭–F–B, outlining a diminished chord before resolving to C. Its leaps follow the chord notes into the cadence.
 why 3 5/8 SPACING The alto steps up to A♭ while the tenor holds G low; the gap lasts one eighth.
 why 4 0 PARALLEL_FIFTHS Soprano and tenor move from D/G to G/C a fifth apart in contrary motion at the cadence. Bach accepts contrary fifths here; strict exercises avoid them.
-why 5 0 SIMILAR_MOTION A repeat of bar 1: all voices rise into the same C minor chord, the bass by an octave.
 why 5 0 DIRECT A repeat of bar 1: the tune's leap G–C and the bass's octave stay within one chord.
-why 6 1/4 LEAPS A repeat of bar 2: the tenor walks down E♭–D–C–B♭–A by step.
 why 7 0 DOUBLING A repeat of bar 3: the tune steps B♭–C while the tenor drops to C, both landing on the third of the A♭ chord.
 why 7 1/2 LEAPS A repeat of bar 3: the bass falls A♭–F–B through a diminished chord into the cadence.
 why 7 5/8 SPACING A repeat of bar 3: the alto steps up to A♭ over the tenor's low G for one eighth.
 why 8 0 PARALLEL_FIFTHS A repeat of bar 4: contrary fifths between soprano and tenor at the cadence, which Bach accepts.
 why 8 3/4 OVERLAP After the fermata all voices jump up for the new phrase, the alto to C above the soprano's old G. The soprano leaps an octave at the same moment, so the order stays clear.
 why 8 3/4 PARALLEL_FIFTHS Soprano and bass both leap up an octave, G and C, on the same chord. It is the same fifth, just higher; no new fifth appears.
-why 8 3/4 SIMILAR_MOTION The new phrase starts an octave higher in every voice, on the same C minor chord.
 why 9 1/4 RANGE The tenor climbs to A♭ to stay close under the high alto and soprano in this upper-register phrase. Bach's tenors sang up to A.
-why 9 1/2 SIX_FOUR This is a cadential ⁶₄ in E♭ major, the relative major: the E♭ chord over B♭ moves to B♭ and then to E♭ at the fermata.
 why 11 3/4 SEVENTH The tenor's D, the seventh of the E♭ chord, skips down to B♭ and then leaps up to E♭. The C it would fall to sounds in the alto at the same moment.
-why 12 1/2 SIMILAR_MOTION A cadence on B♭: every voice falls into the B♭ chord at the fermata, the bass a fifth to B♭.
-why 13 1/4 SIMILAR_MOTION All voices step or skip down together as the new phrase descends toward A♭ (VI).
 why 13 1/2 DOUBLING Soprano (D–C) and tenor (B♭–C) meet on C by step from opposite sides.
 why 14 1/8 UNRESOLVED_NCT The alto moves A♭–G–A♮: G is a passing note, and the line turns up chromatically to A♮ for the diminished chord that follows.
 why 15 1/4 SIMILAR_MOTION All voices rise into iv⁶ as the last phrase climbs toward the cadence.

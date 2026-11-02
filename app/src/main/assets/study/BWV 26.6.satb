@@ -3,6 +3,8 @@ title Ach wie flüchtig, ach wie nichtig (BWV 26.6)
 key 0 MINOR
 time 4 4 NUMERIC
 tempo 76
+change 4 key -1 MINOR
+change 6 key 0 MINOR
 arr 0 0 1 1
 clefs TREBLE BASS
 off FIGURES
@@ -11,23 +13,17 @@ A E4:1/4 E4:1/4 E4:1/4 E4:1/4^ E4:1/4 G4:1/4 G4:1/4 G4:1/4^ G4:1/4 C5:3/8 B4:1/4
 T C4:1/4 B3:1/4 A3:1/4 A3:1/4^ A3:1/4 B3:1/4 C4:1/4 C4:1/4^ C4:1/8 D4:1/8 C4:1/8 B3:1/8 A3:1/8 B3:1/8 C4:1/8 E4:1/8 F4:1/4 E4:1/8 D4:1/8 C#4:1/2^ C#4:1/8 D4:1/8 E4:1/8 C#4:1/8 D4:1/4 D4:1/4 D4:1/4 C#4:1/4 D4:1/4 A3:1/4^ B3:1/8 C4:1/8 D4:1/8 B3:1/8 C4:1/4 C4:1/4 C4:1/4 B3:1/4 C4:1/4 G3:1/4^ A3:1/4 A3:1/4 B3:1/4 A3:1/4 A3:1/4 G#3:1/4 A3:1/4 E3:1/4^
 B A3:1/4 G#3:1/4@6 A3:1/4 A2:1/4^ A3:1/4 G3:1/4 C4:1/4 C3:1/4^ C4:1/8 B3:1/8 A3:1/8 G3:1/8 F#3:1/8@6,5 G#3:1/8@6,5 A3:1/4@9 D3:1/4@6,5 E3:1/4@# A2:1/2^@# A3:1/8@# B3:1/8 C#4:1/8@6 A3:1/8 D4:1/8 C4:1/8 Bb3:1/8@5 A3:1/8 G3:1/8@6,5,b E3:1/8 A3:1/4@# D3:1/4@4 D3:1/4^@# G3:1/8 A3:1/8 B3:1/8@6 G3:1/8 C4:1/8 B3:1/8 A3:1/8 G3:1/8 F3:1/8@6,5 D3:1/8 G3:1/4 C3:1/4@4 C3:1/4^@3 F3:1/4 E3:1/8@7,4,2 D3:1/8 G#3:1/8@6 E3:1/8 A3:1/4@4 D#3:1/4@6,5 E3:1/4@# A3:1/4@4 A2:1/4^@#
 why 4 3/8 PARALLEL_FIFTHS Soprano and tenor fall by step together on a weak eighth note. The fifths pass between the beats, so they are hardly heard.
-why 2 1/2 OVERLAP The bass leaps up a fourth to C while the tenor steps B–C, so they meet in unison on the fermata chord.
 why 3 3/8 SPACING The alto holds a high C while the tenor walks down D–C–B–A. The gap lasts two eighths and closes as the tenor turns back up.
 why 3 1/2 SPACING The widest point of that gap; the tenor climbs B–C–E right after.
-why 3 1/2 LEAPS The bass walks down C–B–A–G–F♯ by step and turns up to G♯ and A. A scale line hides the tritone between its ends.
 why 5 1/4 RANGE The bass climbs A–B–C♯–D in a scale toward D minor, rising into the tenor's range for a beat.
 why 5 1/2 RANGE The top of the climb, D; the bass walks back down C–B♭–A at once.
-why 5 1/2 OVERLAP The bass steps up to D, above where the tenor just was, while the tenor rises to D too. They meet in unison at the top of the bass's climb.
-why 5 3/4 DOUBLING The B♭ chord here is VI of D minor, where the music has gone; B♭ is its root and fine to double. The checker reads it as a Neapolitan in A minor.
 why 6 1/2 DOUBLING Over the bass's D the upper voices pass through G on the way to the D major chord at the fermata. D is the root of that goal chord, so doubling it is natural.
 why 6 1/2 PARALLEL_FIFTHS Soprano and alto fall E–D and A–G a fifth apart, the alto an eighth earlier. Staggered like this Bach accepts them; strict exercises still count them.
 why 6 5/8 LEAPS The alto walks down B♭–A–G and skips to E, then rises to F♯ for the fermata. The tritone B♭–E is spread over a line of several notes.
 why 6 3/4 SEVENTH At the fermata the tenor's D, the root of the D chord, drops to A, its fifth. The D was never a seventh: the chord over the bass's D is D major in the making.
-why 7 1/2 OVERLAP The bass leaps up a fourth to C while the tenor steps B–C, meeting in unison.
 why 8 1/2 DOUBLING The same pattern as bar 6, a step lower: over the bass's C the upper voices pass through F toward the C major chord at the fermata. C is the goal chord's root, natural to double.
 why 8 1/2 PARALLEL_FIFTHS As in bar 6, soprano and alto fall a fifth apart with the alto an eighth early. Bach repeats the pattern in sequence.
 why 8 3/4 SEVENTH As in bar 6, the tenor's C is the root of the coming C chord, not a seventh; at the fermata it drops to G, the fifth.
 why 9 1/2 MELODIC The bass leaps up an augmented fourth, D–G♯, to put the dominant in first inversion with the leading tone in the bass. A sharp, expressive leap; G♯ reaches A two eighths later.
 why 10 1/2 MISSING_THIRD The alto holds D over the A chord, a suspension that resolves by way of B to C♯ at the fermata. The third is only delayed, not missing.
-why 10 1/2 OVERLAP The bass leaps up a fourth to A while the tenor resolves G♯–A, so they meet in unison.
 why 10 1/2 LEAPS The bass resolves D♯ up to E and then leaps a fourth to A. The tritone D♯–A spans two chords.

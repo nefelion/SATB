@@ -14,7 +14,6 @@ why 2 0 CROSSING The bass holds B over the bar line while the tenor drops to G�
 why 3 1/4 SPACING The alto climbs with the soprano to B while the tenor drops to G♯ for the seventh chord. The gap lasts a beat and closes as the tenor rises to C♯.
 why 6 1/8 LEAPS The bass falls B–G♯–F♯ and dips to E♯, the leading tone of F♯, and back. The tritone B–E♯ spans several notes, and E♯ resolves at once.
 why 8 0 TENDENCY The soprano's D♯ is the fifth of the G♯ chord, so the tune's fall to C♯ is natural. The tenor's B♯, leading tone of C♯, drops to G♯ to give the fermata chord its fifth, accepted in an inner voice.
-why 8 0 SIMILAR_MOTION Every voice falls into the C♯ major chord at the fermata, a half cadence; each takes its nearest good note.
 why 13 1/4 OVERLAP Alto and tenor both leap up, C♯–F♯ and A–D, to place the chord higher. They move together, so the voices stay in order.
 why 13 1/4 LEAPS The tenor steps G♯–A and then leaps to D. The tritone G♯–D spans two chords, so it is not heard as one interval.
 why 14 0 DOUBLING Soprano (B–C♯) and tenor (D–C♯) meet on C♯ by step from opposite sides.
@@ -22,5 +21,4 @@ why 15 1/4 RANGE The bass leaps up to C♯ for the ii chord in root position, th
 why 15 1/4 SIMILAR_MOTION Every voice rises as the tune leaps up a fifth, A–E. Bass and tenor leap with it to move the whole chord higher.
 why 15 1/2 PROGRESSION Over the soprano's held E the chord only changes color, ii to IV⁶, before the cadence on A. It is one harmony area, not a step backward.
 why 17 0 RANGE The bass rises B–C♯ and then drops an octave to C♯ for the cadence. It stays high for one beat.
-why 17 1/4 DOUBLING This is the cadential ⁶₄ of the final cadence, already decorated: the soprano passes A–G♯ and the tenor C♯–B. Passing notes, not a doubling, fill the beat.
 why 18 0 CADENCE The melody ends on F♯, so Bach ends on the F♯ major chord, which in B minor is V. Chorale tunes from the old modes often end like this.

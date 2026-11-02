@@ -16,11 +16,6 @@ why 5 0 OVERLAP The alto drops a fifth to D, below where the tenor was, while th
 why 5 0 SIMILAR_MOTION All voices fall into the D major chord (IV⁶) as the new phrase starts, each by its own interval.
 why 6 0 PARALLEL_FIFTHS Soprano, tenor and bass all move from E–B to D–A, with passing C's in soprano and bass in between. Bach hears the passing notes as separating the chords; strict exercises still count these fifths.
 why 6 0 PARALLEL_OCTAVES Tenor and bass go from E to D in octaves, with the bass's passing C in between. For Bach the passing note breaks them up; strict exercises still count them.
-why 6 1/2 SIMILAR_MOTION A cadence on G: soprano A–G, the alto's F♯ drops to D, the seventh C to B and the bass to G. All the resolutions point down.
 why 7 1/4 DOUBLING Soprano (C–B) and tenor (A–B) meet on B by step from opposite sides.
 why 9 1/4 DOUBLING As in bar 7, soprano (C–B) and tenor (A–B) meet on B by step.
-why 9 5/8 DOUBLING Soprano (C–D–E) and bass (E–D–C) pass each other in contrary motion. D is a passing note in both, not a chordal seventh.
-why 9 3/4 SEVENTH The soprano's D is a passing note in the tune's climb C–D–E, not a seventh, so it rises.
-why 11 7/8 DOUBLING Alto (F–E) and tenor (D–E) meet on E by step from opposite sides.
 why 12 1/4 PARALLEL_OCTAVES Tenor and bass move D to C in octaves, with the bass's B in between. For Bach the bass's dip separates them; strict exercises still count it.
-why 13 0 SIMILAR_MOTION The piece ends on A major, a Picardy third. Every voice falls into it, and the tenor's G♯ drops to E so the last chord has its fifth.

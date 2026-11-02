@@ -15,11 +15,9 @@ why 2 7/16 SPACING The tenor runs down C–B♭–A–G in sixteenths while the 
 why 3 3/8 CROSSING The tenor passes down B♭–A♭–G under the bass's held B♭ for one eighth. On the next beat the bass drops to E♭ and the order is back.
 why 3 1/2 DOUBLING Alto (F–G) and tenor (A♭–G) meet on G by step; the tenor's A♭ was a passing note that has to fall.
 why 5 0 PARALLEL_OCTAVES Soprano and alto go from F to G an octave apart, but the alto fills the beat with a figure, F–B♭–A♭–G. Bach treats the decoration as enough to separate the lines; strict exercises still count it.
-why 6 1/2 SIMILAR_MOTION A cadence on B♭ (III): soprano C–B♭, the alto's leading tone A drops to F, the seventh E♭ falls to D and the bass to B♭. Every resolution points down.
 why 7 1/8 SPACING The alto climbs to C as a neighbor note while the tenor sits low on A and G. The gap lasts a beat; then the tenor climbs C–D.
 why 7 1/4 SPACING Still the alto high on B♭ over the low tenor G, in a bright i chord.
 why 7 3/8 SPACING The alto steps down to A and the tenor rises to C on the next beat, closing the gap.
-why 7 5/8 LEAPS The alto walks down C–B♭–A–G–F♯ by step to the leading tone. A scale line hides the tritone between its ends.
 why 8 0 PARALLEL_FIFTHS Soprano and tenor fall B♭–A and E♭–D a fifth apart, the soprano an eighth earlier. Staggered like this Bach accepts them; strict exercises still count them.
 why 11 1/8 CROSSING Alto and tenor trade places: the tenor leaps up to G as the alto falls G–E♭–C. Each line keeps its own shape over the bass's descent.
 why 11 1/8 SPACING The bass walks down C–B♭–A♭–G toward the fermata while the tenor has leapt up high, so the gap between them is wide for a beat.

@@ -13,7 +13,6 @@ T D4:1/4 C#4:1/8 B3:1/8 C#4:1/4 D4:1/4 E4:1/4 F#4:3/8 E4:1/8 D4:1/4^ D4:1/4 E4:1
 B B3:1/8 A3:1/8 G3:1/4@6 F#3:1/8@# E3:1/8 D3:1/4@6 C#3:1/4@#5 B2:1/4 F#2:1/4@# B2:1/4^ B3:1/4@5 A3:1/8 G3:1/8 F#3:1/8@5 E3:1/8 D3:3/8@5,3 C#3:1/8@#6 B2:1/8 C#3:1/8 D3:1/8 E3:1/8 F#3:1/4^@# D3:1/4 A3:1/4@5 B3:1/4@5 F#3:1/4@5,# E3:1/8 F#3:1/8 G3:1/8 E3:1/8@7,5 F#3:1/4@# B2:1/4^ B3:1/4@5 A3:1/4 D#3:1/8@6,5 E#3:1/8@6,5 F#3:1/4 F#2:1/4 F#3:1/8@5 E3:1/8 D3:1/8@6,5 E3:1/8@# A2:1/4^ A#2:1/4@6 B2:1/4@5 C#3:1/4@6 D3:1/4 E3:1/8@9,# F#3:1/8@7,# G3:1/8@5 F#3:1/8 E3:1/4@6 F#3:1/4@# F#2:1/4 B2:3/4^
 why 3 1/2 DOUBLING In the D major chord (III in B minor) Bach doubles the third, F♯. F♯ is the dominant of the home key, a strong note to double.
 why 2 1/4 SPACING The bass falls to a low F♯ for the dominant, two octaves under the tenor's F♯, which gives the chord a deep, full sound.
-why 6 1/2 SIMILAR_MOTION All four voices fall into the B minor chord: the seventh E falls to D and the bass to the tonic, so every pull points down.
 why 2 3/8 SPACING The bass keeps its low F♯ while the tenor passes down to E. The wide gap lasts only for this dominant.
 why 5 3/4 PROGRESSION The soprano climbs C♯–D–E and falls back, and the chords under it decorate one long approach to the cadence. The V here is passing; the cadential V comes in bar 6.
 why 6 1/4 SEVENTH The tenor's F♯ over the G chord is the root of the coming dominant, sounding early. It leaps to C♯, the fifth of V, instead of falling.
@@ -23,7 +22,6 @@ why 7 1/8 SPACING The tenor drops an octave to a low E and then climbs F♯–G�
 why 7 1/8 CROSSING The tenor's octave drop takes it below the bass for an eighth. The bass is falling to D♯ at the same moment, so the order is back at once.
 why 7 1/4 SPACING The gap comes from the tenor's octave drop and closes again as the tenor climbs F♯–G♯–A.
 why 7 5/8 DOUBLING Over the bass's held F♯ the upper voices pass through a diminished chord, E♯–G♯–B, on a weak eighth. It is a passing chord over a held bass, so the ⁶₄ doubling rule does not apply.
-why 7 5/8 SIX_FOUR This is a passing chord over the held bass F♯, a pedal ⁶₄ in all but name, on a weak eighth.
 why 9 1/2 DOUBLING The melody leaps up to its high F♯ while the alto steps G–F♯. Again F♯, the home key's dominant note, is doubled: a strong note even as the third of III.
 why 10 3/4 SPACING On the last dominant the bass drops an octave to a low F♯ for weight at the cadence, while the tenor rises to E, the seventh. The deep bass is deliberate.
 why 10 3/4 LEAPS The tenor climbs the dominant seventh chord, A♯–C♯–E, to reach the seventh E, which then falls to D♯. An arpeggio of V⁷ always contains this tritone.

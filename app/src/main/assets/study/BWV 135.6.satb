@@ -14,13 +14,10 @@ B A2:1/8 B2:1/8 C3:1/8@6 D3:1/8 E3:1/4 A3:1/4@6 G3:1/4@6 F3:1/2@6 E3:1/4^@# G#3:
 why 2 0 CROSSING The melody lies low here, so all voices crowd together. The alto holds A while the tenor walks down D–C–B–A past it, above the alto for one beat.
 why 2 1/8 CROSSING The tenor keeps walking down through C toward the alto's A.
 why 2 1/4 CROSSING The last step of the tenor's descent, B, before it meets the alto's A in unison.
-why 2 1/2 LEAPS The tenor walks down D–C–B–A–G♯ by step to the leading tone at the fermata. A scale line hides the tritone between its ends.
 why 3 1/4 DOUBLING The tenor holds its A as a common tone while the alto leaps up to A to fill out the chord higher. The doubled third keeps the held note.
-why 3 3/8 UNRESOLVED_NCT With the bass's C, the notes C–A–E form a passing A minor chord on this weak eighth. The tenor's E belongs to it and moves on by step to F.
 why 5 0 SIMILAR_MOTION All voices fall into ii°⁶ as the phrase begins its descent. The bass's leap A–D keeps the motion strong, and the lines spread apart again on the next beat.
 why 5 3/4 OVERLAP Alto and tenor both leap up, C–F and A–D, to place the chord higher. They move together, so the voices stay in order.
 why 7 1/4 SIMILAR_MOTION All four voices step down together into a passing diminished seventh chord heading for D minor, led by the bass's chromatic E–D–C♯–D.
-why 7 1/2 UNRESOLVED_NCT The alto strikes E again over the D minor chord and falls to D: a suspension struck anew instead of tied. It resolves down by step, as a suspension should.
 why 7 1/2 LEADING_TONE The E here is a suspended note over D minor, not a leading tone. It falls to D, as a suspension should.
 why 9 0 DOUBLING Soprano (C–B) and tenor (A–B) both move by step onto B, the third of the G chord. Bach takes the nearest notes.
 why 9 3/4 DOUBLING The same move as on the downbeat, in sequence: soprano and tenor step onto B together.

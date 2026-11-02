@@ -80,7 +80,7 @@ class MoreEdgeTest {
     }
 
     @Test fun tritoneOutlineDownwards() {
-        val m = linesScore("B4 A4 G4 F4", "D4:1", "B3:1", "G3:1").analysis().messages()
+        val m = linesScore("B4 G4 F4 G4", "D4:1", "B3:1", "G3:1").analysis().messages()
         assertTrue(m.any { "tritone" in it })
     }
 

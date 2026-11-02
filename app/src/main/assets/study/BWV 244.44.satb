@@ -12,11 +12,8 @@ A D4:1/4 D4:1/4 D4:1/4 D4:1/8 E4:1/8 E4:1/8 D4:1/8 D4:1/4 C#4:1/4 D4:1/4^ E4:1/4
 T A3:1/4 G3:1/4 A3:1/4 B3:1/8 A3:1/8 A3:1/4 B3:1/4 A3:1/4 A3:1/4^ A#3:1/4 B3:1/4 B3:1/4 B3:1/4 A#3:1/4 B3:3/4^ B3:1/8 A3:1/8 G3:1/8 B3:1/8 D4:1/8 C#4:1/8 B3:1/8 A3:1/8 G3:1/8 A3:1/8 B3:1/4 A3:1/8 G3:1/8 A3:1/4^ D4:1/4 D4:1/4 C4:1/4 B3:1/4 B3:1/4 B3:3/4^ B3:1/4 A3:1/4 B3:1/4 A3:1/8 B3:1/8 C#4:1/8 A3:1/8 F#4:1/4 E4:1/4 E4:1/4^ A3:1/4 G3:1/4 A3:1/4 A3:1/4 A3:1/4 A3:3/4^
 B D3:1/4 G3:1/4 F#3:1/4@6 B2:1/8@6 C#3:1/8@6,5 D3:1/4@9 G2:1/4@6,5 A2:1/4 D3:1/4^ C#3:1/4@#6 B2:1/8 C#3:1/8 D3:1/8@6 E3:1/8 F#3:1/4@5,4 F#2:1/4@# B2:3/4^ B2:1/4 E3:1/4@6 F#3:1/4@6 G3:1/8@5 F#3:1/8 E3:1/4@6 D3:1/2@6,4 D3:1/4^@5,3 D3:1/4 G3:1/8 F#3:1/8 E3:1/8@n6,4,2 D#3:1/8 E3:1/8@9 F#3:1/8 G3:1/8@6 A3:1/8 B3:3/4^@# G#3:1/4@6,5 A3:1/4 G#3:1/4@6 F#3:1/4@6 E3:1/4@6,4 D#3:1/4@6,5 E3:1/4@# A2:1/4^ D3:1/4 E3:1/4@7 F#3:1/8@6 G3:1/8 A3:1/4@5,4 A2:1/4@3 D3:3/4^
 why 5 1/8 PROGRESSION Over the bass's held E the soprano and alto move in eighths, so these chord changes are passing ones on the way to I⁶.
-why 5 1/4 PROGRESSION The bass steps E–F♯–G up to IV; I⁶ is a passing chord on that line, not a step backward.
 why 5 1/2 DOUBLING Soprano (A–B) and tenor (C♯–B) meet on B by step from opposite sides.
 why 6 0 PROGRESSION Over the bass's held D the alto and tenor step down G–F♯–E and B–A–G: a neighbor ⁶₄ that settles onto the D chord. Over a held bass it is a decoration, not a step backward.
 why 7 1/4 SIMILAR_MOTION All four voices step down together into a diminished chord heading for E minor, led by the bass's walk G–F♯–E–D♯–E.
-why 7 1/2 UNRESOLVED_NCT The alto strikes F♯ again over the E minor chord and falls to E: a suspension struck anew instead of tied.
 why 7 1/2 LEADING_TONE Here F♯ is a suspension over E minor, not a leading tone; it falls to E, as a suspension should.
 why 9 3/4 DOUBLING This is the cadential ⁶₄ of a cadence in A major (an A chord over E). Soprano and tenor share C♯, its third: the soprano falls C♯–B and the tenor C♯–A, so neither has to rise.
-why 10 0 LEAPS The bass walks down A–G♯–F♯–E–D♯ by step. A scale line hides the tritone between its ends.

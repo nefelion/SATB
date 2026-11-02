@@ -15,11 +15,8 @@ why 1 1/2 DOUBLING Soprano (A–B) and tenor (D–B) both arrive on B; the tenor
 why 1 3/4 DOUBLING Alto and bass both have F♯ in V⁶. The bass's F♯ rises to G at once, as it should; the alto's belongs to its own line and falls back to E.
 why 3 1/4 DOUBLING Soprano (C–B) and tenor (A–B) meet on B by step from opposite sides.
 why 4 0 RANGE The bass leaps up to D and then drops an octave to D for the cadence; the high D lasts a beat.
-why 5 0 HARMONIC_RHYTHM The new phrase begins on V just before the bar line and keeps it into the downbeat while the bass leaps an octave. The upbeat chord is simply held.
 why 5 0 RANGE The bass leaps up an octave to D and walks down D–C–B–A: a short high start for the phrase.
 why 6 0 TENDENCY The alto holds A into the next chord and then falls to G♯: it resolves down by step, one beat later.
-why 6 1/2 SIMILAR_MOTION A cadence on A minor (ii): soprano B–A, the alto's G♯ drops to E, the seventh D to C and the bass to A. All the resolutions point down.
-why 7 0 SEVENTH The tenor's A rises to B while the bass takes G, the note A would fall to. The resolution moves to the bass, and the tenor climbs on toward C and D.
 why 7 3/4 SIMILAR_MOTION Everything rises toward B minor: the bass's A♯ and the tenor's C♯ are leading tones, and the tune climbs to E. Each line has its own reason to rise.
 why 8 0 TENDENCY The tune holds E into the next chord and steps down to D♯ a beat later. It does fall by step, after a delay, as the melody wants.
 why 8 3/4 RANGE The new phrase starts with the bass high on D, walking down D–C–B–A. Starting high gives it room to descend.
@@ -27,6 +24,6 @@ why 9 1/4 PARALLEL_OCTAVES Soprano and alto go from an octave G to a unison B, w
 why 9 1/4 DOUBLING The tune leaps down to B and the alto steps A–B, so both share B for a beat. The tune decides the soprano's note; the alto takes the nearest one.
 why 9 1/2 SPACING The tenor drops an octave to G while the alto holds a high B; it climbs back A–B over the next eighths.
 why 9 3/4 DOUBLING Soprano (C–B) and tenor (A–B) meet on B by step.
-why 9 7/8 UNRESOLVED_NCT The bass walks down G–E–C♯–B toward V of V, skipping through the chords. Its E is a step on that descent, reached by a skip.
 why 11 0 DOUBLING Soprano (D–E) and alto (F♯–E) meet on E from opposite sides, while the tenor's D is a suspension falling to C.
 why 12 1/2 LEADING_TONE The tenor's F♯ leaps up to B, the third of the final G chord. Rising to G would leave the chord without its third.
+why 7 0 SEVENTH The tenor's A rises to B while the bass takes G, the note A would fall to. The resolution moves to the bass, and the tenor climbs on toward C and D.

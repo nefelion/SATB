@@ -22,10 +22,8 @@ why 4 0 OVERLAP The tenor drops to F♯, below where the bass just was, as the b
 why 4 1/2 TENDENCY The alto's G♯, leading tone of A, drops to E, the fifth of the A chord at the fermata, as inner voices may.
 why 4 1/2 SIMILAR_MOTION A half cadence on A where every resolution falls: soprano B–A, alto G♯–E, the seventh D to C♯ and the bass to A.
 why 5 3/4 PARALLEL_FIFTHS Tenor and bass move from B/E to A/D a fifth apart, with the tenor's G in between. For Bach the passing note breaks them up; strict exercises still count them.
-why 9 5/8 CROSSING The bass's neighbor note B rises above the tenor's held A for one eighth, then falls back: a tiny crossing inside one dominant chord.
 why 11 3/8 CROSSING The melody lies low before the cadence, so alto and tenor share a narrow space: the alto steps down D–C♯–B under the tenor's held D.
 why 11 1/2 CROSSING The alto reaches B while the tenor still holds D above it.
 why 11 5/8 CROSSING The tenor steps down D–C♯–B toward the alto; on the next beat they are in order again.
 why 11 7/8 CROSSING The tenor passes down A–G under the bass's held A into the cadence; then the bass drops to D.
-why 12 0 SIMILAR_MOTION A cadence where every resolution falls: soprano E–D, the alto's C♯ drops to A, the seventh G to F♯ and the bass to D.
 why 13 0 DOUBLING Soprano (C♯–B) and tenor (A♯–B) both move by step onto B; the tenor's A♯ is a leading tone and must rise.

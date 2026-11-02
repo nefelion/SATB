@@ -16,13 +16,10 @@ why 1 3/4 CROSSING The melody is low here, so the alto drops to A below the teno
 why 1 7/8 CROSSING The same crossing: the alto holds A under the tenor's D.
 why 2 0 CROSSING The alto climbs A–B♭–D under the tenor; on the next eighth they meet on D.
 why 2 3/8 CROSSING The tenor passes down A–G–F under the bass's held A into the cadence; then the bass drops to D.
-why 2 1/2 SIMILAR_MOTION A cadence where every resolution falls: soprano E–D, the alto's C♯ drops to A, the seventh G to F and the bass to D.
 why 4 0 DOUBLING Alto (E–D) and tenor (C♯–D) meet on D; the tenor's C♯ is a leading tone and must rise. After a dominant, doubling the third of VI is standard.
 why 4 0 LEAPS The bass rises C–F–B♭ in fourths, roots moving by fifths into VI.
 why 7 1/4 SPACING The alto leaps up to B, a high neighbor note, while the tenor stays low on A and G♯. The gap lasts a beat.
 why 7 3/8 SPACING The same open spacing; the alto falls back to E on the next beat.
 why 9 1/8 UNRESOLVED_NCT The tenor skips C–A and steps on to G while the alto passes G–F–E above it: a passing moment where two decorations meet.
 why 11 1/8 CROSSING The tenor passes down G–F–E under the bass's held G; on the next beat the bass drops to C♯.
-why 11 1/2 UNRESOLVED_NCT The alto keeps E, a note of the dominant, over the D minor chord and then leaps down to A. Bach lets it go by a leap; in exercises, resolve it down to D.
-why 12 0 LEAPS The bass walks down D–C–B♭–A–G♯ by step and turns back to A. A scale line hides the tritone between its ends.
 why 12 1/2 LEAPS The bass resolves G♯ to A and leaps a fourth to D for the final chord. The tritone G♯–D spans two chords.

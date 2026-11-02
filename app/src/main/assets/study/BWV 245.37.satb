@@ -1,6 +1,6 @@
 v2
 title O hilf, Christe, Gottes Sohn (BWV 245.37)
-key -4 MINOR
+key -5 MINOR
 time 4 4 NUMERIC
 tempo 76
 arr 0 0 1 1
@@ -10,24 +10,8 @@ S F5:1/4 F5:1/4 F5:1/4 F5:1/4 Eb5:1/4 Db5:1/4 C5:1/2^ Db5:1/4 Eb5:1/4 F5:1/4 F5:
 A A4:1/4 A4:1/4 Bb4:1/4 C5:1/4 Bb4:1/4 Bb4:1/4 A4:1/2^ F4:1/4 Gb4:1/4 Ab4:1/4 Ab4:1/4 Gb4:1/4 F4:1/4 F4:1/2^ F4:1/4 F4:1/4 F4:1/4 Gb4:1/4 F4:1/4 Eb4:1/4 D4:1/2^ Eb4:1/4 Eb4:1/4 Fb4:1/4 Fb4:1/4 Eb4:1/2 D4:1/2^ F4:1/4 Eb4:1/4 F4:1/4 Gb4:1/4 F4:1/4 F4:1/4 Gb4:1/2^ Ab4:1/4 Ab4:1/4 Ab4:1/4 Bb4:1/4 Bb4:1/2 A4:1/2^ F4:1/4 F4:1/4 F4:1/4 Gb4:1/4 F4:1/4 Eb4:1/4 D4:1/2^ Eb4:1/4 F4:1/4 Gb4:1/4 Gb4:1/4 F4:1/4 Eb4:1/2 Db4:1/4 C4:1/1^
 T C4:1/4 C4:1/4 Db4:1/4 C4:1/8 Db4:1/8 Eb4:1/8 F4:1/8 Gb4:1/4 C4:1/2^ Bb3:1/4 Bb3:1/4 Cb4:1/4 Bb3:1/4 Bb3:1/2 A3:1/2^ Db4:1/4 C4:1/4 Bb3:1/8 C4:1/8 Db4:1/8 Eb4:1/8 F4:1/8 Bb3:1/8 Bb3:1/4 Bb3:1/2^ Bb3:1/4 Cb4:1/4 Db4:1/4 Db4:1/4 Cb4:1/8 Db4:1/8 Eb4:1/4 Bb3:1/2^ Db4:1/4 C4:1/4 Bb3:1/4 Bb3:1/4 Bb3:1/8 Ab3:1/8 Db4:1/4 Db4:1/2^ F4:1/4 C4:1/4 Db4:1/4 Db4:1/4 Eb4:1/8 F4:1/8 Gb4:1/4 F4:1/2^ Bb3:1/4 A3:1/4 Bb3:1/8 C4:1/8 Db4:1/8 Eb4:1/8 F4:1/8 Bb3:1/8 Bb3:1/4 Bb3:1/2^ Bb3:1/4 Db4:1/4 Db4:1/4 Db4:1/4 Db4:1/8 Cb4:1/8 Bb3:1/4 A3:1/4 Bb3:1/4 A3:1/1^
 B F3:1/4@n F3:1/4 Bb3:1/4@b Ab3:1/4@6 Gb3:1/4@6 F3:1/8@b6,4,b2 Eb3:1/8 F3:1/2^@n Bb3:1/4 Gb3:1/4@6 D3:1/4@b7,5 D3:1/4@6,5 Eb3:1/4@b Bb2:1/4 F3:1/2^@n Bb3:1/4 A3:1/4@6 Bb3:1/4 Gb3:1/4@b5 D3:1/4@6 Eb3:1/4@b Bb2:1/2^@n Eb3:1/4@b Cb3:1/4@6 G2:1/4@b7,5 G2:1/4 Ab2:1/4@b A2:1/4@b7,5 Bb2:1/2^@n Bb2:1/4@b C3:1/4@n6 Db3:1/4@6 Eb3:1/4@6,5 F3:1/4@b6,4 Db3:1/4@7,5 Gb3:1/2^ F3:1/4@b6 Ab3:1/4 Db4:1/8 C4:1/8 Bb3:1/8@5 Ab3:1/8 Gb3:1/4@6 F3:1/8@b6,4,b2 Eb3:1/8 F3:1/2^@n Db3:1/4@6 F3:1/4@n Bb3:1/8 Ab3:1/8 Gb3:1/4@6 D3:1/4@6 Eb3:1/4@b Bb2:1/2^@n Eb3:1/4 Db3:1/4 Gb2:1/8 Ab2:1/8 Bb2:1/8@b6 Cb3:1/8 Db3:1/4 Eb3:1/4 F3:3/2^@7,n
-why 2 1/4 LEAPS The tenor climbs C–D♭–E♭–F–G♭ by step. A scale line hides the tritone between its ends.
-why 2 1/2 TENDENCY At the fermata the tenor leaps from G♭ down to C, the fifth of the F major chord. The G♭ belonged to the chord before; the leap takes the tenor to the note the fermata chord needs.
-why 3 1/4 DOUBLING This passage is in B♭ minor, where G♭ is a normal note and this chord is iv⁶ (E♭ minor). Doubling the third of a minor chord is fine.
-why 3 1/2 TENDENCY In B♭ minor, where the music is, G♭ is not chromatic. The alto rises G♭–A♭ and the bass drops to D for a diminished seventh chord; both move to that chord rather than resolving G♭.
-why 5 3/4 DOUBLING This G♭ major chord is VI in B♭ minor (the checker reads it as a Neapolitan in F minor). Its root G♭ is doubled, as a root should be.
-why 6 0 TENDENCY In B♭ minor the G♭ chord is VI, and its bass falls to D, the third of the B♭ major chord at the fermata. The checker reads a Neapolitan in F minor, which it is not here.
-why 6 0 PROGRESSION Read in B♭ minor, this is VI moving through passing chords to B♭ major at the fermata. The checker hears F minor and calls it a step backward.
 why 7 1/4 DOUBLING The music darkens toward A♭ minor, where C♭ is the third. Doubling the third of a minor chord is fine, and the C♭ in the bass gives the line its sorrowful slide.
 why 7 1/2 TENDENCY The C♭ chord leads into a diminished seventh on G (G–B♭–D♭–F♭). The tenor rises C♭–D♭ and the bass drops to G for that chord: C♭ moves into the next sharp dissonance instead of falling.
 why 10 0 SIX_FOUR Over the bass's F a B♭ minor chord sounds for one beat as the bass moves E♭–F–D♭–G♭. A passing ⁶₄ within a descending bass line.
-why 10 1/2 DOUBLING Again the G♭ major chord, VI in B♭ minor, at the fermata, with its root G♭ doubled.
-why 11 1/2 OVERLAP The bass leaps up a fourth to D♭ while the tenor steps C–D♭, so they meet in unison. Then the bass walks down D♭–C–B♭–A♭–G♭.
 why 11 1/2 RANGE The leap takes the bass up to D♭ for one beat before it walks back down by step.
-why 12 1/4 LEAPS As in bar 2, the tenor climbs C–D♭–E♭–F–G♭ by step. A scale line hides the tritone between its ends.
-why 13 1/2 OVERLAP The bass leaps up a fourth to B♭ while the tenor resolves A–B♭, so they meet in unison.
-why 13 3/4 DOUBLING As in bar 5: the G♭ major chord is VI in B♭ minor, with its root doubled.
-why 14 0 TENDENCY As in bar 6: in B♭ minor the G♭ chord is VI, and its bass falls to D, the third of the B♭ major chord at the fermata.
-why 14 0 PROGRESSION As in bar 6: in B♭ minor this is VI moving through passing chords to B♭ major, not a step backward.
-why 15 1/4 TENDENCY The tune climbs G♭–A♭–B♭ as written. In B♭ minor G♭ is a normal step of the scale, free to rise.
-why 15 1/2 DOUBLING The G♭ major chord, VI in B♭ minor, with its root doubled in alto and bass.
-why 17 0 LEAPS The alto falls G♭–E♭–D♭–C into the final F major chord. Its ends form a tritone, but the line moves almost entirely by step.
+why 17 0 CADENCE The hymn tune is in the old Phrygian mode on F, and a Phrygian tune ends with the harmony on the dominant. So the chorale stops on F major, V of B♭ minor. Bach writes four flats, the old signature for this mode.

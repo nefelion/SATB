@@ -15,11 +15,8 @@ why 0 3/4 RANGE The upbeat starts the bass high on D, stepping down D–C–B♭
 why 1 0 DOUBLING The tune leaps up to D while the tenor keeps its D from the upbeat chord. The doubled third keeps the held note.
 why 1 1/2 CROSSING The alto drops to D under the tenor's G and climbs back D–E–F while the tenor holds G. A one-beat crossing so each voice reaches its next note simply.
 why 1 5/8 CROSSING The alto climbs back past E toward F; on the next beat the tenor drops to C and the order is back.
-why 3 0 UNRESOLVED_NCT The tenor strikes E again over the D minor chord and falls to D: a suspension struck anew instead of tied.
 why 5 1/4 LEADING_TONE The tune itself falls E–D–C here, and Bach does not change the hymn melody. The F that E leads to comes in the alto an eighth later.
-why 5 1/2 UNRESOLVED_NCT The tenor strikes C again over the B♭ chord and falls to B♭: a suspension struck anew instead of tied.
 why 6 0 PROGRESSION Over the bass's held F the alto and tenor step down B♭–A–G and D–C–B♭: a neighbor ⁶₄ settling onto the F chord. Over a held bass it is a decoration, not a step backward.
-why 9 1/4 SIMILAR_MOTION All voices rise as the tune climbs to its high G, and the bass only leaps an octave within the C chord. The harmony stays the same, so the lines keep their independence.
 why 10 0 LEADING_TONE The tune falls E–D here; the hymn melody decides. The music is heading for a half cadence on C, where F is not the goal.
 why 10 0 RANGE The tenor climbs to A to stay close under the high soprano and alto. Bach's tenors sang up to A; in exercises, keep it lower.
 why 11 5/8 CROSSING The tenor passes down C–B♭–A–G under the bass's held C. On the next beat the bass drops an octave and is far below again.

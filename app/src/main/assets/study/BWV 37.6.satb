@@ -4,6 +4,8 @@ key 3 MAJOR
 time 4 4 NUMERIC
 tempo 76
 pickup 1/4
+change 5 key 4 MAJOR
+change 7 key 3 MAJOR
 arr 0 0 1 1
 clefs TREBLE BASS
 off FIGURES
@@ -12,19 +14,14 @@ A C#4:1/8 D4:1/8 E4:1/4 E4:1/4 F#4:1/4 F#4:1/4 E4:1/4 D#4:1/4 B3:1/4^ G#4:1/4 A4
 T A3:1/4 A3:1/8 B3:1/8 C#4:1/4 D4:1/8 C#4:1/8 B3:1/4 B3:1/4 A3:1/16 G#3:1/16 A3:1/8 G#3:1/4^ E4:1/4 E4:1/4 E4:1/8 D#4:1/8 C#4:1/8 B3:1/16 A3:1/16 B3:1/8 C#4:1/8 B3:1/4 A3:1/16 G#3:1/16 A3:1/8 G#3:1/4^ G#3:1/4 A3:1/8 G3:1/8 F#3:1/8 E3:1/8 F#3:1/4 F#3:1/4 G#3:3/16 A3:1/16 B3:1/8 A3:1/8 G#3:1/4^ B3:1/4 A3:1/4 B3:1/4 C#4:1/4 B3:1/8 D#4:1/8 E4:1/4 B3:1/4 G#3:1/4^ C#4:1/4 A3:1/8 B3:1/8 C#4:1/8 D4:1/8 E4:1/4 E4:1/4 D4:1/4 C#4:1/8 D4:1/8 E4:1/4^ E4:1/4 F#4:1/4 E4:1/4 F#4:1/8 E4:1/16 D4:1/16 C#4:1/4 D4:3/4^ G#3:1/4 F#3:1/4 G#3:1/4 A3:1/4 A3:1/8 B3:1/8 C#4:1/4 B3:1/8 A3:1/8 E4:1/4^ A3:1/8 B3:1/8 C#4:1/8 D4:1/8 E4:1/4 B3:1/4 A3:1/2 A3:1/2 G#3:1/4 E3:3/4^
 B F#3:1/4@5 C#3:1/4@6 A2:1/4 D3:1/4 D#3:1/4@6 E3:1/4@n B2:1/4@# E3:1/4^ E3:1/4 A2:1/4 E3:1/4 F#3:1/4@5 G#3:1/8@6 A3:1/8@6,5 B3:1/4@6,4 B2:1/4@5,# E3:1/4^ D3:1/4@6,4,2 C#3:1/4@6 C3:1/4@6 B2:1/8@7,# C#3:1/8 D#3:1/4@6,5 E3:1/4 B2:1/4@# E3:1/4^ G#3:1/4@6 A3:1/4 G#3:1/4@6 C#3:1/8@6 D#3:1/8 E3:1/4 A2:1/4@7,5 B2:1/4@# E3:1/4^ C#3:1/4@5 F#3:1/8@6 G#3:1/8 A3:1/4 E3:1/8 D3:1/8 C#3:1/4@6 D3:1/4@5,3 A2:1/4 E3:1/4^ C#3:1/4@#6 B2:1/4 C#3:1/4@#6 D3:1/8@6 E3:1/8 F#3:1/4@# B2:3/4^ C#3:1/4@5 F#3:1/4 E3:1/4 A3:1/4 F#3:1/4@6 C#3:1/4@6 D3:1/4@6 E3:1/4^ F#3:1/8 G#3:1/8 A3:1/4 G#3:1/8@6 F#3:1/8 E3:1/8 D3:1/8@6 C#3:1/8@6 B2:1/8 A2:1/8 B2:1/8 C#3:1/8@6 D3:1/8@6,5 E3:1/4@6,4 E3:1/4@5,3 A2:3/4^
 why 2 1/4 SIMILAR_MOTION All voices step down into V⁷ of E, the bass by a fourth. The descending line heads for the half cadence on E.
-why 2 5/16 LEAPS The tenor walks down D–C♯–B–A–G♯ and turns back to A. A scale line hides the tritone between its ends.
-why 3 1/2 OVERLAP The alto drops a fifth to C♯, below where the tenor just was, while the tenor steps down D♯–C♯. They meet in unison.
 why 3 1/2 LEADING_TONE A deceptive move to F♯ minor (vi): the soprano takes A, so the alto's G♯ drops to C♯, the chord's fifth.
 why 3 3/4 DOUBLING Soprano and bass share G♯ on a weak beat. The bass rises to A at once, and the soprano's G♯ belongs to the tune's decorated line.
 why 3 7/8 LEADING_TONE The tune decorates its G♯ with F♯ before returning to G♯; Bach keeps the hymn melody. The music is heading for E, where G♯ is not a leading tone.
-why 4 0 SIX_FOUR This is the cadential ⁶₄ of a cadence in E major: the E chord over B moves to B⁷ and then to E at the fermata.
-why 4 1/4 SIMILAR_MOTION Out of the ⁶₄ all voices step down into V⁷ of E, as the cadential ⁶₄ normally does: its sixth and fourth fall to the fifth and third.
 why 6 0 DOUBLING Soprano and tenor share G♯ in the E chord. The music is in E here, where G♯ is the third, not a leading tone.
 why 7 1/2 LEADING_TONE The bass leaps G♯–C♯ to put the tonic in first inversion; the A that G♯ leads to is in the soprano at the same moment.
 why 7 7/8 DOUBLING Alto (E–D♯–C♯) and tenor (B–D♯–E) pass through D♯ at the same moment from opposite directions. D♯ is a passing note in both, not a chordal seventh.
-why 8 0 SEVENTH The tenor's D♯ is a passing note on its way up B–D♯–E, not a seventh, so it rises.
 why 8 0 CROSSING The alto falls to C♯ while the tenor rises to E, so they trade places for a beat; on the next beat they are in order again.
 why 9 1/4 DOUBLING Soprano (D–C♯) and tenor (B–C♯) meet on C♯ by step from opposite sides.
 why 10 1/4 DOUBLING Soprano (B–C♯) and tenor (D–C♯) meet on C♯ by step from opposite sides.
-why 13 1/2 OVERLAP The bass leaps up a fourth to A while the tenor resolves G♯–A, so they meet in unison.
 why 15 0 DOUBLING Soprano (D–C♯) and tenor (B–C♯) meet on C♯ by step, as in bar 9.
+why 3 1/2 OVERLAP The alto drops a fifth to C♯, below where the tenor just was, while the tenor steps down D♯–C♯. They meet in unison.

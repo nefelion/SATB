@@ -4,6 +4,8 @@ key 2 MINOR
 time 4 4 NUMERIC
 tempo 76
 pickup 1/4
+change 10 key 1 MINOR
+change 13 key 2 MINOR
 arr 0 0 1 1
 clefs TREBLE BASS
 off FIGURES
@@ -12,22 +14,11 @@ A B3:1/4 E4:1/4 F#4:1/4 G4:1/4 F#4:1/4 B4:3/8 A#4:1/8 F#4:1/4^ F#4:1/4 F#4:1/8 G
 T G3:1/8 A3:1/8 B3:1/4 D4:1/4 D4:1/4 D4:1/8 E4:1/8 F#4:1/8 D4:1/8 G4:1/8 F#4:1/8 D4:1/4^ C#4:1/4 B3:1/4 C#4:1/4 D#4:1/8 E4:1/8 F#4:1/4 B3:3/8 A3:1/8 G3:1/4^ G3:1/4 A3:1/4 A3:1/4 A3:1/4 G3:1/4 G3:1/4 F#3:1/4 F#3:1/4^ G3:1/8 A3:1/8 B3:1/4 C#4:1/4 C#4:1/4 B3:1/4 B3:3/8 A#3:1/8 F#3:1/4^ A#3:1/4 B3:1/8 A3:1/8 G3:1/8 A3:1/8 B3:1/8 C#4:1/8 D4:1/8 C4:1/8 B3:1/4 B3:1/4 B3:1/4^ G3:1/4 G3:1/4 C4:1/4 D4:1/4 C#4:1/8 D#4:1/8 E4:1/4 B3:1/4 G3:1/4^ B3:1/4 C#4:1/4 C#4:1/4 D4:1/8 C#4:1/8 B3:1/8 A#3:1/8 B3:1/4 F#4:1/8 E4:1/8 D#4:1/4^
 B E3:1/4 E3:1/4 D3:1/4 G3:1/4 D3:1/8 C#3:1/8 B2:1/8 G3:1/8 E3:1/8@6,5 F#3:1/8@# B3:1/4^ F#3:1/4@5 B3:1/4@5 A3:1/4@7 G3:1/4@7 F#3:1/4@7 E3:1/4 B2:1/4@# E3:1/4^ E3:1/8 D3:1/8 C#3:1/8@6 B2:1/8 C#3:1/8 A2:1/8 D3:1/4 G3:1/8@5 F#3:1/8 E3:1/4@6,5 F#3:1/4@# B2:1/4^@# E3:1/8 F#3:1/8 G3:1/4@6 A3:1/4@7,3 D3:1/4@7 G3:1/8@5 F#3:1/8 E3:1/4@8 F#3:1/4@4 B2:1/4^ F#3:1/4@# B3:1/4@5 E3:1/8@6 F#3:1/8 G3:1/4@5 F#3:1/8@6 E3:1/8@n6,4,2 D#3:1/4@6 E3:1/4 B2:1/4^@# E3:1/8 D3:1/8 C3:1/8 B2:1/8 A2:1/4@5 G2:1/4 A2:1/8@6 B2:1/8@6,5,# C3:1/8@6 A2:1/8@7,5 B2:1/4@# E3:1/4^ E3:1/4@# A3:1/8 G3:1/8 F#3:1/8@7,5 E3:1/8 D3:1/4@8 E3:1/8 F#3:1/8@7,# G3:1/8@5 E3:1/8@7,5 F#3:1/4@# B2:1/4^@#
 why 2 0 OVERLAP The tune leaps up a fourth to D and the alto leaps up to B with it, above where the soprano was. They move together, so the order stays clear.
-why 2 1/8 UNRESOLVED_NCT The chord changes on this eighth: B and D over the bass's G make a G major chord, not B minor with a wrong note. The bass then walks G–E–F♯ into the cadence.
 why 2 1/8 PARALLEL_FIFTHS Tenor and bass move from F♯/B to D/G a fifth apart in contrary motion. Bach accepts contrary fifths in quick eighth notes; strict exercises avoid them.
 why 2 1/4 LEAPS After its leap up the bass turns back down by a third to E, then steps up to F♯. It turns, by a skip instead of a step.
 why 3 3/4 CROSSING The alto steps down F♯–E–D♯ under the tenor's held F♯, so they trade places for a beat. On the downbeat the alto rises to E and the tenor falls to B.
-why 3 7/8 CROSSING The alto reaches D♯, the leading tone of E, still under the tenor's F♯; both resolve on the next downbeat.
-why 7 1/4 LEAPS The tenor climbs G–A–B–C♯ by step. A scale line hides the tritone between its ends.
 why 7 3/4 DOUBLING The alto leaps up to B while the tenor steps C♯–B; both land on the third of the G chord.
-why 8 1/4 DOUBLING Over the bass's F♯ the tenor holds B, a 4–3 suspension that falls to A♯. The ⁶₄ doubling rule does not apply to this suspension chord.
-why 8 3/8 UNRESOLVED_NCT With the bass on F♯, this eighth is V⁷ (F♯–A♯–C♯–E): the tenor's A♯ is its third, the resolution of the suspended B. The checker still hears the chord before.
-why 8 1/2 SIMILAR_MOTION A cadence where every resolution falls: soprano C♯–B, the seventh E to D, the tenor's A♯ drops to F♯ and the bass to B.
-why 9 0 OVERLAP The bass leaps up a fourth to B while the tenor resolves A♯–B, meeting in unison.
 why 9 1/8 CROSSING The tenor passes down B–A–G under the bass's held B; on the next beat the bass drops to E.
 why 9 1/4 SIMILAR_MOTION All voices step down into ii°⁶ while the bass drops a fifth. The phrase descends toward the half cadence.
 why 9 1/2 DOUBLING Soprano (C♯–B) and tenor (A–B) meet on B by step from opposite sides.
-why 11 1/2 TENDENCY The music is passing through E minor and G major here, where C♮ is a normal note. The tenor rises C–D through the chord as a plain step.
-why 12 1/4 TENDENCY The bass's C is a normal note in E minor, where this cadence is. It skips to A and rises to B, the dominant of E; it has no need to fall.
-why 13 1/2 SEVENTH The soprano's E is part of the A major sound held over the bass's passing F♯–E; it is not a seventh. The tune rises to F♯ as written.
 why 14 1/4 PARALLEL_FIFTHS Soprano and bass move D–C♯ and G–F♯ a fifth apart, with the bass dipping to E in between. For Bach the dip breaks them up; strict exercises still count them.
-why 14 1/2 SIMILAR_MOTION The piece ends on B major, a Picardy third. Every voice falls into it: the alto's A♯ drops to F♯, the seventh E to D♯ and the bass to B.

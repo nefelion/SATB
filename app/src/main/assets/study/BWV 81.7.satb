@@ -10,18 +10,13 @@ S B4:1/4 B4:1/4 A4:1/4 G4:1/4 F#4:1/2 E4:1/2^ B4:1/4 C#5:1/4 D5:1/4 B4:1/4 E5:1/
 A G4:1/4 F#4:1/4 E4:1/8 D#4:1/8 E4:1/4 E4:1/4 D#4:1/4 B3:1/2^ G4:1/8 F#4:1/8 E4:1/4 F#4:1/4 D4:1/4 G4:1/4 A4:1/4 B4:1/2^ B4:1/4 B4:1/4 C5:1/4 B4:1/8 A4:1/8 G4:1/1^ G4:1/4 F#4:1/4 E4:1/4 D4:1/8 G4:1/8 G4:1/4 F#4:1/4 D4:1/2^ D4:1/4 G4:1/4 F#4:1/4 F#4:1/4 G4:1/4 F#4:1/4 F#4:3/8 E4:1/8 D#4:1/2^ E4:1/4 E4:1/8 D4:1/8 E4:1/8 F#4:1/8 G4:1/8 E4:1/8 E4:1/4 D#4:1/4 B3:1/1^
 T E4:1/4 B3:1/4 C4:1/4 C4:1/8 B3:1/8 C4:1/4 B3:1/8 A3:1/8 G3:1/2^ E4:1/8 D4:1/8 C#4:1/8 B3:1/8 A3:1/4 G3:1/8 A3:1/8 B3:1/4 E4:1/4 F#4:1/2^ B3:1/4 E4:1/4 E4:1/4 D#4:1/4 B3:1/1^ E4:1/4 B3:1/8 A3:1/8 G3:1/8 A3:1/8 B3:1/4 E4:1/4 D4:1/8 C4:1/8 B3:1/2^ B3:1/4 B3:1/4 A#3:1/4 B3:1/4 A#3:1/4 B3:1/4 B3:1/4 A#3:1/4 F#3:1/2^ G3:1/8 A3:1/8 B3:1/4 C4:1/4 B3:1/4 C#4:1/4 B3:1/8 A3:1/8 G#3:1/1^
 B E3:1/4 D3:1/4@6 C3:1/8@6 B2:1/8 A2:1/8@7,5 G2:1/8 A2:1/4@6,5 B2:1/4@# E2:1/2^ E3:1/4 A3:1/8@# G3:1/8 F#3:1/4@6 G3:1/8 F#3:1/8 E3:1/8 G3:1/8 C4:1/4@6 B3:1/2^@# G3:1/8@6 F#3:1/8 E3:1/4 A3:1/4@6,5 B3:1/4@# E3:1/1^ E3:1/4 D#3:1/4@6 E3:1/8@6,5 F#3:1/8@6,5 G3:1/4 C#3:1/4@6,5 D3:1/4 G2:1/2^ G3:1/4 F#3:1/8@7,#5 E3:1/8 F#3:1/4@6,# E3:1/8@5,2 D3:1/8 C#3:1/4@#6,n5 D3:1/8@6 E3:1/8 F#3:1/2@#5,4 B2:1/2^@# E3:1/8 F#3:1/8 G3:1/8@6 E3:1/8 C3:1/8@6 D3:1/8 E3:1/8 C3:1/8 A#2:1/4@6,5 B2:1/4@# E2:1/1^@#
-why 2 1/2 SIMILAR_MOTION A cadence in E minor where every resolution falls: soprano F♯–E, the alto's D♯ drops to B, the seventh A to G and the bass to a low E.
 why 3 1/4 DOUBLING Soprano (B–C♯) and tenor (D–C♯) meet on C♯ by step from opposite sides. The raised C♯ belongs to the rising melodic minor.
 why 4 1/4 OVERLAP The bass leaps up a fourth to C, above where the tenor was, while the tenor leaps up to E. They move up together, so the order stays clear.
-why 6 0 SIMILAR_MOTION The same cadence as in bar 2: every voice falls into E minor.
 why 7 3/4 DOUBLING Soprano (C–B) and tenor (A–B) meet on B by step from opposite sides.
-why 8 1/2 SIMILAR_MOTION A cadence on G (III): soprano A–G, the alto's F♯ drops to D, the seventh C to B and the bass to G. All the resolutions point down.
 why 9 0 DOUBLING The tune leaps up to B while the tenor keeps its B from the fermata chord. The doubled third keeps the held note.
 why 9 1/4 DOUBLING A passing chord over the bass's step F♯; its doubled B is the tenor's held note.
 why 9 1/4 SIX_FOUR The bass walks down G–F♯–E under these chords; the one over F♯ is a passing ⁶₄ on that line.
 why 9 3/4 DIRECT The tune falls D–B while the bass steps F♯–E: a hidden fifth softened by the step in the bass.
-why 11 0 SIMILAR_MOTION A half cadence on B where every voice falls: soprano C♯–B, the seventh E to D♯, the tenor's A♯ to F♯ and the bass to B.
 why 12 3/8 UNRESOLVED_NCT The bass skips E–C–A♯–B, a winding approach to the dominant. Its C is a passing note between the tonic and the A♯ of V of V.
 why 12 1/2 CROSS_RELATION The bass's C, then C♯ in the tenor: Bach turns sharply toward the dominant's dominant. The C♯ is the third of F♯⁷, so the ear hears it as part of a new chord.
 why 12 1/2 LEAPS The bass falls E–C–A♯ before resolving to B. Its ends form a tritone, but A♯ is a leading tone that resolves at once.
-why 13 0 SIMILAR_MOTION The piece ends on E major, a Picardy third. Every voice falls into it: the alto's D♯ drops to B, the seventh A to G♯ and the bass to a deep E.

@@ -11,12 +11,8 @@ S Bb4:1/4 Bb4:1/4 F5:1/4 F5:1/4 Eb5:1/8 D5:1/8 C5:1/4 D5:1/4 Eb5:1/8 D5:1/8 C5:1
 A F4:1/4 G4:1/4 A4:1/8 Bb4:1/8 C5:1/4 Bb4:1/8 A4:1/8 G4:1/4 F4:1/4 Bb4:1/4 A4:1/4 F4:1/4^ G4:1/4 F#4:1/4 F4:1/4 Eb4:1/8 F4:1/8 G4:1/4 F4:3/8 E4:1/8 A4:1/4^ A4:1/4 G4:1/4 F4:1/4 C5:1/4 Bb4:1/4 D4:1/4 G4:1/4 F4:1/4^ F4:1/4 G4:1/8 A4:1/8 B4:1/4 C5:1/4^ Bb4:1/4 Bb4:1/4 Ab4:1/4 G4:1/4^ F4:1/4 F4:1/8 Eb4:1/8 D4:1/8 Eb4:1/8 F4:1/8 G4:1/8 A4:1/2 G4:1/4 G4:1/4 F4:1/8 Eb4:1/8 D4:1/4^
 T D4:1/4 D4:1/8 Eb4:1/8 F4:1/4 F4:1/4 G4:1/8 F4:1/8 Eb4:1/4 F4:1/4 Bb3:1/4 F4:1/8 Eb4:1/8 D4:1/4^ Eb4:1/4 Eb4:1/4 D4:1/4 G3:1/4 G3:1/8 A3:1/8 Bb3:1/8 C4:1/8 D4:1/8 C4:1/8 C4:1/4^ C4:1/4 Bb3:1/8 C4:1/8 D4:1/8 Eb4:1/8 F4:1/4 F4:1/4 G4:1/4 Bb3:1/4 A3:1/4^ Bb3:1/8 A3:1/8 G3:1/4 F3:1/4 G3:1/4^ G4:1/8 F4:1/8 Eb4:1/4 F4:1/4 Bb3:1/4^ Bb3:1/4 A3:1/4 Bb3:1/4 C4:3/4 Bb3:1/4 Bb3:1/4 A3:1/4 F3:1/4^
 B Bb3:1/8 A3:1/8 G3:1/4@5 D3:1/4@5 A3:1/4@6 Bb3:1/2@4 Ab3:1/4@6,4,2 G3:1/8@6 Eb3:1/8@7,5 F3:1/4 Bb2:1/4^ Eb3:1/4 A2:1/4@#6,5 B2:1/4@6,n5 C3:1/8 D3:1/8 Eb3:1/4@6 D3:1/8@6 C3:1/8 Bb2:1/8@6,5 C3:1/8@n F3:1/4^ F#3:1/4@6,5 G3:1/4@5 Ab3:1/4@6 A3:1/4@6,5 Bb3:1/8 A3:1/8 G3:1/8 F3:1/8 E3:1/4@7,5 F3:1/4^ Bb2:1/4 Eb3:1/4@5,3 D3:1/4@n6 C3:1/4^ G3:1/4@b Ab3:1/8@5 G3:1/8 F3:1/4@6,b Eb3:1/4^ Bb2:1/4 F3:1/4 G3:1/4@5 A3:1/8@6 G3:1/8 F3:1/4@8 F#3:1/4@6,5 G3:1/8@6 F3:1/8@6,4,2 E3:1/4@6,5 F3:1/4 Bb2:1/4^
-why 1 3/4 SIX_FOUR Over the bass's held B♭ the upper voices move to an E♭ chord and back: a pedal ⁶₄ over the tonic. It decorates the bass note.
-why 1 3/4 PROGRESSION The bass holds B♭ under this chord, so IV⁶₄ is a neighbor chord over a pedal, not a step backward from V.
 why 2 1/4 DOUBLING The bass walks down B♭–A♭–G, and the diminished chord over its A♭ is a passing one, pulling toward E♭ (IV). Its doubled F follows the voices' lines.
 why 2 1/2 PARALLEL_OCTAVES Alto and tenor move from a unison F to an octave B♭ in contrary motion, the alto up and the tenor down. Bach accepts octaves by contrary motion; strict exercises avoid them.
-why 3 0 SIMILAR_MOTION A cadence where every resolution falls: soprano C–B♭, the alto's A drops to F, the seventh E♭ to D and the bass to B♭.
-why 4 1/4 LEAPS The bass climbs A–B–C–D–E♭ by step. A scale line hides the tritone between its ends.
 why 4 1/2 PROGRESSION The bass walks down E♭–D–C–B♭ under the climbing tune; I⁶ is a passing chord on that line, not a step backward.
 why 4 3/4 SPACING The tune reaches its high G while the alto stays in the middle on F and E. The gap lasts a beat before the fermata.
 why 4 7/8 SPACING The same gap; at the fermata the soprano falls to F and the alto rises to A.
@@ -32,7 +28,5 @@ why 7 1/2 DOUBLING Alto (F–G) and tenor (A–G) meet on G by step from opposit
 why 7 5/8 SPACING The alto climbs G–A–B–C in parallel with the soprano while the tenor stays low near the bass. The open space lasts until the fermata.
 why 7 3/4 SPACING The same open spacing: alto high on B♮, tenor low on F.
 why 8 0 SPACING At the fermata on C minor the gap is still wide; the tenor leaps up an octave right after.
-why 8 1/2 UNRESOLVED_NCT The alto strikes B♭ again over the A♭ chord and falls to A♭: a suspension struck anew instead of tied.
 why 10 0 SIMILAR_MOTION Every voice rises as the tune leaps up a fifth to F; the others rise to fill in the dominant under it.
 why 10 3/4 PROGRESSION The bass circles the dominant, F–F♯–G–F–E–F, under the soprano's E♭–D–E♭–D. The chords on the way are passing ones.
-why 11 1/2 SIMILAR_MOTION The final cadence: every voice falls into the B♭ chord, the seventh E♭ to D and the bass to B♭.

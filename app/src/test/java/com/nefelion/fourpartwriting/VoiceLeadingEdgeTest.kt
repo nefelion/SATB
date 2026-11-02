@@ -143,7 +143,9 @@ class VoiceLeadingEdgeTest {
 
     @Test fun tritoneOutlineAndRests() {
         fun msgs(s: String) = linesScore(s, "C4:1", "A3:1", "F3:1").analysis().messages()
-        assertTrue(msgs("F4 G4 A4 B4").any { "tritone" in it })
+        assertTrue(msgs("F4 A4 B4 A4").any { "tritone" in it })
+        // A plain scale line is easy to sing
+        assertTrue(msgs("F4 G4 A4 B4").none { "tritone" in it })
         assertTrue(msgs("F4 G4 B4 C5").none { "tritone" in it })
     }
 

@@ -11,17 +11,14 @@ S A4:1/4 F#4:1/4 E4:1/8 D4:1/8 A4:1/4 A4:1/4 B4:3/4^ B4:1/4 E4:1/4 E4:1/4 A4:1/4
 A E4:1/4 D4:1/4 C#4:1/4 D4:1/4 F#4:1/4 G4:3/4^ E4:1/4 E4:1/8 D4:1/8 C#4:1/4 D4:1/4 E4:1/4 E4:1/8 D4:1/4 C#4:1/8 A3:1/4^ D4:1/4 D4:1/4 G4:1/4 G4:1/8 F#4:1/8 E4:1/4 D4:3/4^ E4:1/4 D4:1/4 D4:1/4 C#4:1/4 F#4:1/4 E4:1/2 E4:1/4^ E4:1/4 F#4:1/8 E4:1/8 F#4:1/8 G4:1/8 A4:1/4 F#4:1/4 G4:3/4^ A4:1/4 A4:1/4 G#4:1/4 G#4:1/8 F#4:1/8 F#4:1/8 E4:1/8 E4:3/4^ D4:1/4 D4:1/4 D4:1/4 G4:1/8 F#4:1/8 G4:1/4 F#4:3/4^ E4:1/4 F#4:1/8 E4:1/8 D4:1/4 D4:1/4 C#4:1/4 A3:3/4^
 T A3:1/4 A3:1/4 G3:1/4 A3:1/4 D4:1/4 D4:3/4^ D4:1/4 C#4:1/8 B3:1/8 A3:1/4 A3:1/4 A3:1/4 A3:1/2 F#3:1/4^ A3:1/4 G3:1/4 B3:1/4 C#4:1/8 D4:1/8 D4:1/8 C#4:1/8 A3:3/4^ A3:1/4 A3:1/4 B3:1/4 A3:1/4 A3:1/4 A3:1/4 G#3:1/4 C#4:1/4^ C#4:1/4 D4:1/4 D4:1/4 A3:1/4 D4:1/4 D4:3/4^ F#4:1/4 E4:1/4 B3:1/4 B3:1/8 A3:1/8 A3:1/8 G#3:1/8 A3:3/4^ A3:1/4 G3:1/4 A3:1/4 E4:1/8 D4:1/8 E4:1/4 D4:3/4^ E4:1/4 A3:1/4 B3:1/4 B3:1/4 A3:1/8 G3:1/8 F#3:3/4^
 B C#3:1/4@6 D3:1/4 E3:1/4@6 F#3:1/4@6 D3:1/4 G3:3/4^ G#3:1/4@6,5 A3:1/4 A3:1/8 G3:1/8 F#3:1/8@6 E3:1/8 D3:1/8@5,4,2 C#3:1/8 D3:1/4@9 A2:1/4@4 D3:1/4^ F#3:1/4@6 G3:1/4 E3:1/4 A3:1/4@7,3 A2:1/4@7,5,4 D3:3/4^ C#3:1/4@6 D3:1/4 C#3:1/8@7,#5 B2:1/8 F#3:1/4 E3:1/8@7,5,2 D3:1/8 E3:1/2@6,4 A2:1/4^ A3:1/4 D4:1/4 D3:1/8 E3:1/8 F#3:1/4@6 D3:1/4@n7 G3:3/4^ D#3:1/4@6,5 E3:1/8@5,4 F#3:1/8 E3:1/8@# D3:1/8 C#3:1/8@7,#5 D3:1/8@9,5,3 E3:1/4@7,9,4 A2:3/4^ F#3:1/4@6 G3:1/4 F#3:1/4@6 E3:1/4 A#2:1/4@7,5 B2:3/4^ C#3:1/4@6 D3:1/8 C#3:1/8 B2:1/8@6 A2:1/8@6,4 G2:1/4@6,5 A2:1/4 D3:3/4^
-why 1 1/2 SIMILAR_MOTION The tune leaps up a fifth to A and the lower voices rise into I⁶ with it, each by its own interval.
 why 2 0 LEAPS The alto climbs C♯–D–F♯–G into the fermata. The tritone C♯–G is spread over four notes and three chords.
 why 4 0 HARMONIC_RHYTHM The D chord arrives on beat 4 and carries over the bar line while the soprano's G–F♯ resolves above it. The suspension, not a chord change, moves the music.
 why 5 3/4 DOUBLING The tenor holds D over the bass's A as a 4–3 suspension that falls to C♯; the chord is V⁷ with a suspended fourth, so the ⁶₄ doubling rule does not apply.
 why 7 3/4 DOUBLING A passing chord over the bass's step E–D toward the cadence; its doubling follows the upper voices.
 why 8 0 HARMONIC_RHYTHM The cadential ⁶₄ of a cadence in A lands on the downbeat, as it should; the beat before only looked like the same chord. It resolves to E major and then to A at the fermata.
 why 8 1/2 LEADING_TONE The tenor's G♯, leading tone of A, leaps up to C♯, the third of the A chord at the fermata. Rising to A would leave the chord without its third.
-why 9 0 OVERLAP The bass leaps up a fourth to D while the tenor steps C♯–D, meeting in unison at the start of the phrase.
 why 9 0 RANGE The bass starts the phrase high on D and drops an octave a beat later.
 why 11 0 UNRESOLVED_NCT The alto holds A over the E chord and falls to G♯: a 4–3 suspension, prepared, tied and resolved by step.
 why 11 5/8 UNRESOLVED_NCT The tune holds E over the bass's D and falls to D: a 9–8 suspension, prepared, tied and resolved by step.
 why 11 5/8 TENDENCY The alto's G♯ falls to F♯ as the harmony moves from E major to D over the bass's step C♯–D. It is part of a descending line, not a goal.
-why 11 3/4 DOUBLING A passing chord over the bass's E on the way to the half cadence on A; its doubling follows the moving voices.
 why 13 1/2 OVERLAP Alto and tenor both move up, D–G and A–E, so the tenor passes where the alto was. They move together, so the order stays clear.

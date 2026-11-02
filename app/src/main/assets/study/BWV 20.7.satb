@@ -15,12 +15,10 @@ why 10 1/2 CADENCE An authentic cadence: V to I, both in root position, the sopr
 why 1 3/4 PARALLEL_OCTAVES Tenor and bass move from a unison A to an octave F: the tenor climbs A–C–F through the chord while the bass falls A–F. Contrary motion and the passing C keep them apart for Bach; in exercises, avoid it.
 why 2 0 LEAPS The alto climbs E–F–A–B♭, mostly through chord notes. The tritone E–B♭ is spread over four notes and three chords.
 why 3 0 OVERLAP Alto and tenor both move up after the fermata, C–F and A–D, so the tenor passes where the alto was. They move together, so the order stays clear.
-why 5 0 UNRESOLVED_NCT The alto holds E over the bar line into the D minor chord and falls to D: a 9–8 suspension, prepared, tied and resolved down by step.
-why 6 1/2 SIMILAR_MOTION A cadence where every resolution falls: soprano G–F, the alto's leading tone E drops to C, the seventh B♭ to A and the bass to a low F.
-why 8 1/2 SIMILAR_MOTION A cadence on G minor (ii): soprano A–G, the alto's F♯ drops to D, the seventh C to B♭ and the bass to G. All the resolutions point down.
 why 9 1/4 SPACING The alto climbs with the tune while the tenor drops to G and F near the bass. The gap lasts a beat before the tenor climbs back.
 why 9 3/8 SPACING The same open space: alto high on B♭, tenor low on G.
 why 9 1/2 SPACING The widest point, the alto on A and the tenor down on F; both move toward each other next.
 why 9 3/4 DOUBLING The tune leaps down to A while the tenor steps up G–A, so both land on A. The tune decides the soprano's note; the tenor takes the nearest one.
 why 10 0 LEAPS The hymn tune drops from F to A and keeps falling G–F to the end. Bach keeps the melody as given.
-why 10 1/2 SIMILAR_MOTION The final cadence: every voice falls into the last F chord, the seventh B♭ to A and the bass to a low F.
+why 9 3/4 PARALLEL_OCTAVES Soprano and tenor go from F to A an octave apart: the tune drops a sixth while the tenor climbs F–G–A. Bach accepts octaves in contrary motion with a passing note between; strict exercises still count them.
+why 5 0 UNRESOLVED_NCT The alto holds E over the bar line into the D minor chord and falls to D: a 9–8 suspension, prepared, tied and resolved down by step.

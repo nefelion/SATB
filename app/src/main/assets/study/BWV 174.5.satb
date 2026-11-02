@@ -12,7 +12,6 @@ A F#4:1/4 E4:1/8 F#4:1/8 G4:1/8 F#4:1/8 E4:1/4 D4:1/4 D4:1/4 D4:1/4 D4:1/4^ F#4:
 T A3:1/8 B3:1/8 C#4:1/4 D4:1/4 E4:1/8 A3:1/8 A3:1/4 A3:1/4 G3:1/4 F#3:1/4^ F#3:1/8 G#3:1/8 A3:1/4 B3:1/4 C#4:1/4 D4:1/8 C#4:1/8 B3:1/4 C#4:1/4 C#4:1/4^ D4:1/8 C#4:1/8 B3:1/8 G4:1/8 F#4:1/8 E4:1/8 D4:1/4 D4:1/4 D4:1/4 C#4:1/4 A3:1/4^ F#4:1/8 E4:1/8 D4:1/4 C#4:1/4 B3:1/8 C#4:1/8 D4:1/4 G#3:1/8 A3:1/8 B3:1/4 A3:1/4^ A3:1/4 A3:1/4 A3:1/4 A3:1/4 G#3:1/4 F#3:1/4 B3:1/4 A#3:1/4^ B3:1/4 B3:1/4 C#4:1/4 C#4:1/4 D4:1/8 C#4:1/8 B3:1/4 A3:1/4 A3:1/4^ E4:1/4 A3:1/8 B3:1/8 C#4:1/4 D4:1/4 C#4:1/4 B3:1/4 B3:1/4 C#4:1/4^ A3:1/8 B3:1/8 C#4:1/4 F#3:1/4 F#4:1/4^ F#4:1/8 E4:1/8 D4:1/4 E4:1/4 D4:1/4 D4:1/8 C#4:1/8 B3:1/4 C#4:1/4 B3:1/4^ D4:1/8 C4:1/8 B3:1/4 B3:1/4 B3:1/8 A3:1/8 A3:1/4 A3:1/4 A3:1/4 A3:1/4^
 B D3:1/4 A2:1/4@5 B2:1/4@6 C#3:1/4@6,5 D3:1/4@4 G2:1/8@9 A2:1/8 B2:1/8@6 C#3:1/8 D3:1/4^ B2:1/4@5 F#3:1/4@8 G3:1/4@5 A3:1/4@6 B3:1/8@6 A3:1/8@6 G#3:1/4@7 C#3:1/4@7,# F#3:1/4^ D3:1/4 G3:1/4 A3:1/4@8,6 B3:1/4@5,3 A3:1/8@6,4 G3:1/8 A3:1/4@5,4 A2:1/4@3 D3:1/4^ D4:1/8 C#4:1/8 B3:1/4@7 A#3:1/4@7,5 B3:1/8 A3:1/8 G#3:1/8@6 F#3:1/8 E3:1/8@7,# F#3:1/8 G#3:1/8@6,5 E3:1/8 A3:1/4^ A3:1/8 G3:1/8 F#3:1/8@6 E3:1/8 D3:1/8@4,5,2 C#3:1/8 D3:1/4 E3:1/4@5,# B2:1/8@5 C#3:1/8 D3:1/8@6 E3:1/8 F#3:1/4^@# D#3:1/4@6 E3:1/4 A3:1/8 G3:1/8 F#3:1/4@8,5 B3:1/8@5 A3:1/8 G#3:1/4@6,5 A3:1/4 D3:1/4^ E3:1/4 F#3:1/8@6 G#3:1/8@6,5 A3:1/4@5 E#3:1/4@7,5 F#3:1/8 E3:1/8 D#3:1/4@6,5 E3:1/4@# A2:1/4^ D3:1/4@5 C#3:1/4@#6 B2:1/4 F#3:1/4^@# A#3:1/4@6 B3:1/4@6 C#4:1/4@7 D4:1/4 F#3:1/4@6 G#3:1/4@6,5 A#3:1/4@6,5 B3:1/4^ F#3:1/4@6 G3:1/8 A3:1/8 B3:1/4@6 C#3:1/4@7,5 D3:1/4 A3:1/4@4 A2:1/4@3 D3:1/4^
 why 1 0 DOUBLING Soprano and tenor share C♯ for a beat. The soprano's C♯ falls on to B as part of the tune's descent; only the tenor's C♯ rises to D, as a leading tone should.
-why 2 0 UNRESOLVED_NCT The tenor strikes A again over the G chord and then falls to G: a suspension struck anew instead of tied.
 why 3 1/4 DOUBLING Soprano (C♯–B) and tenor (A–B) both move by step onto B. Bach takes the nearest notes.
 why 5 0 DOUBLING Soprano (A–B) and tenor (C♯–B) meet on B from opposite sides by step.
 why 5 1/8 OVERLAP Alto and tenor both leap up a sixth, D–B and B–G, to place the G chord higher. They move together, so the order stays clear.
@@ -23,11 +22,9 @@ why 11 0 SPACING The tune peaks on its high G while the alto stays on E. The sop
 why 11 1/8 SPACING The same gap, closing as the tune falls F♯–E.
 why 11 1/4 LEAPS The bass resolves D♯ up to E and then leaps a fourth to A. The tritone D♯–A spans two chords.
 why 13 1/4 DOUBLING Soprano and tenor share C♯. The soprano's C♯ passes down to B in the tune, and the tenor's rises to D.
-why 14 1/4 LEAPS The tune descends D–C♯–B–A–G♯ by step to the half cadence. A scale line hides the tritone between its ends.
 why 14 3/4 SPACING The new phrase opens with soprano and alto close together high up, a bright sound, while the tenor stays low with the bass. The gap closes as the alto descends.
 why 14 7/8 SPACING The same bright, high pair over a low tenor.
 why 15 1/4 SPACING The tenor drops to F♯ for the B minor chord while the alto stays high on B. At the fermata the tenor is back up on F♯ an octave higher.
 why 16 1/4 RANGE The bass climbs B–C♯–D to reach the tonic, then falls back to F♯ for the cadence.
 why 16 1/2 RANGE The top of that climb; the bass falls a sixth to F♯ on the next beat.
-why 18 0 UNRESOLVED_NCT The alto strikes A again over the G chord and falls to G: a suspension struck anew instead of tied.
 why 18 1/2 MELODIC The bass drops a seventh, B to C♯, instead of stepping up to C♯, to stay low for the final cadence. The same note an octave lower; it goes on by step to D.

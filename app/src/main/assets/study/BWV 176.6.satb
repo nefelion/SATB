@@ -12,10 +12,8 @@ A D4:1/4 C4:1/8 D4:1/8 Eb4:1/4 Eb4:1/8 F4:1/8 G4:1/4 G4:1/4 G4:1/4 G4:1/4^ G4:1/
 T Bb3:1/4 Ab3:1/4 G3:1/4 Ab3:1/4 Eb4:1/8 D4:1/8 C4:1/4 B3:1/4 Eb4:1/4^ D4:1/4 C4:1/4 D4:1/8 E4:1/8 F4:1/4 F3:1/8 G3:1/8 Ab3:1/8 Bb3:1/8 C4:1/4 Ab3:1/4^ Ab3:1/8 G3:1/8 F3:1/8 Ab3:1/8 Db4:1/4 Eb4:1/4 Eb4:1/8 F4:1/8 G4:1/4 G4:1/4 Eb4:1/4^ D4:1/4 C4:1/4 F3:1/8 G3:1/8 Ab3:1/4 Bb3:1/4 C4:1/4 Bb3:1/8 Ab3:1/8 Ab3:1/4^ Ab3:1/8 G3:1/8 F3:1/4 Bb3:1/4 Bb3:1/4 Eb4:1/4 D4:1/8 C4:1/8 D4:1/4 Eb4:1/4^ Eb4:1/4 Eb4:1/4 D4:1/4 Eb4:1/8 D4:1/8 C4:1/4 D4:1/8 C4:1/8 B3:1/4 G3:1/4^ B3:1/4 C4:1/8 Bb3:1/8 Ab3:1/8 Bb3:1/8 C4:1/8 D4:1/8 E4:1/8 F4:1/8 G4:1/4 C4:1/4 C4:1/4^ Ab3:1/8 G3:1/8 F3:1/8 Ab3:1/8 Db4:1/4 C4:1/4 Db4:1/4 Db4:1/4 G3:1/8 Ab3:1/16 Bb3:1/16 Ab3:1/4^ F3:1/4 D4:1/8 Eb4:1/8 F4:1/8 D4:1/8 Eb4:1/8 D4:1/8 C4:1/4 C4:1/4 B3:1/4 G3:1/4^
 B Bb2:1/4@5 F3:1/4@5,b Eb3:1/4 Ab3:1/4@5 G3:1/8@6 F3:1/8@6,4,2 Eb3:1/8@6 F3:1/8 G3:1/4@n C3:1/4^ G3:1/4 C4:1/4 Bb3:1/4@6 Ab3:1/4@8 D3:1/8@6 E3:1/8@6,5 F3:1/4 C3:1/4@4 F3:1/4^@b F3:1/8@b Eb3:1/8 Db3:1/8 C3:1/8 Bb2:1/4@5,b Ab2:1/4 Eb3:1/8@5 D3:1/8 C3:1/4 G3:1/4@n C4:1/4^ G3:1/4 C3:1/4 D3:1/8@7 E3:1/8@7,b5 F3:1/4@4 Db3:1/4@6,4,3 C3:1/8@b6,4 Bb2:1/8 C3:1/4@5,n F2:1/4^@b F3:1/8@b Eb3:1/8 D3:1/8@6 C3:1/8 Bb2:1/4@5,4 Eb3:1/4 D3:1/8@7,4,2 C3:1/8 G3:1/4@5,4 G2:1/4@n C3:1/4^ C4:1/8 Bb3:1/8 A3:1/4@6,5 Bb3:1/4 Eb3:1/4@8 Ab3:1/8@5 G3:1/8 F3:1/4@6,8,b G3:1/4@4 C3:1/4^ G3:1/4@n C4:1/4 F3:1/8@6,b G3:1/8@6,5 Ab3:1/4@5 G3:1/8@n6 F3:1/8@6,4,2 E3:1/4@6 F3:1/4@b C3:1/4^@n F3:1/8@b Eb3:1/8 Db3:1/8 C3:1/8 Bb2:1/4@6,b Ab2:1/4@7 Db3:1/8@b5 C3:1/8 Bb2:1/4@8,6,b C3:1/4@n F2:1/4^@b A3:1/4@6 Bb3:1/8 C4:1/8 D4:1/8@6 Bb3:1/8 Eb3:1/4 Ab3:1/4@6 G3:1/8@6,4 F3:1/8 G3:1/4@5,n C3:1/4^@n
 why 18 0 SIX_FOUR A cadential ⁶₄ on the downbeat over the bass G resolves to V: E♭ to D in the soprano, C to B in the tenor.
-why 1 1/2 OVERLAP The bass leaps up a fourth to A♭ while the tenor steps G–A♭, so they meet in unison on VI.
 why 2 1/2 LEADING_TONE The tenor's B leaps up to E♭, the third of the C minor chord at the fermata. Rising to C would leave the chord without its third.
 why 3 3/4 OVERLAP The tenor drops an octave, below where the bass just was, while the bass falls to D. Both move down together, so the voices stay in order.
-why 3 3/4 SIMILAR_MOTION All voices fall here: soprano and alto by step, the tenor by an octave and the bass by a fourth. The tenor's octave drop changes only its register, not the harmony.
 why 6 0 OVERLAP The tune leaps up to E♭ and the alto leaps up to C with it, above where the soprano was. They move up together, so the order stays clear.
 why 7 1/4 PARALLEL_FIFTHS Alto and tenor move from a fifth G/C to a twelfth C/F in contrary motion: the alto climbs while the tenor drops. Bach allows contrary fifths in inner voices; strict exercises avoid them.
 why 7 1/4 SPACING The tenor drops to a low F so it can climb F–G–A♭–B♭ by step, while the alto stays high. The gap closes as the tenor rises.
@@ -26,10 +24,8 @@ why 7 1/2 TENDENCY The alto's B♭ does fall by step to A♭, but an eighth late
 why 7 3/4 DOUBLING Read as a diminished seventh, E–G–B♭–D♭, with the alto's E arriving an eighth late, there is no ⁶₄ here and no doubling problem.
 why 7 3/4 SIX_FOUR This is a diminished seventh chord (E–G–B♭–D♭) whose E arrives an eighth late: a strong pull toward F minor, not a ⁶₄ chord.
 why 8 0 LEADING_TONE The alto's G is not a leading tone here: it belongs to the diminished seventh on E, and the alto steps E–F into F minor.
-why 8 0 SIX_FOUR The bass holds C and dips to B♭ and back while the F minor chord sits above it: a pedal ⁶₄ over C, which then becomes V⁷ of F minor.
 why 9 3/4 LEAPS The tenor rises F–B♭–E♭ in fourths through the E♭ chord to the C minor chord. Leaping through chord notes keeps the line clear.
 why 11 3/4 DOUBLING Alto (B♭–C) and tenor (D–C) meet on C from opposite sides by step.
-why 13 0 OVERLAP The bass leaps up to C, in unison with the tenor, to start the phrase; the tenor then slips down to B♭ under it.
 why 13 1/8 CROSSING The tenor falls C–B♭–A♭ under the bass's held C, and on the next beat the bass drops to F below it.
 why 13 1/4 SIMILAR_MOTION Every voice falls into ii°⁶: soprano and alto by step, the tenor B♭–A♭ and the bass a fifth to F. The descent heads for the cadence on VI.
 why 13 1/2 DOUBLING Soprano (D–C) and tenor (B♭–C) meet on C by step.
@@ -42,4 +38,3 @@ why 16 3/4 CROSSING The new phrase starts in F major with the bass on A and the 
 why 17 1/8 LEAPS After its leap the tenor keeps climbing D–E♭–F before turning back to D. It turns, but only after reaching the top of the B♭ chord.
 why 17 1/4 RANGE The bass climbs B♭–C–D with the tenor before leaping back down to E♭. A short high point.
 why 17 1/2 LEAPS The bass falls D–B♭–E♭, outlining the B♭ chord before landing on E♭: roots by fifth, B♭ to E♭.
-why 18 1/2 SIMILAR_MOTION The piece ends on C major, a Picardy third. Every voice falls into it: the seventh F to E, the tenor's B drops to G and the bass G to C.

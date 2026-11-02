@@ -3,6 +3,8 @@ title Er nahm alles wohl in acht (BWV 245.28)
 key 3 MAJOR
 time 4 4 NUMERIC
 tempo 76
+change 11 key 4 MAJOR
+change 12 key 3 MAJOR
 arr 0 0 1 1
 clefs TREBLE BASS
 off FIGURES
@@ -10,12 +12,7 @@ S C#5:1/4 B4:1/4 A4:1/4 B4:1/4 C#5:1/4 D#5:1/4 E5:1/2^ F#5:1/4 E5:1/4 D5:1/4 C#5
 A A4:1/4 G#4:1/4 A4:1/4 G#4:1/4 A4:1/8 G#4:1/8 F#4:1/4 G#4:1/2^ B4:1/4 B4:1/4 G#4:1/4 A4:1/4 A4:1/4 G#4:1/4 E4:1/2^ A4:1/4 B4:1/4 A4:1/4 G#4:1/4 F#4:1/4 F#4:1/4 E#4:1/2^ C#4:1/4 E4:1/4 E4:1/4 E4:1/4 A4:1/4 B4:1/4 A4:1/2^ A4:1/4 A4:1/4 A4:1/4 A4:1/4 A4:1/4 G#4:1/4 A4:1/2^ G#4:1/4 E4:1/4 A4:1/4 G#4:1/4 F#4:1/2 G#4:1/2^ G4:1/4 G4:1/4 F#4:1/8 G#4:1/8 A4:1/4 A4:1/8 G#4:1/8 A4:1/4 G#4:1/2^ A4:1/4 B4:1/4 A4:1/4 A4:1/4 A4:1/4 G#4:1/4 E4:1/2^
 T E4:1/4 E4:1/4 E4:1/4 E4:1/4 E4:1/4 B3:1/4 B3:1/2^ D4:1/4 B3:1/4 E4:1/4 E4:1/4 F#4:1/4 E4:1/8 D4:1/8 C#4:1/2^ E4:1/4 E4:1/4 F#4:1/4 C#4:1/4 D4:1/4 D4:1/4 G#3:1/2^ F#3:1/4 G#3:1/4 A3:1/4 B3:1/4 F#4:1/4 E4:1/4 E4:1/2^ E4:1/4 D4:1/4 C#4:1/4 B3:1/4 C#4:1/8 D4:1/8 E4:1/4 E4:1/2^ E4:1/4 B3:1/4 A3:1/4 B3:1/4 C#4:1/4 B3:1/4 B3:1/2^ Bb3:1/4 A3:1/4 A3:1/8 B3:1/8 C#4:1/4 D4:1/4 E4:1/4 E4:1/2^ E4:1/4 E4:1/4 F#4:1/4 F#4:1/4 F#4:1/4 E4:1/8 D4:1/8 C#4:1/2^
 B A3:1/4 E3:1/4 C#3:1/4@6 E3:1/4 A2:1/4 B2:1/4@7,# E3:1/2^ B3:1/4 G#3:1/4@6 E3:1/4@7 A3:1/4 D3:1/4@6,5 E3:1/4 A2:1/2^ A3:1/4 G#3:1/4@6 F#3:1/4@6 E3:1/4@6 D3:1/4@6,3 C#3:1/8@6,4,2 B2:1/8 C#3:1/2^@# F#3:1/4 E3:1/4 A3:1/4 G#3:1/4@6 F#3:1/4@6 G#3:1/4@6,5 A3:1/2^ A3:1/4 F#3:1/4@6 C#3:1/4@6 D3:1/4@6,5 E3:1/4@6,4 E3:1/4@5,3 A2:1/2^ E3:1/8 F#3:1/8 G#3:1/4@6 F#3:1/4@5 E3:1/4 A3:1/4@6,5 B3:1/4@# E3:1/2^ G3:1/4@6,b A3:1/4@n7 D3:1/4@5 C#3:1/4@6 B2:1/4@7 A2:1/4 E3:1/2^ A3:1/4 G#3:1/4@6 F#3:1/4@6 E3:1/4@6,4,2 D#3:1/4@6,5 E3:1/4@8 A2:1/2^
-why 4 1/2 SIMILAR_MOTION A cadence where every resolution falls: soprano B–A, the alto's G♯ drops to E, the seventh D to C♯ and the bass to A.
-why 5 1/2 PROGRESSION The bass walks down A–G♯–F♯–E–D–C♯–B, a full scale. The chords over it are passing ones; the line leads, not the progression.
 why 5 3/4 SIMILAR_MOTION All voices move down with the bass's descending scale. They fall by different intervals, so each line keeps its own shape.
-why 6 1/4 PROGRESSION Still the bass's descending scale, D–C♯–B; the chord over C♯ is a passing one, not a step backward.
-why 6 1/2 LEAPS The alto walks down B–A–G♯–F♯–E♯ by step to the leading tone of F♯. A scale line hides the tritone between its ends.
-why 7 1/2 OVERLAP The bass leaps up a fourth to A while the tenor resolves G♯–A, so they meet in unison.
 why 8 0 SEVENTH The chord over G♯ is really the dominant, E major, with the soprano's C♯ passing. The tenor's B is its fifth, not a seventh, and is free to leap to F♯.
 why 8 0 OVERLAP The tenor leaps up to F♯, above where the alto was, while the alto leaps up to A. They move up together.
 why 10 0 DOUBLING In this cadential ⁶₄ soprano and tenor share C♯: the soprano falls C♯–B and the tenor climbs C♯–D–E into V. The doubling follows their lines.
@@ -24,6 +21,3 @@ why 12 0 LEADING_TONE The music is turning to E major, where G♯ is the third o
 why 13 0 DOUBLING Bach darkens the harmony with G and B♭, a diminished chord. Alto and bass share G; it is not a leading tone, so the doubling is safe.
 why 13 1/2 LEADING_TONE The tune leaps up from C♯ to F♯, and Bach keeps the hymn melody. The D that C♯ leads to is in the bass.
 why 13 1/2 DOUBLING The tune leaps up to F♯ while the alto steps G–F♯; both land on the third of the D chord, with the root D in the bass.
-why 15 1/2 PROGRESSION As in bar 5, the bass walks down the scale A–G♯–F♯–E, and V⁶ and IV⁶ are passing chords on it.
-why 16 0 LEAPS The bass walks down A–G♯–F♯–E–D♯ by step. A scale line hides the tritone between its ends.
-why 16 1/2 SIMILAR_MOTION The final cadence, as in bar 4: every voice falls into the A chord.

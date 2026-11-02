@@ -14,13 +14,9 @@ why 3 0 SIMILAR_MOTION Every voice falls into the diminished chord: soprano G–
 why 6 3/8 SPACING The tenor walks down B♭–A–G while the alto holds A; the gap is wide for one eighth before the cadence.
 why 8 0 LEADING_TONE The tenor's F♯ leaps up to B♭, the third of the G minor chord at the fermata. Rising to G would leave the chord without its third.
 why 11 0 DOUBLING Soprano (B♭–A) and tenor (G–A) meet on A by step.
-why 12 0 SIMILAR_MOTION A cadence on F: soprano G–F, the alto's E (leading tone of F) drops to C, the tenor C–A and the bass to a low F. Every resolution points down.
 why 13 0 DOUBLING The tenor keeps A from the last chord while the alto leaps up to A for the new phrase. The doubled third keeps the held note.
 why 15 0 DOUBLING The tenor's C♯, a leading tone, must rise to D, and the soprano falls E–D. Both reach D: a correct resolution beats the ideal doubling.
 why 23 1/2 DOUBLING Bach's bass is on C here, rising to D, so this is not a full ⁶₄ chord and its doubling rule does not apply. G is doubled in alto and tenor while the bass moves.
 why 23 1/2 SIX_FOUR The ⁶₄ sound comes on the weak third beat and resolves to V on the next downbeat: the cadence is stretched over the bar line into the fermata.
-why 24 0 LEAPS The tune walks down E♭–D–C–B♭–A by step to the half cadence. A scale line hides the tritone between its ends.
 why 25 0 RANGE After the fermata the bass restarts an octave higher on D and walks down D–C–B♭–A, giving the new phrase a lighter start.
 why 26 1/4 DOUBLING A passing chord over the bass's step A–G–F♯; its doubling follows the moving voices.
-why 26 1/4 PROGRESSION The bass walks A–G–F♯ to V⁶; iv⁶₄ is a passing chord on that line, not a step backward.
-why 28 0 SIMILAR_MOTION The piece ends on G major, a Picardy third. Every voice falls into it: the seventh C to B, the alto's F♯ to D and the bass to a low G.
