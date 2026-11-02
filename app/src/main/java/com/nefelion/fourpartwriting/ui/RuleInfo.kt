@@ -47,6 +47,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import com.nefelion.fourpartwriting.engrave.BeamMark
 import com.nefelion.fourpartwriting.engrave.ChordLabel
 import com.nefelion.fourpartwriting.engrave.Engraver
@@ -275,41 +281,55 @@ fun RuleInfoDialog(
     onDismiss: () -> Unit,
 ) {
     val demo = remember(rule) { RuleExamples.ALL[rule]?.let { Demo(rule, it) } }
-    Dialog(onDismissRequest = onDismiss) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    // Landscape: text on the left, the example and Bach on the right
+    val conf = androidx.compose.ui.platform.LocalConfiguration.current
+    val wide = conf.screenWidthDp > conf.screenHeightDp && conf.screenWidthDp >= 600
+    var more by rememberSaveable(rule) { mutableStateOf(false) }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         KeepRefreshRate()
-        Surface(Modifier.widthIn(max = 420.dp), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
-            Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(Modifier.padding(horizontal = 24.dp, vertical = 16.dp).widthIn(max = if (wide) 760.dp else 420.dp),
+            shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
+            @Composable fun Text1() {
                 Text(rule.label, style = MaterialTheme.typography.titleLarge)
-                Text(rule.desc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Why: ") }; append(rule.why) },
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("How to avoid: ") }; append(rule.how) },
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(rule.desc, style = MaterialTheme.typography.bodyMedium, color = muted)
+                // Why and how: folded away, one tap to read
+                Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable { more = !more }.padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("Why, and how to avoid it", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Ico(if (more) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, MaterialTheme.colorScheme.primary, 20.dp)
+                }
+                if (more) {
+                    Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Why: ") }; append(rule.why) }, style = MaterialTheme.typography.bodySmall, color = muted)
+                    Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("How to avoid: ") }; append(rule.how) }, style = MaterialTheme.typography.bodySmall, color = muted)
+                    // The marks Check prints next to such notes
+                    if (rule == Rule.UNRESOLVED_NCT) Text(buildAnnotatedString {
+                        append("Marks in the score:")
+                        for (n in com.nefelion.fourpartwriting.theory.NctType.entries) {
+                            append('\n')
+                            withStyle(SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = LocalScoreColors.current.nct)) { append(n.label) }
+                            append("  ${n.full}: ${n.how}")
+                        }
+                    }, style = MaterialTheme.typography.bodySmall, color = muted)
+                }
+            }
+            @Composable fun Example() {
                 if (demo != null) DemoCanvas(demo)
-                // The marks Check prints next to such notes
-                if (rule == Rule.UNRESOLVED_NCT) Text(buildAnnotatedString {
-                    append("Marks in the score:")
-                    for (n in com.nefelion.fourpartwriting.theory.NctType.entries) {
-                        append('\n')
-                        withStyle(SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = LocalScoreColors.current.nct)) { append(n.label) }
-                        append("  ${n.full}: ${n.how}")
-                    }
-                }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                // Where Bach keeps the rule first, then where he bends it
+                // Where Bach keeps the rule first, then where he bends it; the chorale itself explains the spot
                 val spots = IN_BACH[rule].orEmpty().sortedBy { it.breaks }
                 if (onStudy != null && spots.isNotEmpty()) {
                     Text("In Bach's chorales", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                    for (spot in spots) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onStudy(spot) }.padding(vertical = 4.dp),
+                    for (spot in spots) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onStudy(spot) }.padding(vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("${spot.study}, bar ${spot.bar} · ${if (spot.breaks) "breaks it" else "keeps it"}", style = MaterialTheme.typography.labelLarge,
-                                color = if (spot.breaks) LocalScoreColors.current.warnText else LocalScoreColors.current.ok)
-                            Text(spot.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        Text("${spot.study}, bar ${spot.bar}", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                        Text(if (spot.breaks) "breaks it" else "keeps it", style = MaterialTheme.typography.labelMedium,
+                            color = if (spot.breaks) LocalScoreColors.current.warnText else LocalScoreColors.current.ok)
                         Ico(Icons.AutoMirrored.Rounded.KeyboardArrowRight, MaterialTheme.colorScheme.primary)
                     }
                 }
-                if (onToggle == null) Text("Always checked in lessons.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            @Composable fun Actions() {
+                if (onToggle == null) Text("Always checked in lessons.", style = MaterialTheme.typography.bodySmall, color = muted)
                 else Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Check this rule", Modifier.weight(1f))
                     Switch(checked = enabled, onCheckedChange = { onToggle() })
@@ -319,6 +339,13 @@ fun RuleInfoDialog(
                     onIgnoreHere?.let { OutlinedButton(onClick = it, Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Ignore here", maxLines = 1) } }
                     onIgnoreInScore?.let { OutlinedButton(onClick = it, Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Ignore in this score", maxLines = 1) } }
                 }
+            }
+            val gap = Arrangement.spacedBy(8.dp)
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = gap) {
+                if (wide) Row(Modifier.weight(1f, fill = false), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = gap) { Text1(); Actions() }
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = gap) { Example() }
+                } else Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = gap) { Text1(); Example(); Actions() }
                 TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Close") }
             }
         }
