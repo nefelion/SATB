@@ -598,11 +598,13 @@ private fun RowScope.Tool(
                     shown = true
                     val reach = 14.dp.toPx()
                     var moved = false
+                    var drag = Offset.Zero
                     var lifted = false
                     while (true) {
                         val ch = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
                         over = if (below) ch.position.y > size.height + reach else ch.position.y < -reach
-                        if ((ch.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
+                        drag += ch.position - ch.previousPosition
+                        if (drag.getDistance() > viewConfiguration.touchSlop) moved = true
                         ch.consume()
                         if (!ch.pressed) { lifted = true; break }
                     }
@@ -843,6 +845,7 @@ private fun RowScope.PickTool(
             Tool(selected, { open = true }, label, menu = true, press = { down, toScreen ->
                 open = true
                 var moved = false
+                var drag = Offset.Zero
                 var lifted = false
                 var held = false
                 // Time the finger came onto the current choice
@@ -854,7 +857,8 @@ private fun RowScope.PickTool(
                     if (ev == null) { held = true; break }
                     val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
                     now = ch.uptimeMillis
-                    if ((ch.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
+                    drag += ch.position - ch.previousPosition
+                    if (drag.getDistance() > viewConfiguration.touchSlop) moved = true
                     val h = at(toScreen(ch.position))
                     if (h != hover) { hover = h; since = now }
                     ch.consume()

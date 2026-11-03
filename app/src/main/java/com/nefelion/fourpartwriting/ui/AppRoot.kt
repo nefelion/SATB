@@ -88,7 +88,8 @@ fun AppRoot(vm: EditorViewModel) {
     val holder = rememberSaveableStateHolder()
     LaunchedEffect(stack) {
         val before = motion.currentState
-        if (before != stack) motion.animateTo(stack)
+        // Also when a tap mid-animation turns back to where it started (currentState still equals stack)
+        if (before != stack || motion.targetState != stack) motion.animateTo(stack)
         // A screen that was left (back) starts fresh next time
         for (k in before - stack.toSet()) holder.removeState(k)
         if (STUDY in before && STUDY !in stack) vm.leaveStudy()
@@ -114,7 +115,7 @@ fun AppRoot(vm: EditorViewModel) {
                     val d = if (forward) 1 else -1
                     ((slideInHorizontally(tween(360, easing = SETTLE)) { d * it / 5 } + fadeIn(tween(240, 60))) togetherWith
                         (slideOutHorizontally(tween(360, easing = SETTLE)) { -d * it / 10 } + fadeOut(tween(180))))
-                        .apply { targetContentZIndex = if (forward) 1f else -1f }
+                    // Incoming screen stays on top (default) so it takes taps at once, even while the old one slides away
                 },
                 contentKey = { it.last() },
             ) { s ->

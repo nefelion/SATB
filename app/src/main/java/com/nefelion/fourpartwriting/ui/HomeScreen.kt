@@ -179,9 +179,12 @@ private fun MenuCard(title: String, text: String, color: Color, modifier: Modifi
                 val down = awaitFirstDown()
                 pressed = true
                 var moved = false
+                // Finger travel summed per event: comparing to the down point counts the card sliding under a still finger as a drag
+                var drag = Offset.Zero
                 while (true) {
                     val ch = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                    if ((ch.position - down.position).getDistance() > viewConfiguration.touchSlop) { moved = true; pressed = false }
+                    drag += ch.position - ch.previousPosition
+                    if (drag.getDistance() > viewConfiguration.touchSlop) { moved = true; pressed = false }
                     if (!ch.pressed) { if (!moved) click(); break }
                 }
                 pressed = false
