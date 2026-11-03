@@ -135,6 +135,7 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
     val steps = buildList<Pair<String, @Composable ColumnScope.() -> Unit>> {
         if (l.lab) {
             add("A note is many notes" to { NoteBuilder(st, vm) })
+            add("Piano into guitar" to { TimbreMorph(st, vm) })
             Overtones.COMPARE.forEachIndexed { k, c -> add(c.title to {
                 if (k == 0) Text("Four voices sing each chord: soprano, alto, tenor and bass, from high to low. " +
                     "In C3 or E5, the number is the octave; C4 is middle C.", style = MaterialTheme.typography.bodySmall, color = muted)

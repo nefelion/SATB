@@ -9,7 +9,7 @@ import com.nefelion.fourpartwriting.model.Voice
 /**
  * A guided lesson on one idea of voice leading: hear it, why, watch it done, try it, see it in Bach,
  * then practice (find it in a passage, apply it in an exercise). A [lab] lesson instead starts with a note
- * built from its partials, then one page per overtone card with its task. LessonsTest checks every passage against the checker.
+ * built from its partials, the piano turned into a guitar, then one page per overtone card with its task. LessonsTest checks every passage against the checker.
  */
 class Lesson(
     val title: String,
