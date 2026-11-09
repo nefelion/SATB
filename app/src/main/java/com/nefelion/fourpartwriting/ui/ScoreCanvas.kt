@@ -6,7 +6,6 @@ import android.graphics.Rect
 import android.graphics.Typeface
 import androidx.compose.animation.core.animate
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.magnifier
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
@@ -42,7 +41,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.DpSize
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.unit.dp
 import androidx.core.content.res.ResourcesCompat
 import com.nefelion.fourpartwriting.R
@@ -254,38 +261,156 @@ fun ScoreCanvas(
             Offset((layout.xFor(g.at) + Smufl.HEAD_W / 2) * sp + offX, (layout.staffTop[g.staff] + 4 - g.pos / 2f) * sp + offY)
         }
 
-        // Same staff size in the magnifier at any view zoom (16 dp per staff space)
+        // Same staff size in the loupe at any view zoom (16 dp per staff space)
         val loupeZoom = (with(density) { 16.dp.toPx() } / sp).coerceAtLeast(1f)
-        // Canvas top in the window and the status bar height: Android pushes a magnifier above them back down
+        // Canvas top in the window and the status bar height: the loupe stays below them
         var canvasTop by remember { mutableFloatStateOf(0f) }
         val barsTop = WindowInsets.systemBars.getTop(density)
         val canvasW = constraints.maxWidth
+        // Follows the finger (shifted like the pitch) smoothly, but stays within 40 dp (in the loupe) of the ghost
+        val loupeSource = {
+            val f = loupe; val g = ghostPx
+            if (f == null || g == null) null else {
+                val s = f + Offset(0f, loupeShift)
+                val d = s - g; val r = with(density) { 40.dp.toPx() } / loupeZoom
+                if (d.getDistance() > r) g + d * (r / d.getDistance()) else s
+            }
+        }
+        // Above the finger; where it would cover the status bar, beside it instead
+        val loupeCenter = {
+            loupe?.let { f ->
+                with(density) {
+                    val r = LOUPE_R.toPx()
+                    val up = f - Offset(0f, r + 30.dp.toPx())
+                    val c = if (canvasTop + up.y - r - 4.dp.toPx() >= barsTop) up
+                    else up + Offset(if (f.x < canvasW / 2) r + 25.dp.toPx() else -r - 25.dp.toPx(), 0f)
+                    // Whole loupe on screen
+                    c.copy(x = c.x.coerceIn(r, max(r, canvasW - r)))
+                }
+            }
+        }
 
+        // The score drawing, shared by the view and the loupe (which shows only the music, also past the view edges)
+        val drawScore: DrawScope.() -> Unit = {
+            drawIntoCanvas { c ->
+                val nc = c.nativeCanvas
+                nc.save()
+                nc.translate(offX, offY)
+                // Playback cursor
+                state.playTime?.let { t ->
+                    layout.locate(t)?.let { x ->
+                        paints.fill.color = sc.play.copy(alpha = 0.19f).toArgb()
+                        nc.drawRect((x - 0.5f) * sp, (layout.noteTop - 1.5f) * sp, (x + 1.7f) * sp, (layout.noteBottom + 1.5f) * sp, paints.fill)
+                    }
+                }
+                // Insertion caret for the active voice (none in movement mode)
+                if (!state.playing && !state.moving) {
+                    val col = sc.voices[state.shownVoice.ordinal]
+                    paints.fill.color = col.copy(alpha = sc.caretAlpha).toArgb()
+                    // From above the highest note and chord symbol to below the lowest note, so the voice letter never sits under either
+                    val cTop = minOf(layout.top - 2f, layout.noteTop - 1f, layout.textTop - 0.6f)
+                    nc.drawRect((caretX - 0.3f) * sp, cTop * sp, (caretX + 1.5f) * sp, max(layout.bottom + 2f, layout.noteBottom + 1f) * sp, paints.fill)
+                    paints.text.color = col.toArgb()
+                    paints.text.textSize = 1.4f * sp
+                    paints.text.typeface = paints.bold
+                    paints.text.textAlign = Paint.Align.CENTER
+                    nc.drawText(state.shownVoice.label, (caretX + 0.6f) * sp, (cTop - 0.4f) * sp, paints.text)
+                }
+                val visL = -offX / sp - 6f
+                val visR = (-offX + vw) / sp + 6f
+                paints.ink = ink; paints.nct = sc.nct.toArgb()
+                val focused = state.focusedIssue?.let { analysis?.issues?.getOrNull(it) }
+                if (focused != null && flagged.isNotEmpty()) {
+                    // Soft halo behind each flagged head and a band joining each voice's heads (parallels read as parallel bands).
+                    // Drawn opaque into one layer, then blended once, so overlaps don't darken.
+                    nc.saveLayerAlpha(-offX, -offY, -offX + vw, -offY + vh, 0x50) // bounds = the visible view
+                    val pr = paints.ring
+                    pr.color = (if (focused.severity == Severity.ERROR) sc.errorNote else sc.warnNote).toArgb()
+                    for (hs in flagged.values) {
+                        pr.style = Paint.Style.FILL
+                        for (h in hs) nc.drawOval((h.x - 1.05f) * sp, (h.y - 0.85f) * sp, (h.x + 1.05f) * sp, (h.y + 0.85f) * sp, pr)
+                        pr.style = Paint.Style.STROKE
+                        pr.strokeWidth = 0.6f * sp
+                        for ((h1, h2) in hs.zipWithNext()) nc.drawLine(h1.x * sp, h1.y * sp, h2.x * sp, h2.y * sp, pr)
+                    }
+                    nc.restore()
+                }
+                drawMarks(nc, layout.marks, sp, paints, visL, visR, behind = faded) { mk ->
+                    val color = mk.ref?.let { colors[it] }
+                    when {
+                        color == null -> null
+                        headRange != null && mk.ref == state.selected && mk.x !in headRange -> (color and 0xFFFFFF) or (0x59 shl 24)
+                        else -> color
+                    }
+                }
+                // The note a tap here would add, while the finger is down; hint notes until the next edit. On top, so rests never hide it
+                val ghosts = listOfNotNull(state.ghost) + (state.hint?.takeIf { it.score == state.score }?.notes ?: emptyList())
+                // A ghost after the last bar: carry the staff lines on under it
+                val staffEnd = layout.measures.lastOrNull()?.x1 ?: 0f
+                ghosts.maxOfOrNull { layout.xFor(it.at) }?.takeIf { it > staffEnd }?.let { gx ->
+                    paints.line.color = ink
+                    paints.line.strokeWidth = Smufl.STAFF_LINE * sp
+                    for (top in layout.staffTop) for (l in 0..4) {
+                        val ly = (top + l) * sp
+                        nc.drawLine(staffEnd * sp, ly, (gx + Smufl.HEAD_W + 2.5f) * sp, ly, paints.line)
+                    }
+                }
+                for (g in ghosts) {
+                    paints.glyph.color = sc.voices[(g.voice ?: state.shownVoice).ordinal].copy(alpha = 0.55f).toArgb()
+                    paints.glyph.textSize = 4f * sp
+                    val gy = layout.staffTop[g.staff] + 4 - g.pos / 2f
+                    val gx = layout.xFor(g.at)
+                    nc.drawText(Smufl.HEAD_BLACK.toString(), gx * sp, gy * sp, paints.glyph)
+                    g.alter?.let { a -> nc.drawText(Smufl.accidental(a).toString(), (gx - Smufl.accidentalWidth(a) - 0.25f) * sp, gy * sp, paints.glyph) }
+                    paints.line.color = paints.glyph.color
+                    paints.line.strokeWidth = Smufl.LEDGER * sp
+                    // Ledger lines above or below the staff
+                    val top = layout.staffTop[g.staff]
+                    var p = if (g.pos > 8) 10 else -2
+                    while ((g.pos > 8 && p <= g.pos) || (g.pos < 0 && p >= g.pos)) {
+                        val ly = (top + 4 - p / 2f) * sp
+                        nc.drawLine((gx - Smufl.LEDGER_EXT) * sp, ly, (gx + Smufl.HEAD_W + Smufl.LEDGER_EXT) * sp, ly, paints.line)
+                        p += if (g.pos > 8) 2 else -2
+                    }
+                }
+                // Self-check marks: a ring round each marked head; once revealed, the ok color on a mistake, gray on a false alarm
+                state.quiz?.takeIf { it.marked.isNotEmpty() }?.let { q ->
+                    val pr = paints.ring
+                    pr.style = Paint.Style.STROKE
+                    pr.strokeWidth = 0.3f * sp
+                    for (h in layout.heads) if (h.ref in q.marked) {
+                        pr.color = when { !q.revealed -> ink; q.hit(h.ref) -> sc.ok.toArgb(); else -> (ink and 0xFFFFFF) or (0x59 shl 24) }
+                        nc.drawOval((h.x - 1.25f) * sp, (h.y - 1f) * sp, (h.x + 1.25f) * sp, (h.y + 1f) * sp, pr)
+                    }
+                }
+                analysis?.let { a ->
+                    if (focused == null) {
+                        // Nothing picked: a small tick above the system where each problem is, errors drawn last
+                        // Above the chord names (SYMBOL text, baseline y) so they never overlap
+                        val y = layout.marks.filter { it is TextMark && it.style == TextStyle.SYMBOL }
+                            .minOfOrNull { (it as TextMark).let { t -> t.y - t.size } } ?.minus(0.4f)
+                            ?: (min(layout.top, layout.noteTop) - 1f)
+                        for (issue in a.issues.sortedBy { it.severity == Severity.ERROR }) {
+                            val x = a.slices.getOrNull(issue.slice)?.time?.let { layout.locate(it) } ?: continue
+                            val cx = x + Smufl.HEAD_W / 2
+                            val pt = paints.tick
+                            pt.color = (if (issue.severity == Severity.ERROR) sc.errorNote else sc.warnNote).toArgb()
+                            pt.strokeWidth = 0.25f * sp // round-joined stroke = rounded corners
+                            val p = paints.path
+                            p.reset()
+                            p.moveTo((cx - 0.45f) * sp, (y - 0.85f) * sp); p.lineTo((cx + 0.45f) * sp, (y - 0.85f) * sp); p.lineTo(cx * sp, (y - 0.15f) * sp)
+                            p.close()
+                            nc.drawPath(p, pt)
+                        }
+                    }
+                }
+                nc.restore()
+            }
+        }
         Canvas(
             Modifier
                 .size(maxWidth, maxHeight)
                 .onGloballyPositioned { canvasTop = it.positionInWindow().y }
-                .magnifier(
-                    // Follows the finger (shifted like the pitch) smoothly, but stays within 40 dp (in the loupe) of the ghost
-                    // (plus a sub-pixel nudge by the finger: Android moves the loupe only when its source changes)
-                    sourceCenter = {
-                        val f = loupe; val g = ghostPx
-                        if (f == null || g == null) Offset.Unspecified else {
-                            val s = f + Offset(0f, loupeShift)
-                            val d = s - g; val r = 40.dp.toPx() / loupeZoom
-                            (if (d.getDistance() > r) g + d * (r / d.getDistance()) else s) + Offset(f.x * 3e-4f, f.y * 1e-4f)
-                        }
-                    },
-                    // Above the finger; where Android would push it down onto the finger, beside it instead
-                    magnifierCenter = {
-                        loupe?.let { f ->
-                            val up = f - Offset(0f, 110.dp.toPx())
-                            if (canvasTop + up.y - 89.dp.toPx() >= barsTop) up
-                            else up + Offset(if (f.x < canvasW / 2) 110.dp.toPx() else -110.dp.toPx(), 0f)
-                        } ?: Offset.Unspecified
-                    },
-                    zoom = loupeZoom, size = DpSize(170.dp, 170.dp), cornerRadius = 85.dp,
-                )
                 .pointerInput(viewKey) {
                     val slop = viewConfiguration.touchSlop
                     awaitEachGesture {
@@ -417,119 +542,35 @@ fun ScoreCanvas(
                 }
         ) {
             drawRect(paper)
-            drawIntoCanvas { c ->
-                val nc = c.nativeCanvas
-                nc.save()
-                nc.translate(offX, offY)
-                // Playback cursor
-                state.playTime?.let { t ->
-                    layout.locate(t)?.let { x ->
-                        paints.fill.color = sc.play.copy(alpha = 0.19f).toArgb()
-                        nc.drawRect((x - 0.5f) * sp, (layout.noteTop - 1.5f) * sp, (x + 1.7f) * sp, (layout.noteBottom + 1.5f) * sp, paints.fill)
-                    }
-                }
-                // Insertion caret for the active voice (none in movement mode)
-                if (!state.playing && !state.moving) {
-                    val col = sc.voices[state.shownVoice.ordinal]
-                    paints.fill.color = col.copy(alpha = sc.caretAlpha).toArgb()
-                    // From above the highest note and chord symbol to below the lowest note, so the voice letter never sits under either
-                    val cTop = minOf(layout.top - 2f, layout.noteTop - 1f, layout.textTop - 0.6f)
-                    nc.drawRect((caretX - 0.3f) * sp, cTop * sp, (caretX + 1.5f) * sp, max(layout.bottom + 2f, layout.noteBottom + 1f) * sp, paints.fill)
-                    paints.text.color = col.toArgb()
-                    paints.text.textSize = 1.4f * sp
-                    paints.text.typeface = paints.bold
-                    paints.text.textAlign = Paint.Align.CENTER
-                    nc.drawText(state.shownVoice.label, (caretX + 0.6f) * sp, (cTop - 0.4f) * sp, paints.text)
-                }
-                val visL = -offX / sp - 6f
-                val visR = (-offX + vw) / sp + 6f
-                paints.ink = ink; paints.nct = sc.nct.toArgb()
-                val focused = state.focusedIssue?.let { analysis?.issues?.getOrNull(it) }
-                if (focused != null && flagged.isNotEmpty()) {
-                    // Soft halo behind each flagged head and a band joining each voice's heads (parallels read as parallel bands).
-                    // Drawn opaque into one layer, then blended once, so overlaps don't darken.
-                    nc.saveLayerAlpha(-offX, -offY, -offX + vw, -offY + vh, 0x50) // bounds = the visible view
-                    val pr = paints.ring
-                    pr.color = (if (focused.severity == Severity.ERROR) sc.errorNote else sc.warnNote).toArgb()
-                    for (hs in flagged.values) {
-                        pr.style = Paint.Style.FILL
-                        for (h in hs) nc.drawOval((h.x - 1.05f) * sp, (h.y - 0.85f) * sp, (h.x + 1.05f) * sp, (h.y + 0.85f) * sp, pr)
-                        pr.style = Paint.Style.STROKE
-                        pr.strokeWidth = 0.6f * sp
-                        for ((h1, h2) in hs.zipWithNext()) nc.drawLine(h1.x * sp, h1.y * sp, h2.x * sp, h2.y * sp, pr)
-                    }
-                    nc.restore()
-                }
-                drawMarks(nc, layout.marks, sp, paints, visL, visR, behind = faded) { mk ->
-                    val color = mk.ref?.let { colors[it] }
-                    when {
-                        color == null -> null
-                        headRange != null && mk.ref == state.selected && mk.x !in headRange -> (color and 0xFFFFFF) or (0x59 shl 24)
-                        else -> color
-                    }
-                }
-                // The note a tap here would add, while the finger is down; hint notes until the next edit. On top, so rests never hide it
-                val ghosts = listOfNotNull(state.ghost) + (state.hint?.takeIf { it.score == state.score }?.notes ?: emptyList())
-                // A ghost after the last bar: carry the staff lines on under it
-                val staffEnd = layout.measures.lastOrNull()?.x1 ?: 0f
-                ghosts.maxOfOrNull { layout.xFor(it.at) }?.takeIf { it > staffEnd }?.let { gx ->
-                    paints.line.color = ink
-                    paints.line.strokeWidth = Smufl.STAFF_LINE * sp
-                    for (top in layout.staffTop) for (l in 0..4) {
-                        val ly = (top + l) * sp
-                        nc.drawLine(staffEnd * sp, ly, (gx + Smufl.HEAD_W + 2.5f) * sp, ly, paints.line)
-                    }
-                }
-                for (g in ghosts) {
-                    paints.glyph.color = sc.voices[(g.voice ?: state.shownVoice).ordinal].copy(alpha = 0.55f).toArgb()
-                    paints.glyph.textSize = 4f * sp
-                    val gy = layout.staffTop[g.staff] + 4 - g.pos / 2f
-                    val gx = layout.xFor(g.at)
-                    nc.drawText(Smufl.HEAD_BLACK.toString(), gx * sp, gy * sp, paints.glyph)
-                    g.alter?.let { a -> nc.drawText(Smufl.accidental(a).toString(), (gx - Smufl.accidentalWidth(a) - 0.25f) * sp, gy * sp, paints.glyph) }
-                    paints.line.color = paints.glyph.color
-                    paints.line.strokeWidth = Smufl.LEDGER * sp
-                    // Ledger lines above or below the staff
-                    val top = layout.staffTop[g.staff]
-                    var p = if (g.pos > 8) 10 else -2
-                    while ((g.pos > 8 && p <= g.pos) || (g.pos < 0 && p >= g.pos)) {
-                        val ly = (top + 4 - p / 2f) * sp
-                        nc.drawLine((gx - Smufl.LEDGER_EXT) * sp, ly, (gx + Smufl.HEAD_W + Smufl.LEDGER_EXT) * sp, ly, paints.line)
-                        p += if (g.pos > 8) 2 else -2
-                    }
-                }
-                // Self-check marks: a ring round each marked head; once revealed, the ok color on a mistake, gray on a false alarm
-                state.quiz?.takeIf { it.marked.isNotEmpty() }?.let { q ->
-                    val pr = paints.ring
-                    pr.style = Paint.Style.STROKE
-                    pr.strokeWidth = 0.3f * sp
-                    for (h in layout.heads) if (h.ref in q.marked) {
-                        pr.color = when { !q.revealed -> ink; q.hit(h.ref) -> sc.ok.toArgb(); else -> (ink and 0xFFFFFF) or (0x59 shl 24) }
-                        nc.drawOval((h.x - 1.25f) * sp, (h.y - 1f) * sp, (h.x + 1.25f) * sp, (h.y + 1f) * sp, pr)
-                    }
-                }
-                analysis?.let { a ->
-                    if (focused == null) {
-                        // Nothing picked: a small tick above the system where each problem is, errors drawn last
-                        // Above the chord names (SYMBOL text, baseline y) so they never overlap
-                        val y = layout.marks.filter { it is TextMark && it.style == TextStyle.SYMBOL }
-                            .minOfOrNull { (it as TextMark).let { t -> t.y - t.size } } ?.minus(0.4f)
-                            ?: (min(layout.top, layout.noteTop) - 1f)
-                        for (issue in a.issues.sortedBy { it.severity == Severity.ERROR }) {
-                            val x = a.slices.getOrNull(issue.slice)?.time?.let { layout.locate(it) } ?: continue
-                            val cx = x + Smufl.HEAD_W / 2
-                            val pt = paints.tick
-                            pt.color = (if (issue.severity == Severity.ERROR) sc.errorNote else sc.warnNote).toArgb()
-                            pt.strokeWidth = 0.25f * sp // round-joined stroke = rounded corners
-                            val p = paints.path
-                            p.reset()
-                            p.moveTo((cx - 0.45f) * sp, (y - 0.85f) * sp); p.lineTo((cx + 0.45f) * sp, (y - 0.85f) * sp); p.lineTo(cx * sp, (y - 0.15f) * sp)
-                            p.close()
-                            nc.drawPath(p, pt)
-                        }
-                    }
-                }
-                nc.restore()
+            drawScore()
+        }
+        Loupe(loupeSource, loupeCenter, loupeZoom, paper, drawScore)
+    }
+}
+
+/** Loupe radius. */
+private val LOUPE_R = 130.dp
+
+/**
+ * Magnifier that redraws only the score ([draw], in view coordinates), [zoom] times larger around [source],
+ * centered at [center] (view coordinates). A popup, so it shows over the toolbars and never takes touches.
+ */
+@Composable
+private fun Loupe(source: () -> Offset?, center: () -> Offset?, zoom: Float, paper: Color, draw: DrawScope.() -> Unit) {
+    val c = center() ?: return
+    if (source() == null) return
+    val r = with(LocalDensity.current) { LOUPE_R.toPx() }
+    Popup(
+        offset = IntOffset((c.x - r).roundToInt(), (c.y - r).roundToInt()),
+        properties = PopupProperties(
+            flags = android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+        ),
+    ) {
+        Canvas(Modifier.size(LOUPE_R * 2).shadow(6.dp, CircleShape).clip(CircleShape)) {
+            val s = source() ?: return@Canvas
+            drawRect(paper)
+            translate(size.width / 2 - s.x * zoom, size.height / 2 - s.y * zoom) {
+                scale(zoom, Offset.Zero) { draw() }
             }
         }
     }
