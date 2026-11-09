@@ -80,7 +80,11 @@ class MainActivity : ComponentActivity() {
         return if (dark) SystemBarStyle.dark(t) else SystemBarStyle.light(t, t)
     }
 
-    // The audio stream only runs while the app is visible.
+    // The audio stream only runs while the app is visible; a rotation keeps it, so playback goes on.
     override fun onStart() { super.onStart(); Synth.start() }
-    override fun onStop() { vm.saveNow(); if (!isChangingConfigurations) vm.stop(); Synth.close(); super.onStop() }
+    override fun onStop() {
+        vm.saveNow()
+        if (!isChangingConfigurations) { vm.stop(); Synth.close() }
+        super.onStop()
+    }
 }
