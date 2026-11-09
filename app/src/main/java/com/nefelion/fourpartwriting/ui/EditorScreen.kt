@@ -501,10 +501,12 @@ private fun FiguresPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets,
 @Composable
 private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, onClose: () -> Unit) {
     val e = st.selectedEvent?.takeIf { it.pitch != null }
+    // The name at this note's start time, whichever voice carries it
+    val named = st.selected?.takeIf { e != null }?.let { r -> st.score.chordAt(st.score.onsets(r.voice)[r.index]) }
     val ink = MaterialTheme.colorScheme.onSurface
-    var text by rememberSaveable(st.selected, e?.chord) { mutableStateOf(e?.chord.orEmpty()) }
+    var text by rememberSaveable(st.selected, named) { mutableStateOf(named.orEmpty()) }
     val bad = text.isNotBlank() && ChordText.parse(text, st.score.key) == null
-    fun apply() { if (e != null && text.trim() != e.chord.orEmpty()) vm.setChord(text) }
+    fun apply() { if (e != null && text.trim() != named.orEmpty()) vm.setChord(text) }
     // However the panel closes (Done, the menu), a typed name is kept
     val last by rememberUpdatedState(::apply)
     DisposableEffect(Unit) { onDispose { last() } }
@@ -513,7 +515,7 @@ private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, o
         Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
             Tool(onClick = { apply(); vm.step(-1) }, label = "Previous note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, ink, 30.dp) }
             if (e == null) Text("Select a note", Modifier.weight(6f), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else for (c in common) Tool(e.chord == c, { text = c; vm.setChord(c) }, "Chord $c") {
+            else for (c in common) Tool(named == c,{ text = c; vm.setChord(c) }, "Chord $c") {
                 Text(c, fontSize = 17.sp, color = ink, fontFamily = FontFamily.Serif)
             }
             Tool(onClick = { apply(); vm.step(1) }, label = "Next note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowRight, ink, 30.dp) }
@@ -525,7 +527,7 @@ private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, o
             supportingText = if (bad) ({ Text("Not a chord name") }) else null,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Done, autoCorrectEnabled = false),
             keyboardActions = KeyboardActions(onDone = { apply() }),
-            trailingIcon = { if (e?.chord != null) TextButton(onClick = { text = ""; vm.setChord("") }) { Text("Clear") } },
+            trailingIcon = { if (named != null) TextButton(onClick = { text = ""; vm.setChord("") }) { Text("Clear") } },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
         )
     }

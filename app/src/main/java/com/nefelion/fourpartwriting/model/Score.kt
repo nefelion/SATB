@@ -158,6 +158,12 @@ data class Score(
         return if (i >= 0 && t < on[i] + voice(v)[i].length) i else -1
     }
 
+    /** The chord name on a note starting at [t], in any voice (one name per moment). */
+    fun chordAt(t: Fraction): String? = Voice.entries.firstNotNullOfOrNull { v ->
+        val j = eventAt(v, t)
+        voice(v).getOrNull(j)?.takeIf { onsets(v)[j] == t }?.chord
+    }
+
     /** Vertical sonorities: one per distinct onset in any voice. */
     fun slices(): List<Slice> {
         val starts = Voice.entries.map { onsets(it) }

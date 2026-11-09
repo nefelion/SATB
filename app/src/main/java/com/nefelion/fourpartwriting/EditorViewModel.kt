@@ -630,7 +630,15 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     return msg("$clean doesn't fit the bass ${bp.pc.name}${if (b.figures.isEmpty()) "" else " with figures " + FiguredBass.display(b.figures)}. Read the figures again.")
             }
         }
-        edit(s.score.withVoice(r.voice, evs.toMutableList().also { it[r.index] = e.copy(chord = clean) }))
+        // One name per moment: naming this note replaces a name on another voice's note starting at the same time
+        val t = s.score.onsets(r.voice)[r.index]
+        var sc = s.score.withVoice(r.voice, evs.toMutableList().also { it[r.index] = e.copy(chord = clean) })
+        for (v in Voice.entries) if (v != r.voice) {
+            val j = sc.eventAt(v, t)
+            val o = sc.voice(v).getOrNull(j)?.takeIf { it.chord != null && sc.onsets(v)[j] == t } ?: continue
+            sc = sc.withVoice(v, sc.voice(v).toMutableList().also { it[j] = o.copy(chord = null) })
+        }
+        edit(sc)
     }
 
     /** A hint for the open score, worked out when the menu opens (null: none; the Hint item stays hidden). */

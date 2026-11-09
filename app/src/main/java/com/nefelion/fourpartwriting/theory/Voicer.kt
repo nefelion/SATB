@@ -91,10 +91,7 @@ object Voicer {
     /** Chords possible at [t]: the chord named on a note there, else the bass figures, else diatonic chords holding the [fixed] notes. */
     private fun optionsAt(score: Score, t: Fraction, fixed: List<Pitch?>, figured: Boolean, last: Boolean, penultimate: Boolean): List<Option> {
         val key = score.keyAt(t)
-        val named = Voice.entries.firstNotNullOfOrNull { v ->
-            val j = score.eventAt(v, t)
-            score.voice(v).getOrNull(j)?.takeIf { score.onsets(v)[j] == t }?.chord
-        }?.let { ChordText.parse(it, key) }
+        val named = score.chordAt(t)?.let { ChordText.parse(it, key) }
         val bassEvent = score.eventAt(Voice.BASS, t).takeIf { it >= 0 && t < score.length(Voice.BASS) }?.let { score.voice(Voice.BASS)[it] }
         return when {
             named != null -> listOf(option(named.pcs, named.bass.takeIf { b -> fixed[3] == null || fixed[3]!!.pc == b }, key, 0.0, false))
