@@ -120,7 +120,7 @@ fun ScoreCanvas(
         val analysis = state.analysis
         val labels = remember(analysis) { analysis?.let(::chordLabels) ?: emptyMap() }
         val nctLabels = remember(analysis) { analysis?.ncts?.mapValues { it.value.label } ?: emptyMap() }
-        val layout = remember(state.score, labels, nctLabels) { Engraver.layout(state.score, labels, nctLabels) }
+        val layout = remember(state.score, labels, nctLabels, state.fillerRests) { Engraver.layout(state.score, labels, nctLabels, fillers = state.fillerRests) }
 
         val minSp = with(density) { 4.dp.toPx() }
         val maxSp = with(density) { 30.dp.toPx() }

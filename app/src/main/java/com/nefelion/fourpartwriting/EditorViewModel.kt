@@ -109,6 +109,8 @@ data class UiState(
     val playTime: Fraction? = null,
     /** The built-in basic piano plays, not the SoundFont. */
     val piano: Boolean = true,
+    /** Light rests fill out the last bar after a voice ends (display only). */
+    val fillerRests: Boolean = true,
     val soundLoaded: Boolean = false,
     /** A SoundFont is being read (on app start or after a pick). */
     val soundLoading: Boolean = false,
@@ -281,6 +283,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             dark = if (prefs.contains("dark")) prefs.getBoolean("dark", false) else null,
             soundName = prefs.getString("sf2Name", null),
             piano = prefs.getBoolean("piano", true),
+            fillerRests = prefs.getBoolean("fillerRests", true),
             voice = Voice.entries.getOrElse(prefs.getInt("voice", 0)) { Voice.SOPRANO },
             duration = runCatching { Duration(prefs.getInt("durBase", 4), prefs.getInt("durDots", 0)) }.getOrDefault(Duration(4)),
         )
@@ -1586,6 +1589,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         Synth.usePiano(on)
         _state.update { it.copy(piano = on) }
         prefs.edit().putBoolean("piano", on).apply()
+    }
+
+    fun setFillerRests(on: Boolean) {
+        _state.update { it.copy(fillerRests = on) }
+        prefs.edit().putBoolean("fillerRests", on).apply()
     }
 
     /** Loads the SoundFont straight from the user's file through its file descriptor, without a copy. */

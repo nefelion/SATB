@@ -1078,6 +1078,10 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
                         vm.setDark(when (it) { 0 -> null; else -> it == 2 })
                     }
                 }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Rests after a voice ends", Modifier.weight(1f))
+                    Switch(checked = st.fillerRests, onCheckedChange = vm::setFillerRests)
+                }
             }
         }
         item {

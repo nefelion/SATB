@@ -172,11 +172,11 @@ object Engraver {
 
     /**
      * [show]: draw only these voices, bare (just the clef: no key, time, tempo, bar numbers or final bar), for small examples.
-     * Null: the full editor score.
+     * Null: the full editor score. [fillers]: rests after a voice ends (see below).
      */
     fun layout(
         score: Score, labels: Map<Fraction, ChordLabel> = emptyMap(), nctLabels: Map<NoteRef, String> = emptyMap(),
-        show: Set<Voice>? = null,
+        show: Set<Voice>? = null, fillers: Boolean = true,
     ): ScoreLayout {
         val n = score.arrangement.staves
         val bare = show != null
@@ -202,7 +202,7 @@ object Engraver {
         // their index is past the voice's last event, so they cannot be selected or edited).
         // An empty score is one bar of rests.
         val barEnd = bars.last().end
-        if (!bare) for (v in Voice.entries) {
+        if (!bare && fillers) for (v in Voice.entries) {
             val t = score.length(v)
             if (t >= barEnd) continue
             val staff = score.staffOf(v)
