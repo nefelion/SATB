@@ -391,17 +391,19 @@ object Engraver {
             if (!labeled.add(h.ref)) continue
             marks += TextMark(lab, h.x + 1.1f, h.y - 0.9f, 1.0f, TextStyle.NCT)
         }
-        // A written name repeats only after it changes or after an unnamed note of that voice
+        // A written name repeats only after it changes or after a moment with no name, whichever voice carries it
         val named = HashSet<NoteRef>()
-        val lastName = HashMap<Voice, String?>()
-        for (h in heads.sortedBy { it.x }) {
-            if (!named.add(h.ref)) continue
-            val e = score.voice(h.ref.voice).getOrNull(h.ref.index) ?: continue
-            if (e.pitch == null) continue
-            val name = e.chord
-            val prev = lastName.put(h.ref.voice, name)
-            if (name == null || name == prev) continue
-            marks += TextMark(name, h.x + Smufl.HEAD_W / 2, labelTop - (if (hasLabels) 2.9f else 0.3f), 1.4f, TextStyle.NAME)
+        val onsets = Voice.entries.associateWith { score.onsets(it) }
+        val moments = heads.sortedBy { it.x }.filter { h ->
+            named.add(h.ref) && score.voice(h.ref.voice).getOrNull(h.ref.index)?.pitch != null
+        }.groupBy { onsets.getValue(it.ref.voice)[it.ref.index] }.toSortedMap()
+        var lastName: String? = null
+        for (hs in moments.values) {
+            val h = hs.firstOrNull { score.voice(it.ref.voice)[it.ref.index].chord != null }
+            val name = h?.let { score.voice(it.ref.voice)[it.ref.index].chord }
+            if (h != null && name != lastName)
+                marks += TextMark(name!!, h.x + Smufl.HEAD_W / 2, labelTop - (if (hasLabels) 2.9f else 0.3f), 1.4f, TextStyle.NAME)
+            lastName = name
         }
         val figured = HashSet<NoteRef>()
         for (h in heads) {
