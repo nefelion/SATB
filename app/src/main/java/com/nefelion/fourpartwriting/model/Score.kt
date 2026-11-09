@@ -105,6 +105,7 @@ data class Score(
         require(clefs.size == arrangement.staves)
         require(pickup == null || pickup > Fraction.ZERO && pickup < time.measure)
         require(0 !in changes)
+        require(!time.isFree || pickup == null && changes.isEmpty())
     }
 
     override fun barAt(t: Fraction): Bar {

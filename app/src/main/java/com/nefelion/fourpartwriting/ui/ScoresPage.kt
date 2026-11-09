@@ -317,6 +317,7 @@ private fun ScoreRulesPage(name: String, sc: Score, st: UiState, vm: EditorViewM
 /** "D major · 3/4 · 12 bars". */
 private fun summary(sc: Score): String {
     val bars = if (sc.length == Fraction.ZERO) 0L else sc.bars(sc.length).size.toLong()
+    if (sc.time.isFree) return "${sc.key.name} · free meter" + if (bars == 0L) " · empty" else ""
     return "${sc.key.name} · ${sc.time.beats}/${sc.time.beatUnit} · " + when (bars) { 0L -> "empty"; 1L -> "1 bar"; else -> "$bars bars" }
 }
 
@@ -363,9 +364,9 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
                 val fixed = draft.given.isNotEmpty()
                 SettingRow("Key", draft.key.name, enabled = !fixed) { editing = "Key" }
                 HorizontalDivider()
-                SettingRow("Time signature", "${draft.time.beats}/${draft.time.beatUnit}", enabled = !fixed) { editing = "Time signature" }
+                SettingRow("Time signature", if (draft.time.isFree) "Free meter" else "${draft.time.beats}/${draft.time.beatUnit}", enabled = !fixed) { editing = "Time signature" }
                 HorizontalDivider()
-                SettingRow("Pickup bar", draft.pickup?.let { pickupLabel(it, draft.time) } ?: "None", enabled = !fixed) { editing = "Pickup bar" }
+                SettingRow("Pickup bar", draft.pickup?.let { pickupLabel(it, draft.time) } ?: "None", enabled = !fixed && !draft.time.isFree) { editing = "Pickup bar" }
                 if (fixed) Text("Key and time signature are fixed by the exercise.", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp))
                 HorizontalDivider()
@@ -392,7 +393,11 @@ internal fun ScoreDialog(label: String, startName: String, start: Score, askName
                         when (what) {
                             "Key" -> KeyPicker(draft.key) { draft = draft.copy(key = it) }
                             // A pickup must stay shorter than a full bar
-                            "Time signature" -> TimeSigPicker(draft.time) { draft = draft.copy(time = it, pickup = draft.pickup?.takeIf { p -> p < it.measure }) }
+                            // (free meter has neither, nor bars for key or meter changes)
+                            "Time signature" -> TimeSigPicker(draft.time, allowFree = true) {
+                                draft = draft.copy(time = it, pickup = draft.pickup?.takeIf { p -> !it.isFree && p < it.measure }, changes = if (it.isFree) emptyMap() else draft.changes)
+                            }
+
                             "Pickup bar" -> PickupPicker(draft.pickup, draft.time) { draft = draft.copy(pickup = it) }
                             "Tempo" -> TempoEditor(draft.tempo, draft.time, { draft = draft.copy(tempo = it.coerceIn(20, 300)) }, {})
                             else -> StavesPicker(draft, { draft = draft.withArrangement(it) }) { i, c ->

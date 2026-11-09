@@ -195,7 +195,8 @@ object VoiceLeading {
         val total = score.length
         // A short last bar that makes up for the pickup is complete; so is one that stops on a held final chord
         val endsHeld = V.any { score.voice(it).lastOrNull()?.let { e -> e.pitch != null && e.fermata } == true }
-        if (total > Fraction.ZERO && !score.isBarline(total) && score.barAt(total).end - total != score.pickup && !endsHeld)
+        if (total > Fraction.ZERO && !score.time.isFree && !score.isBarline(total)
+ && score.barAt(total).end - total != score.pickup && !endsHeld)
             add(Severity.WARNING, slices.lastIndex.coerceAtLeast(0), Rule.STRUCTURE, "Last measure is incomplete.")
 
         // The voice sounding the bass of a slice (the bass part may rest)

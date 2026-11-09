@@ -94,6 +94,23 @@ class LayoutTest {
         assertEquals(listOf(0 to Smufl.SHARP, 2 to Smufl.NATURAL, 3 to Smufl.SHARP), acc)
     }
 
+    @Test fun freeMeter() {
+        val free = TimeSig(4, 4, TimeSig.Symbol.FREE)
+        // Six quarters of F♯ F♯ F♮ F♯ G G: one bar, no time signature, each accidental for its own note
+        val s = Score(time = free, voices = only(notes("F#4", "F#4", "F4", "F#4", "G4", "G4", base = 4)))
+        val l = Engraver.layout(s)
+        assertEquals(1, l.measures.size)
+        assertTrue(l.marks.none { it is GlyphMark && it.c in Smufl.TIME_0..Smufl.TIME_0 + 9 })
+        val acc = l.marks.filterIsInstance<GlyphMark>().filter { it.ref?.voice == Voice.SOPRANO && it.c in charArrayOf(Smufl.SHARP, Smufl.NATURAL) }
+        assertEquals(listOf(0 to Smufl.SHARP, 1 to Smufl.SHARP, 2 to Smufl.NATURAL, 3 to Smufl.SHARP), acc.map { it.ref!!.index to it.c })
+        // An odd length is no incomplete bar; the score saves, exports and imports as free meter
+        assertTrue(VoiceLeading.check(s).issues.none { it.message == "Last measure is incomplete." })
+        assertEquals(s, com.nefelion.fourpartwriting.model.ScoreCodec.decode(com.nefelion.fourpartwriting.model.ScoreCodec.encode(s)))
+        val back = com.nefelion.fourpartwriting.export.MusicXml.read(com.nefelion.fourpartwriting.export.MusicXml.export(s).toByteArray())!!.score
+        assertEquals(free, back.time)
+        assertEquals(s.voice(Voice.SOPRANO), back.voice(Voice.SOPRANO))
+    }
+
     @Test fun beamGroupingFollowsMeter() {
         val eighths = notes("C5", "D5", "E5", "F5", "G5", "A5")
         fun beams(t: TimeSig) = Engraver.layout(Score(time = t, voices = only(eighths))).marks.filterIsInstance<BeamMark>().size

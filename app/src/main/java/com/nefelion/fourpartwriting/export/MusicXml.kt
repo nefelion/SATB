@@ -75,7 +75,8 @@ object MusicXml {
                 sb.append("      <attributes>\n        <divisions>$div</divisions>\n")
                 sb.append("        <key><fifths>${score.key.fifths}</fifths><mode>${if (score.key.mode == Mode.MAJOR) "major" else "minor"}</mode></key>\n")
                 val sym = when (score.time.symbol) { TimeSig.Symbol.COMMON -> " symbol=\"common\""; TimeSig.Symbol.CUT -> " symbol=\"cut\""; else -> "" }
-                sb.append("        <time$sym><beats>${score.time.beats}</beats><beat-type>${score.time.beatUnit}</beat-type></time>\n")
+                if (score.time.isFree) sb.append("        <time><senza-misura/></time>\n")
+                else sb.append("        <time$sym><beats>${score.time.beats}</beats><beat-type>${score.time.beatUnit}</beat-type></time>\n")
                 sb.append("        <staves>${score.arrangement.staves}</staves>\n")
                 for ((i, c) in score.clefs.withIndex()) {
                     sb.append("        <clef number=\"${i + 1}\"><sign>${c.sign}</sign><line>${c.line}</line>")
@@ -102,7 +103,8 @@ object MusicXml {
                 if (w.segIndex > 0) continue
                 val staff = score.staffOf(w.voice)
                 val cur = state[staff to p.diatonic] ?: key.sigAlter(p.step)
-                if (p.alter != cur) accOf[w] = p.alter
+                // Free meter has no bar to carry an accidental: every one off the key is shown
+                if (p.alter != cur || score.time.isFree && p.alter != key.sigAlter(p.step)) accOf[w] = p.alter
                 state[staff to p.diatonic] = p.alter
             }
             var first = true
@@ -271,6 +273,7 @@ object MusicXml {
                                 val unit = t.text("beat-type")?.toIntOrNull()
                                 if (beats != null && unit != null && beats > 0 && unit > 0) times.putIfAbsent(mi, TimeSig(beats, unit, when (t.getAttribute("symbol")) {
                                     "common" -> TimeSig.Symbol.COMMON; "cut" -> TimeSig.Symbol.CUT; else -> TimeSig.Symbol.NUMERIC }))
+                                else if (t.kid("senza-misura") != null) times.putIfAbsent(mi, TimeSig(4, 4, TimeSig.Symbol.FREE))
                             }
                         }
                         "backup" -> pos = maxOf(Fraction.ZERO, pos - len(e))
@@ -358,12 +361,14 @@ object MusicXml {
 
         val time0 = times[0] ?: TimeSig(4, 4)
         val fifths0 = keys[0] ?: 0
-        val pickup = lengths.firstOrNull()?.takeIf { it > Fraction.ZERO && it < time0.measure && lengths.size > 1 }
+        val pickup = lengths.firstOrNull()?.takeIf { !time0.isFree && it > Fraction.ZERO && it < time0.measure && lengths.size > 1 }
         // Bars of an odd length get their own time signature, and the old one comes back after them
         val changes = HashMap<Int, Change>()
         var cur = time0
-        for (b in 1 until lengths.size) {
+        // Free meter has no bars, so nothing can change at one
+        for (b in 1 until if (time0.isFree) 1 else lengths.size) {
             val m = firstOf[b]
+
             val set = times[m]
             if (set != null && set != cur) { cur = set; changes[b] = Change(time = set) }
             val len = lengths[b]

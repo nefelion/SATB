@@ -208,9 +208,7 @@ data class Key(val fifths: Int, val mode: Mode) {
 }
 
 /** One bar, [start] until [end], in [time]. A pickup is shorter: its beats count from [downbeat], before [start]. */
-data class Bar(val index: Int, val start: Fraction, val end: Fraction, val time: TimeSig) {
-    val downbeat get() = end - time.measure
-}
+data class Bar(val index: Int, val start: Fraction, val end: Fraction, val time: TimeSig, val downbeat: Fraction = end - time.measure)
 
 /** Where bars fall in time. */
 interface Meter {
@@ -230,25 +228,27 @@ interface Meter {
     fun isBarline(t: Fraction) = barAt(t).start == t
 }
 
-/** Every bar the same: [measure] long. */
+/** Every bar the same: [measure] long. [Symbol.FREE] is free meter: no time signature or barlines, a pulse of [beatUnit]. */
 data class TimeSig(val beats: Int, val beatUnit: Int, val symbol: Symbol = Symbol.NUMERIC) : Meter {
-    enum class Symbol { NUMERIC, COMMON, CUT }
+    enum class Symbol { NUMERIC, COMMON, CUT, FREE }
     override fun barAt(t: Fraction): Bar {
         val m = measure
         val n = maxOf(0L, (t / m).let { it.num / it.den })
         return Bar(n.toInt(), m * Fraction.of(n, 1), m * Fraction.of(n + 1, 1), this)
     }
 
-    val measure get() = Fraction.of(beats.toLong(), beatUnit.toLong())
+    val isFree get() = symbol == Symbol.FREE
+    // shortcut: free meter is one bar of 4096 whole notes; a longer score would show a barline there
+    val measure get() = if (isFree) Fraction.of(4096, 1) else Fraction.of(beats.toLong(), beatUnit.toLong())
     /** Compound meters (6/8, 9/8, 12/8, 6/4 ...) group by dotted beats. */
-    val isCompound get() = beats % 3 == 0 && beats > 3 && beatUnit >= 4
+    val isCompound get() = !isFree && beats % 3 == 0 && beats > 3 && beatUnit >= 4
     /** Beam/beat grouping unit. */
     val beatLength: Fraction get() = when {
         isCompound -> Fraction.of(3, beatUnit.toLong())
         // 2/2 and 4/2 beam in quarter groups is unusual; keep the written beat
         else -> Fraction.of(1, beatUnit.toLong())
     }
-    val label get() = when (symbol) { Symbol.COMMON -> "C"; Symbol.CUT -> "¢"; else -> "$beats/$beatUnit" }
+    val label get() = when (symbol) { Symbol.COMMON -> "C"; Symbol.CUT -> "¢"; Symbol.FREE -> "Free"; else -> "$beats/$beatUnit" }
 }
 
 /**

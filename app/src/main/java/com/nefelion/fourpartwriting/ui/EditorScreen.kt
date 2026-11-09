@@ -422,7 +422,8 @@ private fun ReorderPrompt(st: UiState, vm: EditorViewModel, modifier: Modifier) 
     val bar = st.score.barNumber(st.reorder.first())
     Surface(modifier, shape = RoundedCornerShape(14.dp), tonalElevation = 6.dp, shadowElevation = 6.dp) {
         Row(Modifier.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (n == 1) "Voices out of order in bar $bar." else "Voices out of order in $n chords (from bar $bar).",
+            Text(if (st.score.time.isFree) (if (n == 1) "Voices out of order in a chord." else "Voices out of order in $n chords.")
+                else if (n == 1) "Voices out of order in bar $bar." else "Voices out of order in $n chords (from bar $bar).",
                 style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
             TextButton(onClick = vm::keepOrder) { Text("Dismiss") }
             FilledTonalButton(onClick = vm::reorderVoices) { Text("Reorder S A T B") }
@@ -678,7 +679,9 @@ private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, more: @Comp
             Tool(onClick = vm::redo, label = "Redo", enabled = st.redo.isNotEmpty()) { Ico(Icons.AutoMirrored.Rounded.Redo, ink) }
         }
         val bar = st.selectedTime?.let { st.score.barNumber(it) }
-        Tool(onClick = vm::delete, label = "Delete", hold = HoldTarget(if (bar != null) "🗑  Delete bar $bar" else "🗑  Select a note first", below, danger = true, onDrop = vm::deleteMeasure)) {
+        val binLabel = when { st.score.time.isFree -> "🗑  No bars in free meter"; bar != null -> "🗑  Delete bar $bar"; else -> "🗑  Select a note first" }
+        Tool(onClick = vm::delete, label = "Delete", hold = HoldTarget(binLabel, below, danger = true, onDrop = vm::deleteMeasure)) {
+
             Ico(Icons.AutoMirrored.Outlined.Backspace, ink)
         }
         more()
@@ -994,6 +997,7 @@ private fun PanelIcon(v: ImageVector, label: String, enabled: Boolean = true, on
 private fun unfinished(sc: Score): String? {
     val end = sc.writtenEnd
     if (end >= sc.length) return null
+    if (sc.time.isFree) return "Not finished yet: checked once every voice is written."
     val a = sc.barNumber(end); val b = sc.barNumber(sc.length - Fraction.of(1, 1024))
     return (if (a == b) "Bar $a" else "Bars $a–$b") + " not finished yet: checked once every voice is written."
 }
@@ -1050,7 +1054,7 @@ private fun where(t: Fraction, score: Score): String {
     val bar = score.barAt(t)
     val beat = ((t - bar.downbeat) / Fraction.of(1, bar.time.beatUnit.toLong())).toDouble() + 1
     val b = if (beat % 1.0 == 0.0) beat.toInt().toString() else "%.2f".format(beat).trimEnd('0')
-    return "Bar ${score.barNumber(t)}, beat $b"
+    return if (score.time.isFree) "Beat $b" else "Bar ${score.barNumber(t)}, beat $b"
 }
 
 // ---------- settings ----------

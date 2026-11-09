@@ -683,7 +683,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
         // Plain digits: the snackbar cannot stack figures
         val roman = chord.roman.map { c -> "⁰¹²³⁴⁵⁶⁷⁸⁹".indexOf(c).takeIf { it >= 0 }?.let { '0' + it } ?: "₀₁₂₃₄₅₆₇₈₉".indexOf(c).takeIf { it >= 0 }?.let { '0' + it } ?: c }.joinToString("")
-        return Hint(sc, ghosts) to "Hint for bar ${sc.barNumber(t)}: ${roman.ifEmpty { chord.symbol }} (${chord.symbol}). The faded notes show one way to voice it."
+        return Hint(sc, ghosts) to "Hint${if (sc.time.isFree) "" else " for bar ${sc.barNumber(t)}"}: ${roman.ifEmpty { chord.symbol }} (${chord.symbol}). The faded notes show one way to voice it."
     }
 
     /** Revoices the selected note's chord: the clean voicing nearest the written one (one undo step). */
@@ -864,6 +864,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun changeBarOfSelection(): Int? {
         val t = s.selectedTime ?: return null
         if (s.score.given.isNotEmpty()) { msg("An exercise's key and time signature can't be changed."); return null }
+        if (s.score.time.isFree) { msg("Free meter has no bars to change key at: tap the clef to change the score's key."); return null }
         val bar = s.score.barAt(t).index
         if (bar == 0) { msg("Bar ${s.score.barNumber(t)} starts the score: tap the clef to change its key or time signature."); return null }
         return bar
@@ -928,6 +929,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Hold delete and drop on the bin: removes the whole bar of the selected note, in all voices. */
     fun deleteMeasure() {
         val r = s.selected
+        if (s.score.time.isFree) return msg("Free meter has no bars to delete.")
         if (r == null || s.selectedEvent == null) { msg("Select a note in the bar you want to delete."); return }
         val bar = s.score.barAt(s.selectedTime!!).index
         val new = Edit.dropEmptyLastBars(Edit.deleteMeasure(s.score, bar))
@@ -1035,7 +1037,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             // The checker may flag chords the solver wrote (it doesn't model every rule): polish revoices them
             when (val out = Voicer.attempt(sc)) {
                 is Voicer.Outcome.Done -> Voicer.polish(out.score, sc, rules) to null
-                is Voicer.Outcome.Stuck -> Voicer.fill(fresh)?.let { Voicer.polish(it, fresh, rules) } to "Your notes up to bar ${barOf(out.time)} can't be continued cleanly, so this answer starts over. Undo brings yours back."
+                is Voicer.Outcome.Stuck -> Voicer.fill(fresh)?.let { Voicer.polish(it, fresh, rules) } to "Your notes${if (s.score.time.isFree) "" else " up to bar ${barOf(out.time)}"} can't be continued cleanly, so this answer starts over. Undo brings yours back."
                 Voicer.Outcome.Empty -> null to null
             }
         }
@@ -1052,10 +1054,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Gives score [name] the key, time, tempo, staves and clefs of [settings]. The open score changes as one undo step. */
     fun editScore(name: String, settings: Score) {
         // An exercise keeps its key and time signature (its figures and cadence depend on them)
-        fun apply(sc: Score) = sc.copy(key = if (sc.given.isEmpty()) settings.key else sc.key, time = if (sc.given.isEmpty()) settings.time else sc.time,
-            pickup = (if (sc.given.isEmpty()) settings.pickup else sc.pickup)?.takeIf { it < (if (sc.given.isEmpty()) settings.time else sc.time).measure },
+        fun apply(sc: Score) = (if (sc.given.isEmpty()) settings.time else sc.time).let { time -> sc.copy(key = if (sc.given.isEmpty()) settings.key else sc.key, time = time,
+            // Free meter has no pickup bar, nor bars to change key or meter at
+            pickup = (if (sc.given.isEmpty()) settings.pickup else sc.pickup)?.takeIf { !time.isFree && it < time.measure },
+            changes = if (time.isFree) emptyMap() else sc.changes,
             tempo = settings.tempo.coerceIn(20, 300),
-            arrangement = settings.arrangement, clefs = settings.clefs)
+            arrangement = settings.arrangement, clefs = settings.clefs) }
         if (name == s.scoreName) {
             edit(apply(s.score))
             Synth.setTempo(s.score.qpm)

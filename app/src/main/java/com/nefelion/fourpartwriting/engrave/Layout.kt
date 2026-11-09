@@ -196,7 +196,8 @@ object Engraver {
             }
         }
         val total = score.length
-        val bars = score.bars(total)
+        // Free meter: its one endless bar ends with the music (an empty score: one whole rest)
+        val bars = score.bars(total).let { b -> if (score.time.isFree) listOf(b[0].copy(end = total.takeIf { it > Fraction.ZERO } ?: Fraction.of(1, 1))) else b }
         // Where a voice has no notes up to the end of the last bar, show rests (display only:
         // their index is past the voice's last event, so they cannot be selected or edited).
         // An empty score is one bar of rests.
@@ -302,7 +303,7 @@ object Engraver {
                 }
                 hx += keySigWidth(f) + 0.6f
             }
-            for (s in 0 until n) timeSig(score.time, hx, ::sy, s, marks)
+            if (!score.time.isFree) for (s in 0 until n) timeSig(score.time, hx, ::sy, s, marks)
             val beat = Smufl.beatMark(score.time)
             val i = Smufl.MET_NOTES.indexOf(beat[0])
             marks += GlyphMark(beat[0], tx, tempoY, scale = 0.75f)
@@ -431,7 +432,7 @@ object Engraver {
     private fun numW(n: Int) = digits(n).sumOf { Smufl.DIGIT_W[it].toDouble() }.toFloat()
 
     private fun timeSigWidth(t: TimeSig) =
-        if (t.symbol != TimeSig.Symbol.NUMERIC) 1.7f else max(numW(t.beats), numW(t.beatUnit))
+        if (t.isFree) 0f else if (t.symbol != TimeSig.Symbol.NUMERIC) 1.7f else max(numW(t.beats), numW(t.beatUnit))
 
     private fun headerWidth(score: Score): Float {
         var w = 0.8f + Smufl.CLEF_W + 0.8f
@@ -517,8 +518,11 @@ object Engraver {
                 for (nIt in notes) {
                     if (nIt.segIndex > 0) continue
                     val p = score.voice(nIt.voice)[nIt.index].pitch!!
-                    val cur = state[s to p.diatonic] ?: score.keyOfBar(bar.index).sigAlter(p.step)
-                    if (p.alter != cur) nIt.acc = p.alter
+                    val sig = score.keyOfBar(bar.index).sigAlter(p.step)
+                    val cur = state[s to p.diatonic] ?: sig
+                    // Free meter has no bar to carry an accidental: every one off the key is shown
+                    if (p.alter != cur || score.time.isFree && p.alter != sig) nIt.acc = p.alter
+
                     state[s to p.diatonic] = p.alter
                 }
                 // Chord units: same stem direction and written value

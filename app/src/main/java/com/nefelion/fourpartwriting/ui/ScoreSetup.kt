@@ -52,11 +52,19 @@ internal fun KeyPicker(key: Key, onKey: (Key) -> Unit) {
     }
 }
 
-/** Stacked like a time signature: beats with −/+ on top, the beat unit (2/4/8/16) below. Fits a narrow dialog. */
+/**
+ * Stacked like a time signature: beats with −/+ on top, the beat unit (2/4/8/16) below. Fits a narrow dialog.
+ * With [allowFree], first a choice of bars or free meter (no time signature or barlines; the beat unit still sets the pulse).
+ */
 @Composable
-internal fun TimeSigPicker(t: TimeSig, onTime: (TimeSig) -> Unit) {
+internal fun TimeSigPicker(t: TimeSig, allowFree: Boolean = false, onTime: (TimeSig) -> Unit) {
+    val sym = if (t.isFree) TimeSig.Symbol.FREE else TimeSig.Symbol.NUMERIC
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (allowFree) Segmented(listOf("Bars", "Free meter"), if (t.isFree) 1 else 0, itemWidth = 104.dp) {
+
+            onTime(TimeSig(t.beats, t.beatUnit, if (it == 1) TimeSig.Symbol.FREE else TimeSig.Symbol.NUMERIC))
+        }
+        if (!t.isFree) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Small("−", enabled = t.beats > 1) { onTime(TimeSig(t.beats - 1, t.beatUnit)) }
             Text("${t.beats}", Modifier.width(32.dp), fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium)
@@ -64,11 +72,13 @@ internal fun TimeSigPicker(t: TimeSig, onTime: (TimeSig) -> Unit) {
             Text("beats", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Segmented(listOf("2", "4", "8", "16"), listOf(2, 4, 8, 16).indexOf(t.beatUnit)) { onTime(TimeSig(t.beats, listOf(2, 4, 8, 16)[it])) }
+            Segmented(listOf("2", "4", "8", "16"), listOf(2, 4, 8, 16).indexOf(t.beatUnit)) { onTime(TimeSig(t.beats, listOf(2, 4, 8, 16)[it], sym)) }
             Text("beat unit", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        if (t.isFree) Text("No time signature or barlines.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
     }
 }
+
 
 /** "2 eighths", "1 quarter": a pickup counted in the time signature's beat unit. */
 internal fun pickupLabel(p: Fraction, t: TimeSig): String {

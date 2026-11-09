@@ -80,6 +80,7 @@ import androidx.compose.ui.unit.sp
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.EditorViewModel
 import com.nefelion.fourpartwriting.UiState
+import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.theory.Lessons
 import com.nefelion.fourpartwriting.ui.theme.LocalScoreColors
@@ -98,7 +99,9 @@ internal fun stageOf(i: Int, done: Set<Int>) = when { i in done -> Stage.DONE; i
 
 /** The first two bars of [score] (after a pickup), for a preview. */
 private fun opening(score: Score): Score {
-    val end = score.bar(if (score.pickup != null) 2 else 1).end
+    // Free meter: the first eight beats
+    val end = if (score.time.isFree) score.time.beatLength * Fraction.of(8, 1) else score.bar(if (score.pickup != null) 2 else 1).end
+
     return score.copy(voices = Voice.entries.map { v -> score.voice(v).zip(score.onsets(v)).filter { it.second < end }.map { it.first } })
 }
 
