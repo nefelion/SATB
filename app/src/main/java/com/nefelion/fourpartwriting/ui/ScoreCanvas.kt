@@ -98,6 +98,8 @@ fun ScoreCanvas(
     onTempoTap: () -> Unit,
     /** A key/time signature change was tapped: its bar index. */
     onChangeTap: (Int) -> Unit = {},
+    /** A chord the user named was tapped: the note that carries the name. Null: names are plain text. */
+    onNameTap: ((NoteRef) -> Unit)? = null,
     /** Finger held and moved to a hit: show the note a release there would add. False if none can go there. */
     onAim: (Hit) -> Int? = { null },
     /** The caret stands on the selected note (while naming its chord or figures) instead of after the voice. */
@@ -113,6 +115,7 @@ fun ScoreCanvas(
     val paper = MaterialTheme.colorScheme.surface
     val sc = LocalScoreColors.current
     val ink = sc.ink.toArgb()
+    val accent = MaterialTheme.colorScheme.primary.toArgb()
     BoxWithConstraints(modifier.fillMaxSize()) {
         val viewW = constraints.maxWidth.toFloat()
         val viewH = constraints.maxHeight.toFloat()
@@ -250,6 +253,7 @@ fun ScoreCanvas(
         val drag by rememberUpdatedState(onDrag)
         val tempoTap by rememberUpdatedState(onTempoTap)
         val changeTap by rememberUpdatedState(onChangeTap)
+        val nameTap by rememberUpdatedState(onNameTap)
         val hasSelection by rememberUpdatedState(state.selected != null && !state.placed)
         val inputStaff by rememberUpdatedState(state.score.staffOf(state.locked ?: state.voice))
         // Finger position while aiming a new note (magnifier shown)
@@ -314,11 +318,12 @@ fun ScoreCanvas(
                     paints.text.textSize = 1.4f * sp
                     paints.text.typeface = paints.bold
                     paints.text.textAlign = Paint.Align.CENTER
-                    nc.drawText(state.shownVoice.label, (caretX + 0.6f) * sp, (cTop - 0.4f) * sp, paints.text)
+                    // Not over the check's results, whose ticks sit there
+                    if (analysis == null) nc.drawText(state.shownVoice.label, (caretX + 0.6f) * sp, (cTop - 0.4f) * sp, paints.text)
                 }
                 val visL = -offX / sp - 6f
                 val visR = (-offX + vw) / sp + 6f
-                paints.ink = ink; paints.nct = sc.nct.toArgb()
+                paints.ink = ink; paints.nct = sc.nct.toArgb(); paints.name = accent.takeIf { onNameTap != null }
                 val focused = state.focusedIssue?.let { analysis?.issues?.getOrNull(it) }
                 if (focused != null && flagged.isNotEmpty()) {
                     // Soft halo behind each flagged head and a band joining each voice's heads (parallels read as parallel bands).
@@ -386,10 +391,8 @@ fun ScoreCanvas(
                 analysis?.let { a ->
                     if (focused == null) {
                         // Nothing picked: a small tick above the system where each problem is, errors drawn last
-                        // Above the chord names (SYMBOL text, baseline y) so they never overlap
-                        val y = layout.marks.filter { it is TextMark && it.style == TextStyle.SYMBOL }
-                            .minOfOrNull { (it as TextMark).let { t -> t.y - t.size } } ?.minus(0.4f)
-                            ?: (min(layout.top, layout.noteTop) - 1f)
+                        // Above the chord names (baseline y) so they never overlap
+                        val y = if (layout.textTop < layout.top) layout.textTop - 0.4f else min(layout.top, layout.noteTop) - 1f
                         for (issue in a.issues.sortedBy { it.severity == Severity.ERROR }) {
                             val x = a.slices.getOrNull(issue.slice)?.time?.let { layout.locate(it) } ?: continue
                             val cx = x + Smufl.HEAD_W / 2
@@ -421,7 +424,8 @@ fun ScoreCanvas(
                         val hb = currentLayout.headerBox
                         // Tempo, clef, key or time signature: opens the score settings
                         val changeBar = currentLayout.changeBoxes.entries.firstOrNull { (_, b) -> dx in b[0]..b[2] && dy in b[1]..b[3] }?.key
-                        val onTempo = (dx in tb[0]..tb[2] && dy in tb[1]..tb[3]) || (dx in hb[0]..hb[2] && dy in hb[1]..hb[3]) || changeBar != null
+                        val named = if (nameTap == null) null else currentLayout.nameBoxes.firstOrNull { dx in it.x0..it.x1 && dy in it.y0..it.y1 }?.ref
+                        val onTempo = (dx in tb[0]..tb[2] && dy in tb[1]..tb[3]) || (dx in hb[0]..hb[2] && dy in hb[1]..hb[3]) || changeBar != null || named != null
                         val downHit = if (onTempo) null else currentLayout.hitTest(dx, dy)
                         // The note a tap would add is shown and heard only once the touch can't be a pan or pinch
                         // (else zooming or panning flashes and plays a note)
@@ -485,7 +489,7 @@ fun ScoreCanvas(
                                 if (mode == 0) {
                                     // A quick tap: play the note now (tap() doesn't)
                                     if (!shown) press(downHit)
-                                    if (downHit == null) changeBar?.let(changeTap) ?: tempoTap() else tap(downHit)
+                                    if (downHit == null) named?.let { nameTap?.invoke(it) } ?: changeBar?.let(changeTap) ?: tempoTap() else tap(downHit)
                                 }
                                 if (mode == 1) drag(true)
                                 loupe = null
@@ -648,6 +652,8 @@ internal class Paints(bravura: Typeface) {
     /** Plain text and non-chord-tone label colors for the current theme, set before each draw. */
     var ink = 0
     var nct = 0
+    /** Color of the chords the user named where they can be tapped; null: plain ink. */
+    var name: Int? = null
     val roman: Typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL)
     val italic: Typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC)
     val bold: Typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
@@ -667,7 +673,8 @@ private fun drawText(nc: android.graphics.Canvas, t: TextMark, sp: Float, p: Pai
         TextStyle.NCT -> { paint.typeface = p.italic; paint.textAlign = Paint.Align.LEFT; paint.color = p.nct; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
         TextStyle.ROMAN -> drawRoman(nc, t, sp, p)
         TextStyle.ROMAN_ALT -> { paint.color = p.ink and 0x00FFFFFF or (0x80 shl 24); drawRoman(nc, t, sp, p) } // half-transparent ink
-        TextStyle.NAME -> { paint.typeface = p.roman; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
+        TextStyle.NAME -> { paint.color = p.name ?: p.ink; paint.typeface = p.bold; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
+        TextStyle.NAME_ROMAN -> { paint.color = p.name ?: p.ink; drawRoman(nc, t, sp, p) }
         TextStyle.FIGURE -> { paint.typeface = p.roman; paint.textAlign = Paint.Align.CENTER; nc.drawText(t.text, t.x * sp, t.y * sp, paint) }
     }
 }

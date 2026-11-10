@@ -200,6 +200,9 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
     var chords by rememberSaveable { mutableStateOf(false) }
     var replaceLesson by rememberSaveable { mutableStateOf<Int?>(null) }
     var bassX by remember { mutableFloatStateOf(-1f) }
+    // The self-check is for finding rule breaks: the chord panel waits behind it and comes back with the results
+    val naming = chords && st.quiz?.revealed != false
+    SideEffect { vm.naming = naming }
     // The figures pocket belongs to the bass: leaving the bass voice closes it
     LaunchedEffect(st.shownVoice) { if (st.shownVoice != Voice.BASS) figures = false }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
@@ -219,8 +222,8 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
             if (hintReady) item("Hint", false) { vm.hint() }
             if (st.selected != null) item("Fix this chord", false) { vm.fixChord() }
             if (st.selected != null) item("Key or time change", false) { vm.changeBarOfSelection()?.let { changeBar = it } }
-            // Again while open: closes it, like Done
-            item("Specify chord", false) { if (chords) chords = false else if (vm.startChords()) { chords = true; figures = false } }
+            // Again while open: closes it, like Done. Not in the self-check, where taps mark notes
+            if (st.quiz?.revealed != false) item("Specify chord", false) { if (chords) chords = false else if (vm.startChords()) { chords = true; figures = false } }
             item("Clear score", true) { confirmClear = true }
             HorizontalDivider()
             item("Score properties", false) { tempoDialog = true }
@@ -268,9 +271,11 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
                     ScoreCanvas(
                         st, { if (vm.tap(it)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, vm::press, vm::nudge, vm::dragPitch,
                         onAim = vm::aim,
-                        caretAtSelection = chords || figures,
+                        caretAtSelection = naming || figures,
                         onTempoTap = { tempoDialog = true },
                         onChangeTap = { changeBar = it },
+                        // A named chord opens the chord panel on itself
+                        onNameTap = if (st.study == null && st.quiz?.revealed != false) ({ vm.select(it); chords = true; figures = false }) else null,
                         savedViewport = vm.viewport, onViewport = vm::rememberViewport,
                         edges = edges,
                     )
@@ -284,7 +289,7 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
                 if (st.quiz?.revealed == false) QuizBar(st, vm, safe.only(WindowInsetsSides.Horizontal), wide)
                 st.analysis?.let { IssuesStrip(st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide, onUndoable = { undoable = it }) }
                 if (figures) { HorizontalDivider(); FiguresPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { figures = false } }
-                if (chords) { HorizontalDivider(); ChordPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { chords = false } }
+                if (naming) { HorizontalDivider(); ChordPanel(st, vm, safe.only(WindowInsetsSides.Horizontal), wide) { chords = false } }
                 HorizontalDivider()
                 Box(Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
@@ -499,9 +504,9 @@ private fun FiguresPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets,
     }
 }
 
-/** Chord name for the selected note: a common chord of the key in one tap, or any name typed (applied on Enter, ‹ › or Done). */
+/** Chord name for the selected note: a common chord of the key in one tap, or any name typed (applied on Enter, ‹ › or Done). [wide]: all in one row. */
 @Composable
-private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, onClose: () -> Unit) {
+private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, wide: Boolean, onClose: () -> Unit) {
     val e = st.selectedEvent?.takeIf { it.pitch != null }
     // The name at this note's start time, whichever voice carries it
     val named = st.selected?.takeIf { e != null }?.let { r -> st.score.chordAt(st.score.onsets(r.voice)[r.index]) }
@@ -513,25 +518,30 @@ private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, o
     val last by rememberUpdatedState(::apply)
     DisposableEffect(Unit) { onDispose { last() } }
     val common = if (st.score.key.mode == Mode.MAJOR) listOf("I", "ii", "IV", "V", "V7", "vi") else listOf("i", "iv", "V", "V7", "VI", "ii°6")
+    val field: @Composable (Modifier) -> Unit = { m ->
+        androidx.compose.material3.OutlinedTextField(
+            value = text, onValueChange = { text = it.take(16) }, singleLine = true, shape = SHAPE, isError = bad, enabled = e != null,
+            placeholder = { Text(if (wide) "Any chord: Am7, V65" else "Any chord: C, Am7, G7/B, V65, V7/V", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+            // In one row the red outline says it: a line of text under the field would push the row taller
+            supportingText = if (bad && !wide) ({ Text("Not a chord name") }) else null,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Done, autoCorrectEnabled = false),
+            keyboardActions = KeyboardActions(onDone = { apply() }),
+            trailingIcon = { if (named != null) TextButton(onClick = { text = ""; vm.setChord("") }) { Text("Clear") } },
+            modifier = m.padding(horizontal = 4.dp, vertical = 4.dp),
+        )
+    }
     Column(Modifier.fillMaxWidth().windowInsetsPadding(insets).padding(horizontal = 4.dp)) {
-        Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(if (wide) 64.dp else 48.dp), verticalAlignment = Alignment.CenterVertically) {
             Tool(onClick = { apply(); vm.step(-1) }, label = "Previous note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, ink, 30.dp) }
             if (e == null) Text("Select a note", Modifier.weight(6f), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
             else for (c in common) Tool(named == c,{ text = c; vm.setChord(c) }, "Chord $c") {
                 Text(c, fontSize = 17.sp, color = ink, fontFamily = FontFamily.Serif)
             }
+            if (wide) field(Modifier.weight(5f))
             Tool(onClick = { apply(); vm.step(1) }, label = "Next note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowRight, ink, 30.dp) }
             TextButton(onClick = { apply(); onClose() }) { Text("Done") }
         }
-        androidx.compose.material3.OutlinedTextField(
-            value = text, onValueChange = { text = it.take(16) }, singleLine = true, shape = SHAPE, isError = bad, enabled = e != null,
-            placeholder = { Text("Any chord: C, Am7, G7/B, V65, V7/V") },
-            supportingText = if (bad) ({ Text("Not a chord name") }) else null,
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Done, autoCorrectEnabled = false),
-            keyboardActions = KeyboardActions(onDone = { apply() }),
-            trailingIcon = { if (named != null) TextButton(onClick = { text = ""; vm.setChord("") }) { Text("Clear") } },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-        )
+        if (!wide) field(Modifier.fillMaxWidth())
     }
 }
 

@@ -26,6 +26,17 @@ class LayoutTest {
     private fun notes(vararg p: String, base: Int = 8) = p.map { Event(Duration(base), Pitch.parse(it)) }
     private fun only(v: List<Event>) = listOf(v, emptyList(), emptyList(), emptyList())
 
+    @Test fun numeralsWithFiguresStayInTheirRow() {
+        // Eighth-note chords: narrow numerals with stacked figures fit side by side
+        val romans = listOf("ii", "iii⁶", "vii⁴₂", "I", "vi⁶₄", "IV", "V⁶₅", "I")
+        val voices = listOf("E5", "C5", "G4", "C4").map { p -> notes(*Array(8) { p }) }
+        val labels = romans.indices.associate { Fraction.of(it.toLong(), 8) to com.nefelion.fourpartwriting.engrave.ChordLabel("", romans[it]) }
+        val ys = Engraver.layout(Score(voices = voices), labels).marks.filterIsInstance<com.nefelion.fourpartwriting.engrave.TextMark>()
+            .filter { it.style == com.nefelion.fourpartwriting.engrave.TextStyle.ROMAN }.map { it.text to it.y }
+        assertEquals(romans, ys.map { it.first })
+        assertEquals(ys.toString(), 1, ys.map { it.second }.distinct().size)
+    }
+
     @Test fun exampleHasNoErrors() {
         val a = VoiceLeading.check(EXAMPLE)
         assertEquals(emptyList<String>(), a.issues.filter { it.severity == Severity.ERROR }.map { it.message })

@@ -6,7 +6,9 @@ import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.TimeSig
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Analysis
+import com.nefelion.fourpartwriting.theory.ChordText
 import com.nefelion.fourpartwriting.theory.FiguredBass
+import com.nefelion.fourpartwriting.theory.Rule
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
@@ -36,16 +38,42 @@ data class TieMark(val x1: Float, val x2: Float, val y: Float, val above: Boolea
 data class TextMark(val text: String, override val x: Float, val y: Float, val size: Float, val style: TextStyle) : Mark {
     override val ref: NoteRef? get() = null
 }
-enum class TextStyle { ROMAN, ROMAN_ALT, SYMBOL, TEMPO, MEASURE_NO, NCT, FIGURE, NAME }
+/** [NAME] / [NAME_ROMAN]: a chord the user named, as its symbol above and its numeral below. */
+enum class TextStyle { ROMAN, ROMAN_ALT, SYMBOL, TEMPO, MEASURE_NO, NCT, FIGURE, NAME, NAME_ROMAN }
 
-/** [alt]: faint second reading under the numeral, around a key change ("G: IV"). */
-data class ChordLabel(val symbol: String, val roman: String, val alt: String? = null)
+/**
+ * [alt]: faint second reading under the numeral, around a key change ("G: IV").
+ * [misnamed]: the check has an issue with the chord the user named here.
+ */
+data class ChordLabel(val symbol: String, val roman: String, val alt: String? = null, val misnamed: Boolean = false)
 
 /** Labels per slice onset; unrecognized sonorities show only "?" (details are in the issues list). */
-fun chordLabels(a: Analysis): Map<Fraction, ChordLabel> = a.points.associate { i ->
-    val c = a.chords[i]
-    a.slices[i].time to ChordLabel(if (c.recognized) c.symbol else "", c.roman, c.alt)
+fun chordLabels(a: Analysis): Map<Fraction, ChordLabel> {
+    val misnamed = a.issues.filter { it.rule == Rule.NAMED_CHORD }.map { it.slice }.toSet()
+    return a.points.associate { i ->
+        val c = a.chords[i]
+        a.slices[i].time to ChordLabel(if (c.recognized) c.symbol else "", c.roman, c.alt, i in misnamed)
+    }
 }
+
+/**
+ * Printed width of a chord label of [size] (staff spaces), roughly: i and I are narrow, and figures are small
+ * and stacked (⁴₂ takes one narrow column), so a numeral like vii⁴₂ isn't taken for much wider than it is.
+ */
+internal fun labelWidth(text: String, size: Float): Float {
+    var w = 0f; var up = 0; var down = 0
+    fun figures() { w += max(up, down) * 0.36f; up = 0; down = 0 }
+    for (ch in text) when (ch) {
+        in "⁰¹²³⁴⁵⁶⁷⁸⁹⁺" -> { if (down > 0) figures(); up++ }
+        in "₀₁₂₃₄₅₆₇₈₉" -> down++
+        else -> { figures(); w += when (ch) { 'i', 'I', 'l', '/' -> 0.3f; 'v' -> 0.52f; 'V' -> 0.72f; else -> 0.62f } }
+    }
+    figures()
+    return w * size
+}
+
+/** Bounds of a named chord's text on the score, tappable; [ref]: the note that carries the name. */
+class NameBox(val ref: NoteRef, val x0: Float, val y0: Float, val x1: Float, val y1: Float)
 
 class ColumnBox(val time: Fraction, val x: Float)
 class MeasureBox(val index: Int, val start: Fraction, val end: Fraction, val x0: Float, val x1: Float, val columns: List<ColumnBox>)
@@ -87,6 +115,7 @@ class ScoreLayout(
     val changeBoxes: Map<Int, FloatArray> = emptyMap(),
     /** Top of the chord symbols and names above the music, so the caret letter can clear them. */
     val textTop: Float = staffTop.first(),
+    val nameBoxes: List<NameBox> = emptyList(),
 ) {
     val top get() = staffTop.first()
     val bottom get() = staffTop.last() + 4
@@ -235,12 +264,14 @@ object Engraver {
                 else minP[it.staff] = min(minP[it.staff], min(-5, p - (if (it.dir < 0) stem else 0) - 4))
             }
         }
-        val hasLabels = labels.isNotEmpty()
+        // Chords the user named are written like the check's: symbol above the music, numeral below
+        val hasLabels = labels.isNotEmpty() || Voice.entries.any { v -> v in shown && score.voice(v).any { it.chord != null } }
         // Bass figures stack under the bottom staff, above the roman numerals
         val figRows = if (Voice.BASS in shown) score.voice(Voice.BASS).maxOfOrNull { if (it.pitch != null) it.figures.size else 0 } ?: 0 else 0
         val figH = if (figRows > 0) figRows * 1.25f + 0.6f else 0f
-        // Chord names the user wrote get their own row above the music (and above the analysis labels)
-        val nameH = if (Voice.entries.any { v -> v in shown && score.voice(v).any { it.chord != null } }) 2.2f else 0f
+        // A named chord the check disagrees with keeps its name in a row of its own, outside the check's labels
+        val nameH = if (labels.values.any { it.misnamed }) 2.2f else 0f
+        val altH = if (labels.values.any { it.alt != null }) 1.8f else 0f
         val st = FloatArray(n)
         // Labels get extra room above so the caret's voice letter fits over them
         var y = 3.2f + (if (hasLabels) 4.2f else 0f) + nameH + max(0f, (maxP[0] - 8) * 0.5f)
@@ -249,7 +280,7 @@ object Engraver {
             st[s] = y
             y += 4f
         }
-        val height = y + max(2.5f, (0 - minP[n - 1]) * 0.5f + 1f) + (if (hasLabels) 3.6f else 0f) + figH + (if (labels.values.any { it.alt != null }) 1.8f else 0f)
+        val height = y + max(2.5f, (0 - minP[n - 1]) * 0.5f + 1f) + (if (hasLabels) 3.6f else 0f) + nameH + figH + altH
         fun sy(staff: Int, p: Int) = st[staff] + (8 - p) * 0.5f
         fun syf(staff: Int, p: Float) = st[staff] + (8 - p) * 0.5f
 
@@ -319,9 +350,6 @@ object Engraver {
         }
 
         // Measures
-        val symRight = floatArrayOf(-99f, -99f)
-        val romRight = floatArrayOf(-99f, -99f)
-        var prevLab: ChordLabel? = null
         val headAt = HashMap<Triple<Voice, Int, Int>, Pair<Item, Pair<Float, Float>>>()
         val labelTop = top - max(2.4f, (maxP[0] - 8) * 0.5f + 1.6f)
         val labelBot = bot + max(3.0f, (0 - minP[n - 1]) * 0.5f + 2.6f)
@@ -348,32 +376,6 @@ object Engraver {
             val shownNo = score.barNumber(m.start)
             if (mi > 0 && !bare) marks += TextMark("$shownNo", box.x0 + 0.2f, top - 0.6f, 1.0f, TextStyle.MEASURE_NO)
             drawMeasure(score, shown, m, box, ::sy, ::syf, marks, heads, headAt, hidden, restBoxes)
-            for (c in m.cols) {
-                val lab = labels[c.time]
-                val prev = prevLab
-                prevLab = lab
-                if (lab == null) continue
-                val cx = c.x + Smufl.HEAD_W / 2
-                // Labels that would collide with the previous one move to a second row; if both are taken, the freer one
-                fun row(text: String, size: Float, last: FloatArray): Int {
-                    val w = text.length * size * 0.62f
-                    val r = if (cx - w / 2 >= last[0] + 0.5f) 0 else if (cx - w / 2 >= last[1] + 0.5f) 1 else if (last[1] < last[0]) 1 else 0
-                    last[r] = cx + w / 2
-                    return r
-                }
-                // A chord held or repeated is labeled once, where it starts ("?" always shows)
-                fun same(a: String, b: String?) = a == b && a != "?"
-                if (lab.symbol.isNotEmpty() && !same(lab.symbol, prev?.symbol)) {
-                    val r = row(lab.symbol, 1.3f, symRight)
-                    marks += TextMark(lab.symbol, cx, labelTop - r * 1.4f, 1.3f, TextStyle.SYMBOL)
-                }
-                // A chord with a second reading is labeled even when held or repeated
-                if (!same(lab.roman, prev?.roman) || lab.alt != null) {
-                    val r = row(lab.roman, 1.6f, romRight)
-                    marks += TextMark(lab.roman, cx, labelBot + figH + r * 2.0f, 1.6f, TextStyle.ROMAN)
-                    lab.alt?.let { marks += TextMark(it, cx, labelBot + figH + r * 2.0f + 1.7f, 1.2f, TextStyle.ROMAN_ALT) }
-                }
-            }
         }
         drawTies(score, shown, headAt, marks)
         for ((it, xy) in headAt.values) {
@@ -392,19 +394,72 @@ object Engraver {
             if (!labeled.add(h.ref)) continue
             marks += TextMark(lab, h.x + 1.1f, h.y - 0.9f, 1.0f, TextStyle.NCT)
         }
-        // A written name repeats only after it changes or after a moment with no name, whichever voice carries it
-        val named = HashSet<NoteRef>()
+        // Chord labels: the check's reading and the chords the user named, both as a symbol above and a numeral below.
+        // A named chord stands in for the check's label; one the check disagrees with shows both, the name in the outer row.
         val onsets = Voice.entries.associateWith { score.onsets(it) }
-        val moments = heads.sortedBy { it.x }.filter { h ->
-            named.add(h.ref) && score.voice(h.ref.voice).getOrNull(h.ref.index)?.pitch != null
-        }.groupBy { onsets.getValue(it.ref.voice)[it.ref.index] }.toSortedMap()
+        val struck = HashSet<Fraction>()
+        val nameRef = HashMap<Fraction, NoteRef>()
+        for (h in heads) {
+            val e = score.voice(h.ref.voice).getOrNull(h.ref.index)?.takeIf { it.pitch != null } ?: continue
+            val t = onsets.getValue(h.ref.voice)[h.ref.index]
+            struck += t
+            if (e.chord != null) nameRef[t] = h.ref
+        }
+        val symRight = floatArrayOf(-99f, -99f)
+        val romRight = floatArrayOf(-99f, -99f)
+        var prevLab: ChordLabel? = null
         var lastName: String? = null
-        for (hs in moments.values) {
-            val h = hs.firstOrNull { score.voice(it.ref.voice)[it.ref.index].chord != null }
-            val name = h?.let { score.voice(it.ref.voice)[it.ref.index].chord }
-            if (h != null && name != lastName)
-                marks += TextMark(name!!, h.x + Smufl.HEAD_W / 2, labelTop - (if (hasLabels) 2.9f else 0.3f), 1.4f, TextStyle.NAME)
-            lastName = name
+        val nameBoxes = ArrayList<NameBox>()
+        for (c in boxes.flatMap { it.columns }) {
+            val lab = labels[c.time]
+            val prev = prevLab
+            prevLab = lab
+            val ref = nameRef[c.time]
+            val name = ref?.let { score.voice(it.voice)[it.index].chord }
+            val misnamed = name != null && lab?.misnamed == true
+            // A written name repeats only after it changes or after a moment with no name, whichever voice carries it
+            val mine = name?.takeIf { it != lastName || misnamed }?.let { ChordText.shown(it, score.keyAt(c.time)) ?: (it to "") }
+            if (c.time in struck) lastName = name
+            val cx = c.x + Smufl.HEAD_W / 2
+            // Labels that would collide with the previous one move to a second row; if both are taken, the freer one
+            fun row(text: String, size: Float, last: FloatArray): Int {
+                val w = labelWidth(text, size)
+                val r = if (cx - w / 2 >= last[0] + 0.5f) 0 else if (cx - w / 2 >= last[1] + 0.5f) 1 else if (last[1] < last[0]) 1 else 0
+                last[r] = cx + w / 2
+                return r
+            }
+            fun named(text: String, y: Float, size: Float, style: TextStyle) {
+                if (text.isEmpty()) return
+                marks += TextMark(text, cx, y, size, style)
+                val w = max(2.6f, labelWidth(text, size) + 0.6f)
+                nameBoxes += NameBox(ref!!, cx - w / 2, y - size - 0.5f, cx + w / 2, y + 0.8f)
+            }
+            if (mine != null && !misnamed) {
+                if (mine.first.isNotEmpty()) named(mine.first, labelTop - row(mine.first, 1.3f, symRight) * 1.4f, 1.3f, TextStyle.NAME)
+                if (mine.second.isNotEmpty()) {
+                    val y = labelBot + figH + row(mine.second, 1.6f, romRight) * 2.0f
+                    named(mine.second, y, 1.6f, TextStyle.NAME_ROMAN)
+                    lab?.alt?.let { marks += TextMark(it, cx, y + 1.7f, 1.2f, TextStyle.ROMAN_ALT) }
+                }
+                continue
+            }
+            if (mine != null) {
+                named(mine.first, labelTop - 2.9f, 1.3f, TextStyle.NAME)
+                named(mine.second, labelBot + figH + 4.0f + altH, 1.6f, TextStyle.NAME_ROMAN)
+            }
+            if (lab == null) continue
+            // A chord held or repeated is labeled once, where it starts ("?" and a chord named otherwise always show)
+            fun same(a: String, b: String?) = a == b && a != "?" && !misnamed
+            if (lab.symbol.isNotEmpty() && !same(lab.symbol, prev?.symbol)) {
+                val r = row(lab.symbol, 1.3f, symRight)
+                marks += TextMark(lab.symbol, cx, labelTop - r * 1.4f, 1.3f, TextStyle.SYMBOL)
+            }
+            // A chord with a second reading is labeled even when held or repeated
+            if (!same(lab.roman, prev?.roman) || lab.alt != null) {
+                val r = row(lab.roman, 1.6f, romRight)
+                marks += TextMark(lab.roman, cx, labelBot + figH + r * 2.0f, 1.6f, TextStyle.ROMAN)
+                lab.alt?.let { marks += TextMark(it, cx, labelBot + figH + r * 2.0f + 1.7f, 1.2f, TextStyle.ROMAN_ALT) }
+            }
         }
         val figured = HashSet<NoteRef>()
         for (h in heads) {
@@ -418,7 +473,7 @@ object Engraver {
         val headerBox = if (bare) FloatArray(4) else floatArrayOf(0f, top - 1f, x0 + header, bot + 1f)
         val textTop = marks.minOfOrNull { m -> if (m is TextMark && (m.style == TextStyle.SYMBOL || m.style == TextStyle.NAME)) m.y - m.size else top } ?: top
         return ScoreLayout(xEnd + TAIL, height, marks, st, boxes, heads, total, tempoBox, headerBox,
-            noteTop = min(top, syf(0, maxP[0].toFloat())), noteBottom = max(bot, syf(n - 1, minP[n - 1].toFloat())), rests = restBoxes, changeBoxes = changeBoxes, textTop = textTop)
+            noteTop = min(top, syf(0, maxP[0].toFloat())), noteBottom = max(bot, syf(n - 1, minP[n - 1].toFloat())), rests = restBoxes, changeBoxes = changeBoxes, textTop = textTop, nameBoxes = nameBoxes)
     }
 
     // ---------- horizontal ----------

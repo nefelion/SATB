@@ -2,6 +2,7 @@ package com.nefelion.fourpartwriting.theory
 
 import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Mode
+import com.nefelion.fourpartwriting.model.Pitch
 import com.nefelion.fourpartwriting.model.PitchClass
 
 /** A chord the user named: its pitch classes, root first (a slash bass outside the chord last), and the bass when the name fixes it. */
@@ -30,6 +31,17 @@ object ChordText {
         val t = text.trim().replace('♯', '#').replace('♭', 'b')
         if (t.isEmpty()) return null
         return if (t[0] in "ABCDEFG") symbol(t) else roman(t, key)
+    }
+
+    /**
+     * [name] the way the check writes chords: its symbol and its numeral in [key] ("V65" in C: "G7/B" and "V⁶₅").
+     * Null when the name can't be read or is no chord the check has a name for (F/G).
+     */
+    fun shown(name: String, key: Key): Pair<String, String>? {
+        val spec = parse(name, key) ?: return null
+        val bass = spec.bass ?: spec.pcs[0]
+        val c = ChordAnalyzer.analyze(spec.pcs.map { Pitch(it.step, it.alter, if (it == bass) 2 else 4) }, key)
+        return if (c.recognized) c.symbol to c.roman else null
     }
 
     private fun letter(s: String): PitchClass? {

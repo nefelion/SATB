@@ -604,12 +604,26 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         edit(s.score.withVoice(Voice.BASS, evs.toMutableList().also { it[r.index] = e.copy(figures = figures) }))
     }
 
-    /** Selects a note to name a chord on: the one selected, else the soprano at the selected time, else the first. False if the score is empty. */
+    /** The chord panel is open (the screen says so): the check then keeps a chord picked for it instead of dropping the selection. */
+    var naming = false
+
+    /** The note a chord name at [t] sits on: the one named there, else the highest starting there, else the highest sounding. */
+    private fun chordNote(t: Fraction): NoteRef? {
+        val sc = s.score
+        val at = Voice.entries.mapNotNull { v -> refAt(sc, v, t)?.takeIf { sc.voice(v)[it.index].pitch != null } }
+        return at.firstOrNull { onsetOf(it) == t && sc.voice(it.voice)[it.index].chord != null } ?: at.firstOrNull { onsetOf(it) == t } ?: at.firstOrNull()
+    }
+
+    /** Onset of the issue picked in the check, if any. */
+    private fun issueTime(): Fraction? = s.analysis?.let { a -> s.focusedIssue?.let { a.issues.getOrNull(it) }?.let { a.slices.getOrNull(it.slice)?.time } }
+
+    /** Selects a note to name a chord on: the one selected, else the chord of the picked issue or at the selected time, else the first. False if the score is empty. */
     fun startChords(): Boolean {
         if (s.selectedEvent?.pitch != null) return true
-        val v = Voice.entries.firstOrNull { v -> s.score.voice(v).any { it.pitch != null } } ?: run { msg("Write some notes first."); return false }
-        val at = s.selectedTime?.let { s.score.eventAt(v, it) }?.takeIf { it >= 0 && s.score.voice(v)[it].pitch != null }
-        select(NoteRef(v, at ?: s.score.voice(v).indexOfFirst { it.pitch != null }))
+        val ref = (issueTime() ?: s.selectedTime)?.let(::chordNote)
+            ?: Voice.entries.firstNotNullOfOrNull { v -> s.score.voice(v).indexOfFirst { it.pitch != null }.takeIf { it >= 0 }?.let { NoteRef(v, it) } }
+            ?: run { msg("Write some notes first."); return false }
+        select(ref)
         _state.update { it.copy(followTick = it.followTick + 1) }
         return true
     }
@@ -1387,25 +1401,32 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * The check after the score of [st] became [new]: rechecked when only mutes changed ("Ignore here");
+     * The check after the score of [st] became [new]: rechecked when only mutes ("Ignore here") or chord names changed;
      * hidden after a change to the music, so the user checks again with ✓ instead of editing until the marks go away.
      */
     private fun checked(st: UiState, new: Score): UiState {
         if (st.analysis == null && st.quiz == null) return st
-        if (new.copy(ignored = st.score.ignored, rulesOff = st.score.rulesOff) == st.score)
-            return st.copy(analysis = st.analysis?.let { checkWritten(new, st.checkRules) }, quiz = st.quiz?.takeIf { !it.revealed }, focusedIssue = null)
+        fun music(sc: Score) = sc.copy(ignored = emptySet(), rulesOff = emptySet(), voices = sc.voices.map { v -> v.map { it.copy(chord = null) } })
+        if (music(new) == music(st.score)) {
+            val a = checkWritten(new, st.checkRules)
+            // A self-check still running keeps its marks; what was shown of the old results is counted anew
+            return st.copy(analysis = st.analysis?.let { a }, quiz = st.quiz?.takeIf { !it.revealed }?.copy(analysis = a, shown = emptyList()), focusedIssue = null)
+        }
         return st.copy(analysis = null, quiz = null, focusedIssue = null, message = "Score changed. Press ✓ to check again.")
     }
 
-    /** Opening the check or tapping a found issue drops the selection into movement mode. */
-    private fun toMovement() { deselect(); _state.update { it.copy(moving = true) } }
+    /** Opening the check or tapping a found issue drops the selection into movement mode; not while naming chords, where a chord stays picked. */
+    private fun toMovement() { if (naming) return; deselect(); _state.update { it.copy(moving = true) } }
     fun closeAnalysis() = _state.update { it.copy(analysis = null, quiz = null, focusedIssue = null) }
     /** Picks issue [i] (the ‹ › of the check panel). */
-    fun showIssue(i: Int) { toMovement(); _state.update { it.copy(focusedIssue = i) } }
+    fun showIssue(i: Int) { toMovement(); _state.update { it.copy(focusedIssue = i) }; nameIssueChord() }
     fun focusIssue(i: Int?) {
         toMovement()
         _state.update { it.copy(focusedIssue = if (it.focusedIssue == i) null else i) }
+        nameIssueChord()
     }
+    /** While naming chords, the picked issue's chord is the one to name. */
+    private fun nameIssueChord() { if (naming) issueTime()?.let { t -> chordNote(t)?.let { select(it, t) } } }
 
     /** Long-press menu on an issue: hide just this one. */
     fun ignoreIssue(i: Int) {

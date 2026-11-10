@@ -283,7 +283,7 @@ internal fun MiniScore(score: Score, colors: Map<NoteRef, Color> = emptyMap(), f
     val labels = remember(frame, numerals) {
         if (!numerals) return@remember emptyMap()
         val a = VoiceLeading.check(frame)
-        if (a.points.isEmpty()) emptyMap() else chordLabels(a).mapValues { ChordLabel("", it.value.roman) }
+        if (a.points.isEmpty()) emptyMap() else chordLabels(a).mapValues { it.value.copy(symbol = "", alt = null) }
     }
     val marks = remember(score, labels) { plain(score, labels) }
     val box = remember(frame, labels) { bounds(plain(frame, labels)) }

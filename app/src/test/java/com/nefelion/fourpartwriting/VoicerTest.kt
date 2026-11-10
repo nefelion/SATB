@@ -124,6 +124,29 @@ class VoicerTest {
         assertTrue(issues.map { it.message }.toString(), issues.isEmpty())
     }
 
+    @Test fun namedChordsShowSymbolAndNumeral() {
+        assertEquals("G7/B" to "V⁶₅", ChordText.shown("V65", C))
+        assertEquals("G7/B" to "V⁶₅", ChordText.shown("G7/B", C))
+        assertEquals("Dm" to "ii", ChordText.shown("ii", C))
+        assertEquals("D7" to "V⁷/V", ChordText.shown("V7/V", C))
+        assertNull(ChordText.shown("Dm/G", C))
+        assertNull(ChordText.shown("xyz", C))
+        // C major named I, then G major named ii: the first shows once, as named; the second shows the check's reading and the name
+        fun line(n: String) = n.split(" ").map { q(it) }
+        val sc = Score(voices = listOf(listOf(q("E5", "I"), q("D5", "ii")), line("G4 B4"), line("C4 G3"), line("C3 G2")))
+        fun texts(l: com.nefelion.fourpartwriting.engrave.ScoreLayout, vararg st: com.nefelion.fourpartwriting.engrave.TextStyle) =
+            l.marks.filterIsInstance<com.nefelion.fourpartwriting.engrave.TextMark>().filter { it.style in st }.map { it.text }
+        val NAME = com.nefelion.fourpartwriting.engrave.TextStyle.NAME; val NAME_ROMAN = com.nefelion.fourpartwriting.engrave.TextStyle.NAME_ROMAN
+        val SYMBOL = com.nefelion.fourpartwriting.engrave.TextStyle.SYMBOL; val ROMAN = com.nefelion.fourpartwriting.engrave.TextStyle.ROMAN
+        val plain = com.nefelion.fourpartwriting.engrave.Engraver.layout(sc)
+        assertEquals(listOf("C", "Dm", "I", "ii"), texts(plain, NAME) + texts(plain, NAME_ROMAN))
+        assertEquals(4, plain.nameBoxes.size)
+        val checked = com.nefelion.fourpartwriting.engrave.Engraver.layout(sc, com.nefelion.fourpartwriting.engrave.chordLabels(VoiceLeading.check(sc)))
+        assertEquals(listOf("C", "Dm", "I", "ii"), texts(checked, NAME) + texts(checked, NAME_ROMAN))
+        assertEquals(listOf("G", "V"), texts(checked, SYMBOL, ROMAN))
+        assertTrue(checked.height > plain.height)
+    }
+
     @Test fun fixRevoicesOnlyTheChosenChord() {
         // I – IV – I with the IV moving in parallel fifths and octaves both ways
         fun line(n: String) = n.split(" ").map { q(it) }

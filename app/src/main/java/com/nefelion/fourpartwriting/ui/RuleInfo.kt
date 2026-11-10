@@ -126,7 +126,7 @@ private class Demo(val rule: Rule, ex: RuleExample) {
     private val rawGood = engrave(ex.good, goodA, ex.roman)
 
     private fun engrave(s: Score, a: Analysis, roman: Boolean): ScoreLayout {
-        val labels = if (roman) chordLabels(a).mapValues { ChordLabel("", it.value.roman) } else emptyMap()
+        val labels = if (roman) chordLabels(a).mapValues { it.value.copy(symbol = "", alt = null) } else emptyMap()
         return Engraver.layout(s.copy(arrangement = staves, clefs = clefs), labels, show = show)
     }
 
