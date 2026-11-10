@@ -104,6 +104,8 @@ fun ScoreCanvas(
     onAim: (Hit) -> Int? = { null },
     /** The caret stands on the selected note (while naming its chord or figures) instead of after the voice. */
     caretAtSelection: Boolean = false,
+    /** Naming the selected moment's chord: a plain band marks the chord (no voice), and touches only select or move the view. */
+    chordMark: Boolean = false,
     savedViewport: Pair<Float, Float>?,
     onViewport: (Float, Float) -> Unit,
     /** Left/right px hidden by a camera cutout or side bars: the score can scroll clear of them. */
@@ -171,7 +173,7 @@ fun ScoreCanvas(
 
         // Notes outside a picked issue: drawn under plain ink, so a head shared with a flagged note (a unison) shows the flagged one
         val faded = lerp(paper, sc.ink, sc.otherInk).toArgb()
-        val colors = remember(analysis, flagged, state.selected, state.placed, state.playTime, state.score, sc, paper) {
+        val colors = remember(analysis, flagged, state.selected, state.placed, state.playTime, state.score, sc, paper, chordMark) {
             val play = sc.play.toArgb()
             val m = HashMap<NoteRef, Int>()
             // Rests that only fill out a bar after a voice ends (not written): light, but opaque so nothing shows through
@@ -188,8 +190,8 @@ fun ScoreCanvas(
             state.playTime?.let { t ->
                 for (v in Voice.entries) state.score.eventAt(v, t).takeIf { it >= 0 }?.let { m[NoteRef(v, it)] = play }
             }
-            // The note just entered stays plain: only the caret shows a voice color
-            state.selected?.takeIf { !state.placed }?.let { m[it] = sc.voices[it.voice.ordinal].toArgb() }
+            // The note just entered stays plain: only the caret shows a voice color; a chord being named is the band's, not one voice's
+            state.selected?.takeIf { !state.placed && !chordMark }?.let { m[it] = sc.voices[it.voice.ordinal].toArgb() }
             m
         }
 
@@ -254,7 +256,7 @@ fun ScoreCanvas(
         val tempoTap by rememberUpdatedState(onTempoTap)
         val changeTap by rememberUpdatedState(onChangeTap)
         val nameTap by rememberUpdatedState(onNameTap)
-        val hasSelection by rememberUpdatedState(state.selected != null && !state.placed)
+        val hasSelection by rememberUpdatedState(state.selected != null && !state.placed && !chordMark)
         val inputStaff by rememberUpdatedState(state.score.staffOf(state.locked ?: state.voice))
         // Finger position while aiming a new note (magnifier shown)
         var loupe by remember { mutableStateOf<Offset?>(null) }
@@ -307,19 +309,20 @@ fun ScoreCanvas(
                         nc.drawRect((x - 0.5f) * sp, (layout.noteTop - 1.5f) * sp, (x + 1.7f) * sp, (layout.noteBottom + 1.5f) * sp, paints.fill)
                     }
                 }
-                // Insertion caret for the active voice (none in movement mode)
-                if (!state.playing && !state.moving) {
-                    val col = sc.voices[state.shownVoice.ordinal]
+                // Insertion caret for the active voice (none in movement mode); while naming chords, a plain band over the chord and its labels
+                if (!state.playing && (chordMark || !state.moving)) {
+                    val col = if (chordMark) Color(accent) else sc.voices[state.shownVoice.ordinal]
                     paints.fill.color = col.copy(alpha = sc.caretAlpha).toArgb()
                     // From above the highest note and chord symbol to below the lowest note, so the voice letter never sits under either
                     val cTop = minOf(layout.top - 2f, layout.noteTop - 1f, layout.textTop - 0.6f)
-                    nc.drawRect((caretX - 0.3f) * sp, cTop * sp, (caretX + 1.5f) * sp, max(layout.bottom + 2f, layout.noteBottom + 1f) * sp, paints.fill)
+                    val cBottom = if (chordMark) layout.height - 0.3f else max(layout.bottom + 2f, layout.noteBottom + 1f)
+                    nc.drawRect((caretX - 0.3f) * sp, cTop * sp, (caretX + 1.5f) * sp, cBottom * sp, paints.fill)
                     paints.text.color = col.toArgb()
                     paints.text.textSize = 1.4f * sp
                     paints.text.typeface = paints.bold
                     paints.text.textAlign = Paint.Align.CENTER
                     // Not over the check's results, whose ticks sit there
-                    if (analysis == null) nc.drawText(state.shownVoice.label, (caretX + 0.6f) * sp, (cTop - 0.4f) * sp, paints.text)
+                    if (analysis == null && !chordMark) nc.drawText(state.shownVoice.label, (caretX + 0.6f) * sp, (cTop - 0.4f) * sp, paints.text)
                 }
                 val visL = -offX / sp - 6f
                 val visR = (-offX + vw) / sp + 6f

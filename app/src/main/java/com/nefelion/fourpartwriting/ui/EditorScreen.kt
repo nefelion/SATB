@@ -272,6 +272,7 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
                         st, { if (vm.tap(it)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, vm::press, vm::nudge, vm::dragPitch,
                         onAim = vm::aim,
                         caretAtSelection = naming || figures,
+                        chordMark = naming,
                         onTempoTap = { tempoDialog = true },
                         onChangeTap = { changeBar = it },
                         // A named chord opens the chord panel on itself
@@ -513,9 +514,10 @@ private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, w
     val ink = MaterialTheme.colorScheme.onSurface
     var text by rememberSaveable(st.selected, named) { mutableStateOf(named.orEmpty()) }
     val bad = text.isNotBlank() && ChordText.parse(text, st.score.key) == null
-    fun apply() { if (e != null && text.trim() != named.orEmpty()) vm.setChord(text) }
+    // A lambda, not a local fun: Compose caches a ::reference to a local fun, which would keep the first note's text and name
+    val apply = { if (e != null && text.trim() != named.orEmpty()) vm.setChord(text) }
     // However the panel closes (Done, the menu), a typed name is kept
-    val last by rememberUpdatedState(::apply)
+    val last by rememberUpdatedState(apply)
     DisposableEffect(Unit) { onDispose { last() } }
     val common = if (st.score.key.mode == Mode.MAJOR) listOf("I", "ii", "IV", "V", "V7", "vi") else listOf("i", "iv", "V", "V7", "VI", "ii°6")
     val field: @Composable (Modifier) -> Unit = { m ->

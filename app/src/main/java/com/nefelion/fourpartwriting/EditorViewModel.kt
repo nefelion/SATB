@@ -470,6 +470,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
      * Returns its position on [hit]'s staff (it may differ: the pitch is kept in range), or null (nothing changes) if no note can go there.
      */
     fun aim(hit: Hit): Int? {
+        if (naming) return null
         val t = target(hit) ?: return null
         val sc = s.score
         val g = Ghost(sc.staffOf(s.locked ?: s.voice), sc.clefs[sc.staffOf(s.locked ?: s.voice)].position(t.pitch), t.at)
@@ -481,6 +482,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun tap(hit: Hit): Boolean {
         _state.update { it.copy(ghost = null) }
         if (s.quiz?.revealed == false) { (hit.exact ?: hit.near)?.let(::toggleMark); return false }
+        // Naming chords: a tap picks the chord there, it never writes a note
+        if (naming) { if (!hit.afterLast) chordNote(hit.time)?.let { select(it, hit.time) }; return false }
         if (s.moving) {
             if (hit.near != null) select(hit.near, hit.nearAt) else if (hit.exact != null) select(hit.exact, hit.exactAt)
             else if (hit.rest != null) select(hit.rest, hit.restAt)
