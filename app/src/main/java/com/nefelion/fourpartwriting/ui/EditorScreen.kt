@@ -11,6 +11,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -280,7 +281,7 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
                 }
                 // With the check open, a note (Bach's reason, a lesson's task) sits above its panel instead of over the score
                 if (panel) st.note?.let { NoteCard(it, vm::closeNote, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) }
-                if (st.quiz?.revealed == false) QuizBar(st, vm, safe.only(WindowInsetsSides.Horizontal))
+                if (st.quiz?.revealed == false) QuizBar(st, vm, safe.only(WindowInsetsSides.Horizontal), wide)
                 st.analysis?.let { IssuesStrip(st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide, onUndoable = { undoable = it }) }
                 if (figures) { HorizontalDivider(); FiguresPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { figures = false } }
                 if (chords) { HorizontalDivider(); ChordPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { chords = false } }
@@ -1004,27 +1005,37 @@ private fun unfinished(sc: Score): String? {
 
 /** Self-check: how many rule breaks there are; help in steps (bars, rules, one break at a time), and Reveal. */
 @Composable
-private fun QuizBar(st: UiState, vm: EditorViewModel, insets: WindowInsets) {
+private fun QuizBar(st: UiState, vm: EditorViewModel, insets: WindowInsets, wide: Boolean) {
     val q = st.quiz ?: return
     val a = q.analysis
     val errors = q.errors
     val sc = LocalScoreColors.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     fun bar(i: com.nefelion.fourpartwriting.theory.Issue) = a.slices.getOrNull(i.slice)?.time?.let(st.score::barNumber) ?: 1
+    val hint = "Tap the notes you think break a rule."
+    val buttons = @Composable {
+        if (!q.names) TextButton(onClick = vm::quizHelp) { Text(if (!q.bars) "Which bars?" else "Which rules?") }
+        val left = errors.any { e -> !q.found(e) && a.issues.indexOf(e) !in q.shown }
+        TextButton(onClick = vm::revealNext, enabled = left) { Text("Show one") }
+        FilledTonalButton(onClick = vm::reveal, shape = SHAPE) { Text("Reveal all") }
+    }
     Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(Modifier.fillMaxWidth().windowInsetsPadding(insets)) {
             HorizontalDivider()
-            Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 12.dp),
+            // Wide screens: hint and buttons share the header row, so the score keeps its height
+            Row(Modifier.fillMaxWidth().height(if (wide) 52.dp else 44.dp).padding(start = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Badge("${errors.size} rule break${if (errors.size == 1) "" else "s"}", sc.errorText)
                 Text("${errors.count(q::found)} found", style = MaterialTheme.typography.labelLarge, color = muted)
-                Spacer(Modifier.weight(1f))
+                if (wide) Text(hint, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                else Spacer(Modifier.weight(1f))
+                if (wide) buttons()
                 PanelIcon(Icons.Rounded.Close, "Close check", onClick = vm::closeAnalysis)
             }
             Column(Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 unfinished(st.score)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = muted) }
-                Text("Tap the notes you think break a rule.", style = MaterialTheme.typography.bodySmall, color = muted)
+                if (!wide) Text(hint, style = MaterialTheme.typography.bodySmall, color = muted)
                 q.last?.let { Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = if (it.startsWith("✓")) sc.ok else sc.errorText) }
                 val byBar = errors.groupBy(::bar).toSortedMap()
                 if (q.names) for ((b, l) in byBar) Text("Bar $b: ${l.map { it.rule.label }.distinct().joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
@@ -1034,12 +1045,8 @@ private fun QuizBar(st: UiState, vm: EditorViewModel, insets: WindowInsets) {
                     Text("${where(t, st.score)} · ${issue.rule.label}: ${issue.message}", style = MaterialTheme.typography.bodySmall, color = sc.errorText)
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
-                if (!q.names) TextButton(onClick = vm::quizHelp) { Text(if (!q.bars) "Which bars?" else "Which rules?") }
-                val left = errors.any { e -> !q.found(e) && a.issues.indexOf(e) !in q.shown }
-                TextButton(onClick = vm::revealNext, enabled = left) { Text("Show one") }
-                FilledTonalButton(onClick = vm::reveal, shape = SHAPE) { Text("Reveal all") }
-            }
+            if (wide) Spacer(Modifier.height(4.dp))
+            else Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) { buttons() }
         }
     }
 }
