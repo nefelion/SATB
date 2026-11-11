@@ -113,6 +113,8 @@ data class UiState(
     val piano: Boolean = true,
     /** Light rests fill out the last bar after a voice ends (display only). */
     val fillerRests: Boolean = true,
+    /** Haptic feedback on taps, toggles and steps. */
+    val vibration: Boolean = true,
     val soundLoaded: Boolean = false,
     /** A SoundFont is being read (on app start or after a pick). */
     val soundLoading: Boolean = false,
@@ -285,6 +287,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             soundName = prefs.getString("sf2Name", null),
             piano = prefs.getBoolean("piano", true),
             fillerRests = prefs.getBoolean("fillerRests", true),
+            vibration = prefs.getBoolean("vibration", true),
             voice = Voice.entries.getOrElse(prefs.getInt("voice", 0)) { Voice.SOPRANO },
             duration = runCatching { Duration(prefs.getInt("durBase", 4), prefs.getInt("durDots", 0)) }.getOrDefault(Duration(4)),
         )
@@ -1660,6 +1663,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setFillerRests(on: Boolean) {
         _state.update { it.copy(fillerRests = on) }
         prefs.edit().putBoolean("fillerRests", on).apply()
+    }
+
+    fun setVibration(on: Boolean) {
+        _state.update { it.copy(vibration = on) }
+        prefs.edit().putBoolean("vibration", on).apply()
     }
 
     /** Loads the SoundFont straight from the user's file through its file descriptor, without a copy. */

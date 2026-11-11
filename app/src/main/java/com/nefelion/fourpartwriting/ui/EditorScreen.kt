@@ -1145,7 +1145,7 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
     var about by rememberSaveable { mutableStateOf(false) }
     FullScreenPage("Settings", onDismiss) {
         item {
-            Group("Appearance") {
+            Group("Look and feel") {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Theme", Modifier.weight(1f))
                     Segmented(listOf("System", "Light", "Dark"), when (st.dark) { null -> 0; false -> 1; true -> 2 }, itemWidth = 76.dp) {
@@ -1155,6 +1155,10 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Rests after a voice ends", Modifier.weight(1f))
                     TickSwitch(st.fillerRests, vm::setFillerRests)
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Vibration", Modifier.weight(1f))
+                    TickSwitch(st.vibration, vm::setVibration)
                 }
             }
         }
