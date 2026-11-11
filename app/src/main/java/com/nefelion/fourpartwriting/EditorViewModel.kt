@@ -69,6 +69,8 @@ data class UiState(
     val openTick: Int = 0,
     /** All saved scores (null: file unreadable), most recently changed first. */
     val scores: List<Pair<String, Score?>> = emptyList(),
+    /** Goes up when a check finds nothing wrong or solves an exercise: the editor celebrates. */
+    val celebrate: Int = 0,
     val voice: Voice = Voice.SOPRANO,
     /** Dark theme on, off, or null to follow the phone; chosen in the welcome or in Settings. */
     val dark: Boolean? = null,
@@ -271,7 +273,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             scoreName = startName,
             freeName = startName,
             lessonSaved = slots(),
-            scores = library.list(),
             score = library.read(startName)?.let(Edit::dropEmptyLastBars) ?: EXAMPLE,
             undo = history?.first.orEmpty(),
             redo = history?.second.orEmpty(),
@@ -301,6 +302,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private var loadJob: Job? = null
     private var waitJob: Job? = null
     private var saveJob: Job? = null
+    private var listJob: Job? = null
 
     /** MIDI keyboard: keys pressed together (held until all are released) arrive as one chord. */
     private val midi = MidiIn(app, { n, vel -> midiKey(n, vel) }, Synth::sustain, { names ->
@@ -315,6 +317,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     init {
+        refreshScores()
         Synth.usePiano(s.piano)
         reconnectMidi()
         val savedUri = prefs.getString("sf2Uri", null)?.let(Uri::parse)
@@ -1016,7 +1019,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Writes the open score now and drops a pending autosave. */
     private fun flushScore() { saveJob?.cancel(); if (s.study == null) libOf(s).write(s.scoreName, s.score) }
 
-    fun refreshScores() = _state.update { it.copy(scores = library.list()) }
+    /** Reads the score list in the background; a newer refresh replaces one still running. */
+    fun refreshScores() {
+        listJob?.cancel()
+        listJob = viewModelScope.launch {
+            val list = withContext(Dispatchers.IO) { library.list() }
+            _state.update { it.copy(scores = list) }
+        }
+    }
 
     /** Shows [score] as [name] (a study score: [study] is its id), starting fresh: no undo history or selection from the score left behind. */
     private fun show(name: String, score: Score, study: String? = null, slot: Int? = null, opened: Boolean = true) {
@@ -1028,13 +1038,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (free) prefs.edit().putString("current", name).apply()
         _state.update {
             it.copy(scoreName = name, score = score, study = study, why = emptyMap(), slot = slot, freeName = if (free) name else it.freeName,
-                lessonSaved = slots(), scores = library.list(), undo = emptyList(), redo = emptyList(),
+                lessonSaved = slots(), undo = emptyList(), redo = emptyList(),
                 selected = null, selectedAt = null, placed = false, analysis = null, quiz = null, focusedIssue = null, reorder = emptyList(), note = null,
                 voice = Voice.entries.firstOrNull { v -> v !in score.given } ?: Voice.SOPRANO, locked = null,
                 moving = if (study != null) true else if (it.study != null) false else it.moving, openTick = if (opened) it.openTick + 1 else it.openTick)
         }
         Synth.setTempo(score.qpm)
         checkOrder()
+        refreshScores()
     }
 
     private fun readScore(name: String) = library.read(name)?.let(Edit::dropEmptyLastBars)
@@ -1372,8 +1383,21 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         toMovement()
         val a = checkWritten(s.score, s.checkRules)
         if (a.issues.any { it.severity == Severity.ERROR }) return _state.update { it.copy(quiz = Quiz(a), focusedIssue = null) }
-        _state.update { it.copy(analysis = a, focusedIssue = null) }
-        solved(a)?.let(::msg)
+        val win = solved(a)
+        _state.update { it.copy(analysis = a, focusedIssue = null, celebrate = if (win != null || a.issues.isEmpty()) it.celebrate + 1 else it.celebrate) }
+        win?.let { msg(it); chime() }
+    }
+
+    /** A soft rising tonic chord for a solved exercise; always major, like the last chord of Bach's minor chorales. */
+    private fun chime() {
+        if (!s.canPlay || s.playing || muted) return
+        val t = 60 + s.score.keyOfBar(Int.MAX_VALUE).tonic.semis
+        val notes = listOf(t, t + 4, t + 7, t + 12)
+        viewModelScope.launch {
+            for (n in notes) { Synth.noteOn(n, 70); delay(80) }
+            delay(700)
+            notes.forEach(Synth::noteOff)
+        }
     }
 
     /** An exercise with every voice written and no rule breaks is solved: the message to show, else null. */

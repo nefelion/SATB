@@ -1,5 +1,23 @@
 package com.nefelion.fourpartwriting.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.PlainTooltip
@@ -95,6 +113,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.layout.Arrangement
@@ -277,17 +296,34 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
                         savedViewport = vm.viewport, onViewport = vm::rememberViewport,
                         edges = edges,
                     )
-                    if (st.reorder.isNotEmpty()) ReorderPrompt(st, vm, Modifier.align(Alignment.TopCenter).padding(8.dp))
-                    if (!panel) st.note?.let { NoteCard(it, vm::closeNote, Modifier.align(Alignment.BottomCenter).padding(8.dp)) }
+                    val note = kept(st.note)
+                    androidx.compose.animation.AnimatedVisibility(st.reorder.isNotEmpty(), Modifier.align(Alignment.TopCenter), POP_IN, POP_OUT) {
+                        ReorderPrompt(kept(st.takeIf { it.reorder.isNotEmpty() }) ?: st, vm, Modifier.padding(8.dp))
+                    }
+                    androidx.compose.animation.AnimatedVisibility(!panel && st.note != null, Modifier.align(Alignment.BottomCenter), POP_IN, POP_OUT) {
+                        note?.let { NoteCard(it, vm::closeNote, Modifier.padding(8.dp)) }
+                    }
                     // Messages over the bottom of the score, clear of the check panel and the toolbar
                     SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
+                    Burst(st.celebrate, Modifier.matchParentSize())
                 }
                 // With the check open, a note (Bach's reason, a lesson's task) sits above its panel instead of over the score
-                if (panel) st.note?.let { NoteCard(it, vm::closeNote, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) }
-                if (st.quiz?.revealed == false) QuizBar(st, vm, safe.only(WindowInsetsSides.Horizontal), wide)
-                st.analysis?.let { IssuesStrip(st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide, onUndoable = { undoable = it }) }
-                if (figures) { HorizontalDivider(); FiguresPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { figures = false } }
-                if (naming) { HorizontalDivider(); ChordPanel(st, vm, safe.only(WindowInsetsSides.Horizontal), wide) { chords = false } }
+                AnimatedVisibility(panel && st.note != null, enter = GROW, exit = SHRINK) {
+                    kept(st.note)?.let { NoteCard(it, vm::closeNote, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) }
+                }
+                // While a panel slides away it keeps showing the state it had
+                AnimatedVisibility(st.quiz?.revealed == false, enter = GROW, exit = SHRINK) {
+                    kept(st.takeIf { it.quiz?.revealed == false })?.let { QuizBar(it, vm, safe.only(WindowInsetsSides.Horizontal), wide) }
+                }
+                AnimatedVisibility(st.analysis != null, enter = GROW, exit = SHRINK) {
+                    IssuesStrip(if (st.analysis != null) st else kept(st.takeIf { it.analysis != null }) ?: st, vm, safe.only(WindowInsetsSides.Horizontal), listMax, oneLine = wide, onUndoable = { undoable = it })
+                }
+                AnimatedVisibility(figures, enter = GROW, exit = SHRINK) {
+                    Column { HorizontalDivider(); FiguresPanel(st, vm, safe.only(WindowInsetsSides.Horizontal)) { figures = false } }
+                }
+                AnimatedVisibility(naming, enter = GROW, exit = SHRINK) {
+                    Column { HorizontalDivider(); ChordPanel(st, vm, safe.only(WindowInsetsSides.Horizontal), wide) { chords = false } }
+                }
                 HorizontalDivider()
                 Box(Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
@@ -381,6 +417,7 @@ internal fun TempoEditor(tempo: Int, time: TimeSig, onChange: (Int) -> Unit, onC
     var text by remember(tempo) { mutableStateOf(tempo.toString()) }
     fun commit(v: Int) { onChange(v); onCommit() }
     val focus = LocalFocusManager.current
+    val haptic = LocalHapticFeedback.current
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GlyphIcon(Smufl.beatMark(time), 36, MaterialTheme.colorScheme.onSurface)
@@ -404,7 +441,7 @@ internal fun TempoEditor(tempo: Int, time: TimeSig, onChange: (Int) -> Unit, onC
             )
             Small("+") { commit((tempo / 5 + 1) * 5) }
         }
-        Slider(value = tempo.toFloat(), onValueChange = { onChange((it / 5).roundToInt() * 5) }, onValueChangeFinished = onCommit,
+        Slider(value = tempo.toFloat(), onValueChange = { val v = (it / 5).roundToInt() * 5; if (v != tempo) { haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick); onChange(v) } }, onValueChangeFinished = onCommit,
             valueRange = 30f..240f, steps = (240 - 30) / 5 - 1, modifier = Modifier.fillMaxWidth(),
             colors = SliderDefaults.colors(activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent))
     }
@@ -583,9 +620,15 @@ private fun RowScope.Tool(
     val coords = remember { arrayOfNulls<LayoutCoordinates>(1) }
     val below = hold?.below == true
     val hint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+    val src = remember { MutableInteractionSource() }
+    val indication = LocalIndication.current
+    val tapped by src.collectIsPressedAsState()
+    val sink by animateFloatAsState(if (tapped || shown) 0.86f else 1f, PRESS, label = "tool")
+    // Fades through the same color, not through black
+    val bg by animateColorAsState(if (selected) color else color.copy(alpha = 0f), spring(stiffness = Spring.StiffnessMedium), label = "tool")
     val body: @Composable (Modifier) -> Unit = { outer -> Box(
         outer.height(46.dp).padding(2.dp).clip(SHAPE)
-            .background(if (selected) color else Color.Transparent)
+            .background(bg)
             .semantics { contentDescription = label }
             // Buttons at the screen edge would otherwise wait for Android's back-swipe check before a press arrives
             .then(if (press != null || hold != null) Modifier.systemGestureExclusion() else Modifier)
@@ -598,10 +641,10 @@ private fun RowScope.Tool(
                         f(down) { p -> coords[0]?.takeIf { it.isAttached }?.localToScreen(p) ?: p }
                     }
                 }
-            else if (long != null) Modifier.combinedClickable(role = Role.Button, onLongClick = {
+            else if (long != null) Modifier.combinedClickable(src, indication, role = Role.Button, onLongClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress); long()
             }, onClick = onClick)
-            else if (hold == null) Modifier.clickable(enabled = enabled, onClick = onClick, role = Role.Button) else Modifier.semantics {
+            else if (hold == null) Modifier.clickable(src, indication, enabled = enabled, role = Role.Button, onClick = onClick) else Modifier.semantics {
                 role = Role.Button
                 onClick(label) { click(); true }
                 onLongClick(hold.label) { drop?.invoke(); true }
@@ -615,7 +658,9 @@ private fun RowScope.Tool(
                     var lifted = false
                     while (true) {
                         val ch = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                        over = if (below) ch.position.y > size.height + reach else ch.position.y < -reach
+                        val now = if (below) ch.position.y > size.height + reach else ch.position.y < -reach
+                        if (now && !over) haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                        over = now
                         drag += ch.position - ch.previousPosition
                         if (drag.getDistance() > viewConfiguration.touchSlop) moved = true
                         ch.consume()
@@ -628,7 +673,7 @@ private fun RowScope.Tool(
             }),
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.alpha(if (enabled) 1f else 0.38f)) { content() }
+        Box(Modifier.graphicsLayer { scaleX = sink; scaleY = sink; alpha = if (enabled) 1f else 0.38f }) { content() }
         if (hold != null) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 3.dp).size(4.dp).clip(CircleShape)
             .background(if (selected) MaterialTheme.colorScheme.surface.copy(alpha = 0.7f) else hint))
         if (menu) Text("▾", fontSize = 10.sp, color = hint, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 5.dp, bottom = 1.dp))
@@ -675,10 +720,16 @@ private class HoldTarget(val label: String, val below: Boolean, val danger: Bool
 
 @Composable
 private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, more: @Composable RowScope.() -> Unit, leading: Boolean, below: Boolean = false) {
+    val haptic = LocalHapticFeedback.current
     val ink = MaterialTheme.colorScheme.onSurface
     if (leading) {
         Tool(st.playing, vm::togglePlay, if (st.playing) "Stop" else "Play") { Ico(if (st.playing) Icons.Rounded.Stop else Icons.Rounded.PlayArrow, ink, 28.dp) }
-        Tool(st.analysis != null || st.quiz != null, vm::check, "Check harmony") { Ico(Icons.Rounded.Check, ink, 28.dp) }
+        Tool(st.analysis != null || st.quiz != null, {
+            val opening = st.analysis == null && st.quiz == null
+            vm.check()
+            // Rule breaks found: a short "no" buzz as the self-check starts
+            if (opening && vm.state.value.quiz != null) haptic.performHapticFeedback(HapticFeedbackType.Reject)
+        }, "Check harmony") { Ico(Icons.Rounded.Check, ink, 28.dp) }
         Pill {
             Tool(onClick = { vm.step(-1) }, label = "Previous note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, ink, 30.dp) }
             Tool(onClick = { vm.step(1) }, label = "Next note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowRight, ink, 30.dp) }
@@ -875,7 +926,7 @@ private fun RowScope.PickTool(
                     drag += ch.position - ch.previousPosition
                     if (drag.getDistance() > viewConfiguration.touchSlop) moved = true
                     val h = at(toScreen(ch.position))
-                    if (h != hover) { hover = h; since = now }
+                    if (h != hover) { if (h >= 0) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick); hover = h; since = now }
                     ch.consume()
                     if (!ch.pressed) { lifted = true; break }
                 }
@@ -959,7 +1010,7 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
         }
     }
     Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
-        Column(Modifier.fillMaxWidth().windowInsetsPadding(insets)) {
+        Column(Modifier.fillMaxWidth().windowInsetsPadding(insets).animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))) {
             HorizontalDivider()
             Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -984,8 +1035,15 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (a.issues.size > 1) PanelIcon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Previous issue", enabled = i > 0) { vm.showIssue(i - 1) }
-                        Box(Modifier.weight(1f).heightIn(max = maxList).verticalScroll(rememberScrollState())) {
-                            IssueRow(i, issue, if (a.issues.size > 1) "${i + 1}/${a.issues.size} · " else "", full = true) { vm.showIssue(i) }
+                        // Steps slide in from the side they come from
+                        AnimatedContent(i, Modifier.weight(1f), transitionSpec = {
+                            val d = if (targetState > initialState) 1 else -1
+                            (slideInHorizontally(SLIDE) { d * it / 4 } + fadeIn()) togetherWith (slideOutHorizontally(SLIDE) { -d * it / 4 } + fadeOut()) using SizeTransform(false)
+                        }, label = "issue") { k ->
+                            val shown = a.issues.getOrNull(k) ?: issue
+                            Box(Modifier.heightIn(max = maxList).verticalScroll(rememberScrollState())) {
+                                IssueRow(k, shown, if (a.issues.size > 1) "${k + 1}/${a.issues.size} · " else "", full = true) { vm.showIssue(k) }
+                            }
                         }
                         if (a.issues.size > 1) PanelIcon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Next issue", enabled = i < a.issues.lastIndex) {
                             vm.showIssue(if (st.focusedIssue == null) 1 else i + 1)
@@ -1096,7 +1154,7 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Rests after a voice ends", Modifier.weight(1f))
-                    Switch(checked = st.fillerRests, onCheckedChange = vm::setFillerRests)
+                    TickSwitch(st.fillerRests, vm::setFillerRests)
                 }
             }
         }
@@ -1223,15 +1281,26 @@ private val RULE_GROUPS = listOf(
 /** Rule name and description, an ⓘ button for the animated example, and its switch. */
 @Composable
 internal fun RuleRow(r: Rule, checked: Boolean, onInfo: () -> Unit, locked: Boolean = false, onToggle: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(enabled = !locked, onClick = onToggle).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+    val haptic = LocalHapticFeedback.current
+    Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(enabled = !locked) { haptic.toggle(!checked); onToggle() }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(r.label)
             Text(r.desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Box(Modifier.size(48.dp).clip(CircleShape).clickable(onClick = onInfo).semantics { contentDescription = "About ${r.label}" },
             contentAlignment = Alignment.Center) { Ico(Icons.Outlined.Info, MaterialTheme.colorScheme.primary) }
-        Switch(checked = checked, onCheckedChange = { onToggle() }, enabled = !locked)
+        TickSwitch(checked, { onToggle() }, enabled = !locked)
     }
+}
+
+/** On or off haptic, matching the new state. */
+internal fun HapticFeedback.toggle(on: Boolean) = performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+
+/** A [Switch] with an on/off haptic. */
+@Composable
+internal fun TickSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, enabled: Boolean = true) {
+    val haptic = LocalHapticFeedback.current
+    Switch(checked = checked, onCheckedChange = { haptic.toggle(it); onCheckedChange(it) }, enabled = enabled)
 }
 
 /** Call inside a Dialog or Popup: its window does not inherit the refresh rate MainActivity asked for. */
@@ -1362,14 +1431,23 @@ internal fun Small(label: String, glyph: Char? = null, enabled: Boolean = true, 
 /** Compact connected toggle buttons; with [glyphs], each option is one SMuFL music symbol drawn in the music font. */
 @Composable
 internal fun Segmented(options: List<String>, selected: Int, itemWidth: Dp = 48.dp, glyphs: Boolean = false, onSelect: (Int) -> Unit) {
-    Row(Modifier.clip(SHAPE).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
-        options.forEachIndexed { i, o ->
-            Box(Modifier.height(48.dp).width(itemWidth).padding(3.dp).clip(RoundedCornerShape(9.dp))
-                .background(if (i == selected) MaterialTheme.colorScheme.surfaceContainerLowest else Color.Transparent)
-                .clickable { onSelect(i) }, contentAlignment = Alignment.Center) {
-                val ink = if (i == selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                if (glyphs) GlyphIcon(o[0], 40, ink)
-                else Text(o, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Normal, color = ink)
+    val haptic = LocalHapticFeedback.current
+    val cs = MaterialTheme.colorScheme
+    // The raised chip slides to the picked option
+    val x by animateDpAsState(itemWidth * selected.coerceAtLeast(0), spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow), label = "segment")
+    Box(Modifier.clip(SHAPE).background(cs.surfaceContainerHighest)) {
+        if (selected in options.indices) Box(Modifier.offset { IntOffset(x.roundToPx(), 0) }.height(48.dp).width(itemWidth).padding(3.dp)
+            .clip(RoundedCornerShape(9.dp)).background(cs.surfaceContainerLowest))
+        Row {
+            options.forEachIndexed { i, o ->
+                val src = remember { MutableInteractionSource() }
+                Box(Modifier.height(48.dp).width(itemWidth).padding(3.dp).pressScale(src).clip(RoundedCornerShape(9.dp))
+                    .clickable(src, LocalIndication.current) { if (i != selected) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick); onSelect(i) },
+                    contentAlignment = Alignment.Center) {
+                    val ink by animateColorAsState(if (i == selected) cs.primary else cs.onSurfaceVariant, label = "segment")
+                    if (glyphs) GlyphIcon(o[0], 40, ink)
+                    else Text(o, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Normal, color = ink)
+                }
             }
         }
     }

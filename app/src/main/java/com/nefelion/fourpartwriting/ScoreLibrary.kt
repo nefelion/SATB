@@ -15,7 +15,7 @@ class ScoreLibrary(private val dir: File) {
         .sortedByDescending { it.lastModified() }.map { it.name.removeSuffix(EXT) }
 
     /** Every score with its contents, for the list's details. */
-    // shortcut: reads all files on the calling (main) thread; fine for a few hundred small scores, move to IO if libraries grow large
+    // shortcut: reads every file in full; the view model calls it on IO, fine for a few hundred small scores
     fun list(): List<Pair<String, Score?>> = names().map { it to read(it) }
 
     fun exists(name: String) = file(name).exists()

@@ -23,7 +23,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -338,7 +337,7 @@ fun RuleInfoDialog(
                 if (onToggle == null) Text("Always checked in lessons.", style = MaterialTheme.typography.bodySmall, color = muted)
                 else Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Check this rule", Modifier.weight(1f))
-                    Switch(checked = enabled, onCheckedChange = { onToggle() })
+                    TickSwitch(enabled, { onToggle() })
                 }
                 // Opened from an issue in check mode
                 if (onIgnoreHere != null || onIgnoreInScore != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

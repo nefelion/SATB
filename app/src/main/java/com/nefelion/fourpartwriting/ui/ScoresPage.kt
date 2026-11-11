@@ -449,6 +449,7 @@ private fun NameDialog(title: String, start: String, action: String, onDismiss: 
 @Composable
 internal fun ExerciseDialog(sopranoFirst: Boolean, onDismiss: () -> Unit, onPick: (Exercises.Level, Boolean) -> Unit) {
     var soprano by rememberSaveable { mutableStateOf(sopranoFirst) }
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     AlertDialog(
     onDismissRequest = onDismiss,
     title = { Text("New exercise") },
@@ -457,7 +458,10 @@ internal fun ExerciseDialog(sopranoFirst: Boolean, onDismiss: () -> Unit, onPick
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf("Figured bass", "Given soprano").forEachIndexed { i, label ->
-                    SegmentedButton(selected = soprano == (i == 1), onClick = { soprano = i == 1 }, shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
+                    SegmentedButton(selected = soprano == (i == 1), onClick = {
+                        if (soprano != (i == 1)) haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentTick)
+                        soprano = i == 1
+                    }, shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
                 }
             }
             Text(if (soprano) "Choose the chords and write alto, tenor and bass under the given soprano, then press ✓ to check."

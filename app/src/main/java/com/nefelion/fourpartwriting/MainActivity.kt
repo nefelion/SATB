@@ -22,11 +22,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.animation.Crossfade
 import com.nefelion.fourpartwriting.audio.Synth
 import com.nefelion.fourpartwriting.ui.AppRoot
 import com.nefelion.fourpartwriting.ui.ThemePicker
 import com.nefelion.fourpartwriting.ui.Tutorial
 import com.nefelion.fourpartwriting.ui.theme.MyApplicationTheme
+
+private const val TOUR = 0
+private const val PICK = 1
+private const val APP = 2
 
 class MainActivity : ComponentActivity() {
     private val vm: EditorViewModel by viewModels()
@@ -63,9 +68,11 @@ class MainActivity : ComponentActivity() {
                 if (picking) enableEdgeToEdge(barStyle(false), barStyle(true)) else barsFor(dark)
             }
             BackHandler(enabled = picking) { picking = false; back = true }
-            if (picking) ThemePicker(st.value) { vm.setDark(it); picking = false; vm.finishTutorial() }
-            else MyApplicationTheme(dark) {
-                if (!seen) Tutorial(atEnd = back, onDone = { picking = true }) else AppRoot(vm)
+            Crossfade(if (picking) PICK else if (!seen) TOUR else APP, label = "start") { k ->
+                if (k == PICK) ThemePicker(st.value) { vm.setDark(it); picking = false; vm.finishTutorial() }
+                else MyApplicationTheme(dark) {
+                    if (k == TOUR) Tutorial(atEnd = back, onDone = { picking = true }) else AppRoot(vm)
+                }
             }
         }
     }

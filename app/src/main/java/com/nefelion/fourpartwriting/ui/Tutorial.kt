@@ -84,6 +84,7 @@ fun Tutorial(atEnd: Boolean, onDone: () -> Unit) {
     )
     val pager = rememberPagerState(if (atEnd) pages.lastIndex else 0) { pages.size }
     val scope = rememberCoroutineScope()
+    PageTicks(pager)
     val last = pager.currentPage == pages.lastIndex
     BackHandler(enabled = pager.currentPage > 0) { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }
 

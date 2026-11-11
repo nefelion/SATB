@@ -1,5 +1,7 @@
 package com.nefelion.fourpartwriting.ui
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
@@ -253,6 +255,7 @@ fun ScoreCanvas(
         val press by rememberUpdatedState(onPress)
         val aimTo by rememberUpdatedState(onAim)
         val nudge by rememberUpdatedState(onNudge)
+        val haptic = LocalHapticFeedback.current
         val drag by rememberUpdatedState(onDrag)
         val tempoTap by rememberUpdatedState(onTempoTap)
         val changeTap by rememberUpdatedState(onChangeTap)
@@ -264,22 +267,23 @@ fun ScoreCanvas(
         // Pitch shift of the aimed note (past the highest/lowest note) in px: the magnifier source moves with it
         var loupeShift by remember { mutableFloatStateOf(0f) }
         // Center of the ghost head on screen
-        val ghostPx = state.ghost?.let { g ->
+        // Read only in the loupe, so panning and pinching don't recompose all of this
+        val ghostPx = { state.ghost?.let { g ->
             Offset((layout.xFor(g.at) + Smufl.HEAD_W / 2) * sp + offX, (layout.staffTop[g.staff] + 4 - g.pos / 2f) * sp + offY)
-        }
+        } }
 
         // Same staff size in the loupe at any view zoom (16 dp per staff space)
-        val loupeZoom = (with(density) { 16.dp.toPx() } / sp).coerceAtLeast(1f)
+        val loupeZoom = { (with(density) { 16.dp.toPx() } / sp).coerceAtLeast(1f) }
         // Canvas top in the window and the status bar height: the loupe stays below them
         var canvasTop by remember { mutableFloatStateOf(0f) }
         val barsTop = WindowInsets.systemBars.getTop(density)
         val canvasW = constraints.maxWidth
         // Follows the finger (shifted like the pitch) smoothly, but stays within 40 dp (in the loupe) of the ghost
         val loupeSource = {
-            val f = loupe; val g = ghostPx
+            val f = loupe; val g = ghostPx()
             if (f == null || g == null) null else {
                 val s = f + Offset(0f, loupeShift)
-                val d = s - g; val r = with(density) { 40.dp.toPx() } / loupeZoom
+                val d = s - g; val r = with(density) { 40.dp.toPx() } / loupeZoom()
                 if (d.getDistance() > r) g + d * (r / d.getDistance()) else s
             }
         }
@@ -541,8 +545,9 @@ fun ScoreCanvas(
                             else { offX += d.x; offY += d.y }
                             if (mode == 1) {
                                 val step = sp / 2
-                                while (acc > step) { nudge(-1); acc -= step }
-                                while (acc < -step) { nudge(1); acc += step }
+                                // A light tick per step, like a detent
+                                while (acc > step) { nudge(-1); acc -= step; haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick) }
+                                while (acc < -step) { nudge(1); acc += step; haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick) }
                             } else clampOffsets()
                             ch.consume()
                         }
@@ -564,7 +569,7 @@ private val LOUPE_R = 130.dp
  * centered at [center] (view coordinates). A popup, so it shows over the toolbars and never takes touches.
  */
 @Composable
-private fun Loupe(source: () -> Offset?, center: () -> Offset?, zoom: Float, paper: Color, draw: DrawScope.() -> Unit) {
+private fun Loupe(source: () -> Offset?, center: () -> Offset?, zoom: () -> Float, paper: Color, draw: DrawScope.() -> Unit) {
     val c = center() ?: return
     if (source() == null) return
     val r = with(LocalDensity.current) { LOUPE_R.toPx() }
@@ -576,6 +581,7 @@ private fun Loupe(source: () -> Offset?, center: () -> Offset?, zoom: Float, pap
     ) {
         Canvas(Modifier.size(LOUPE_R * 2).shadow(6.dp, CircleShape).clip(CircleShape)) {
             val s = source() ?: return@Canvas
+            val zoom = zoom()
             drawRect(paper)
             translate(size.width / 2 - s.x * zoom, size.height / 2 - s.y * zoom) {
                 scale(zoom, Offset.Zero) { draw() }

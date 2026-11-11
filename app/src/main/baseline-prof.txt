@@ -1,0 +1,3 @@
+# The app's own code, compiled ahead of time on install (Compose libraries ship their own profiles)
+HSPLcom/nefelion/fourpartwriting/**;->**(**)**
+Lcom/nefelion/fourpartwriting/**;

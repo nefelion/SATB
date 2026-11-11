@@ -1,5 +1,9 @@
 package com.nefelion.fourpartwriting.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -99,6 +103,7 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
     }
 
     // One task: its passage with the note to pick, the options, and what the pick says
+    val haptic = LocalHapticFeedback.current
     val task: @Composable ColumnScope.(Int) -> Unit = { k ->
         val t = l.tasks[k]
         Text(t.prompt, style = body)
@@ -108,7 +113,12 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
         MiniScore(if (pick == null) t.open else t.with(pick.note), if (pick == null) emptyMap() else mapOf(target to verdictColor), frame = t.score)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             t.options.forEachIndexed { o, opt ->
-                val choose = { picks = picks.copyOf().also { it[k] = o }; vm.playPassage(t.with(opt.note)) }
+                val choose = {
+                    if (picks[k] != o) haptic.performHapticFeedback(when (opt.verdict) {
+                        Verdict.BEST -> HapticFeedbackType.Confirm; Verdict.WRONG -> HapticFeedbackType.Reject; Verdict.OK -> HapticFeedbackType.SegmentTick
+                    })
+                    picks = picks.copyOf().also { it[k] = o }; vm.playPassage(t.with(opt.note))
+                }
                 val label: @Composable RowScope.() -> Unit = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(opt.note.name)
@@ -120,7 +130,9 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
             }
         }
         Progress(st, t.score, *t.options.map { t.with(it.note) }.toTypedArray())
-        if (pick != null) {
+        // The verdict slides open under the choices, keeping the last one while it closes
+        androidx.compose.animation.AnimatedVisibility(pick != null, enter = GROW, exit = SHRINK) { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val pick = kept(pick) ?: return@Column
             Text(when (pick.verdict) { Verdict.BEST -> "Best"; Verdict.OK -> "Works, but not the best"; Verdict.WRONG -> "Not this one" },
                 fontWeight = FontWeight.Bold, color = when (pick.verdict) { Verdict.BEST -> colors.ok; Verdict.OK -> colors.warnText; Verdict.WRONG -> colors.errorText })
             Text(pick.text, style = body)
@@ -128,7 +140,7 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
                 OutlinedButton(onClick = { vm.playPassage(t.with(pick.note)) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ Yours") }
                 OutlinedButton(onClick = { vm.playPassage(t.score) }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text("▶ The best") }
             }
-        }
+        } }
     }
 
     // The steps this lesson has, each a title and its content
@@ -155,15 +167,18 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
             }
             Progress(st, a, b)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (k in 0..1) FilledTonalButton(onClick = { heard = k }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(if (k == 0) "A" else "B") }
+                for (k in 0..1) FilledTonalButton(onClick = {
+                    if (heard != k) haptic.performHapticFeedback(if ((k == 0) == h.goodFirst) HapticFeedbackType.Confirm else HapticFeedbackType.Reject)
+                    heard = k
+                }, shape = SHAPE, modifier = Modifier.weight(1f)) { Text(if (k == 0) "A" else "B") }
             }
-            if (heard >= 0) {
+            androidx.compose.animation.AnimatedVisibility(heard >= 0, enter = GROW, exit = SHRINK) { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val right = (heard == 0) == h.goodFirst
                 Text(if (right) "Yes." else "Listen again: it's the other one.", fontWeight = FontWeight.Bold, color = if (right) colors.ok else colors.warnText)
                 Text(h.answer, style = body)
                 Text("A", style = MaterialTheme.typography.labelLarge); MiniScore(a)
                 Text("B", style = MaterialTheme.typography.labelLarge); MiniScore(b)
-            }
+            } }
         }) }
 
         l.why?.let { why -> add("Why" to {
@@ -219,6 +234,7 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
 
     val pager = rememberPagerState(remember(i) { vm.lessonStep(i).coerceIn(0, steps.lastIndex) }) { steps.size }
     LaunchedEffect(pager.currentPage) { vm.setLessonStep(i, pager.currentPage) }
+    PageTicks(pager)
     val scope = rememberCoroutineScope()
     val p = pager.currentPage
     val last = p == steps.lastIndex
@@ -265,7 +281,8 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
 @Composable
 internal fun Progress(st: UiState, vararg scores: Score) {
     val p = st.passage?.takeIf { it.first in scores }?.second
-    LinearProgressIndicator(progress = { p ?: 0f }, modifier = Modifier.fillMaxWidth().alpha(if (p == null) 0f else 1f))
+    val shown by animateFloatAsState(if (p == null) 0f else 1f, label = "progress")
+    LinearProgressIndicator(progress = { p ?: 0f }, modifier = Modifier.fillMaxWidth().graphicsLayer { alpha = shown })
 }
 
 /** [score] with only the first n notes of each voice, n from the "SATB" digits [counts]. */

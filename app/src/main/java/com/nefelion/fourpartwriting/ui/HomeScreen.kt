@@ -1,5 +1,16 @@
 package com.nefelion.fourpartwriting.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import android.content.res.Configuration
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -176,7 +187,7 @@ private fun MenuCard(title: String, text: String, color: Color, modifier: Modifi
     val cs = MaterialTheme.colorScheme
     var pressed by remember { mutableStateOf(false) }
     val click by rememberUpdatedState(onClick)
-    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium), label = "press")
+    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, PRESS, label = "press")
     // A tap opens it; a finger that slides away from where it went down cancels, even if it lets go on the card
     Surface(modifier.graphicsLayer { scaleX = scale; scaleY = scale }
         .semantics { role = Role.Button; onClick(title) { click(); true } }
@@ -261,16 +272,28 @@ internal fun LessonsScreen(st: State<UiState>, shared: @Composable (String) -> M
     val all by remember { derivedStateOf { st.value.allUnlocked } }
     val cs = MaterialTheme.colorScheme
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    // Lessons finished since this list was last on screen flip to ✓ (and unlock the next) once it has slid back in
+    var shown by rememberSaveable { mutableStateOf(done.toList()) }
+    LaunchedEffect(done) { delay(450); shown = done.toList() }
+    // Cards fade up one after another the first time the list opens; ones scrolled to later just appear
+    var intro by rememberSaveable { mutableStateOf(true) }
+    LaunchedEffect(Unit) { intro = false }
     Page("Lessons", onBack) {
         for ((i, l) in Lessons.ALL.withIndex()) item(key = "lesson$i") {
-            val stage = stageOf(i, done)
+            val seen = shown.toSet()
+            val stage = stageOf(i, seen)
             val now = stage == Stage.NOW
-            val shut = locked(i, done, all)
+            val shut = locked(i, seen, all)
+            val dim by animateFloatAsState(if (shut) 0.5f else 1f, label = "unlock")
+            val src = remember { MutableInteractionSource() }
             Surface(onClick = { if (shut) {
+                haptic.performHapticFeedback(HapticFeedbackType.Reject)
                 // Fast taps replace the toast instead of queuing behind it
                 lockedToast?.cancel()
                 lockedToast = android.widget.Toast.makeText(ctx, "Finish the previous lessons first", android.widget.Toast.LENGTH_SHORT).apply { show() }
-            } else onLesson(i) }, modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth().alpha(if (shut) 0.5f else 1f),
+            } else onLesson(i) }, modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth().entrance(i.coerceAtMost(6), intro).pressScale(src, 0.97f)
+                .graphicsLayer { alpha = dim }, interactionSource = src,
                 shape = RoundedCornerShape(20.dp),
                 color = if (now) cs.primaryContainer else cs.surfaceVariant, contentColor = cs.onSurface) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -303,15 +326,23 @@ internal fun LessonNode(i: Int, stage: Stage, modifier: Modifier = Modifier) {
     val pulse = if (stage == Stage.NOW) rememberInfiniteTransition(label = "pulse")
         .animateFloat(0f, 1f, infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Restart), label = "pulse") else null
     val ring = cs.primary
+    val fill by animateColorAsState(when (stage) {
+        Stage.DONE -> LocalScoreColors.current.ok
+        Stage.NOW -> cs.primary
+        Stage.AHEAD -> cs.primary.copy(alpha = 0f)
+    }, spring(stiffness = Spring.StiffnessLow), label = "node")
     Box(modifier.size(40.dp).drawBehind {
         val t = pulse?.value ?: return@drawBehind
         drawCircle(ring.copy(alpha = 0.3f * (1 - t)), radius = size.minDimension / 2 * (1f + 0.45f * t))
-    }.then(when (stage) {
-        Stage.DONE -> Modifier.clip(CircleShape).background(LocalScoreColors.current.ok)
-        Stage.NOW -> Modifier.clip(CircleShape).background(cs.primary)
-        Stage.AHEAD -> Modifier.clip(CircleShape).border(BorderStroke(1.5.dp, cs.outline), CircleShape)
-    }), contentAlignment = Alignment.Center) {
-        Text(if (stage == Stage.DONE) "✓" else "${i + 1}", fontWeight = FontWeight.Bold, fontSize = 16.sp,
-            color = if (stage == Stage.AHEAD) cs.onSurfaceVariant else cs.surface)
+    }.clip(CircleShape).background(fill)
+        .then(if (stage == Stage.AHEAD) Modifier.border(BorderStroke(1.5.dp, cs.outline), CircleShape) else Modifier),
+        contentAlignment = Alignment.Center) {
+        // The ✓ pops in with a bounce when a lesson is done
+        AnimatedContent(stage == Stage.DONE, transitionSpec = {
+            (scaleIn(spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow), 0.3f) + fadeIn()) togetherWith (scaleOut(targetScale = 0.6f) + fadeOut())
+        }, label = "node") { done ->
+            Text(if (done) "✓" else "${i + 1}", fontWeight = FontWeight.Bold, fontSize = 16.sp,
+                color = if (stage == Stage.AHEAD) cs.onSurfaceVariant else cs.surface)
+        }
     }
 }
