@@ -1,0 +1,9 @@
+- 84 Bach chorales to study, play and check, each rule break explained.
+- Find the rule breaks yourself, with hints.
+- Built-in basic piano: plays right away, no SoundFont needed.
+- Far fewer false rule breaks.
+- Share or save as SATB, MusicXML or MIDI; open MusicXML files.
+- Rule cards show spots in Bach's chorales.
+- Light and dark mode.
+- Free meter; a warning for muddy low spacing.
+- Faster and smoother, with vibration you can turn off.
