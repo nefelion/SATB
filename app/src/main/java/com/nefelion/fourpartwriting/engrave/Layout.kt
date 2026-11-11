@@ -72,8 +72,8 @@ internal fun labelWidth(text: String, size: Float): Float {
     return w * size
 }
 
-/** Bounds of a named chord's text on the score, tappable; [ref]: the note that carries the name. */
-class NameBox(val ref: NoteRef, val x0: Float, val y0: Float, val x1: Float, val y1: Float)
+/** Bounds of a named chord's text on the score, tappable; [at]: the chord's time. */
+class NameBox(val at: Fraction,val x0: Float, val y0: Float, val x1: Float, val y1: Float)
 
 class ColumnBox(val time: Fraction, val x: Float)
 class MeasureBox(val index: Int, val start: Fraction, val end: Fraction, val x0: Float, val x1: Float, val columns: List<ColumnBox>)
@@ -265,7 +265,7 @@ object Engraver {
             }
         }
         // Chords the user named are written like the check's: symbol above the music, numeral below
-        val hasLabels = labels.isNotEmpty() || Voice.entries.any { v -> v in shown && score.voice(v).any { it.chord != null } }
+        val hasLabels = labels.isNotEmpty() || score.chords.isNotEmpty()
         // Bass figures stack under the bottom staff, above the roman numerals
         val figRows = if (Voice.BASS in shown) score.voice(Voice.BASS).maxOfOrNull { if (it.pitch != null) it.figures.size else 0 } ?: 0 else 0
         val figH = if (figRows > 0) figRows * 1.25f + 0.6f else 0f
@@ -398,12 +398,9 @@ object Engraver {
         // A named chord stands in for the check's label; one the check disagrees with shows both, the name in the outer row.
         val onsets = Voice.entries.associateWith { score.onsets(it) }
         val struck = HashSet<Fraction>()
-        val nameRef = HashMap<Fraction, NoteRef>()
         for (h in heads) {
-            val e = score.voice(h.ref.voice).getOrNull(h.ref.index)?.takeIf { it.pitch != null } ?: continue
-            val t = onsets.getValue(h.ref.voice)[h.ref.index]
-            struck += t
-            if (e.chord != null) nameRef[t] = h.ref
+            if (score.voice(h.ref.voice).getOrNull(h.ref.index)?.pitch == null) continue
+            struck += onsets.getValue(h.ref.voice)[h.ref.index]
         }
         val symRight = floatArrayOf(-99f, -99f)
         val romRight = floatArrayOf(-99f, -99f)
@@ -414,10 +411,9 @@ object Engraver {
             val lab = labels[c.time]
             val prev = prevLab
             prevLab = lab
-            val ref = nameRef[c.time]
-            val name = ref?.let { score.voice(it.voice)[it.index].chord }
+            val name = score.chords[c.time]?.takeIf { c.time in struck }
             val misnamed = name != null && lab?.misnamed == true
-            // A written name repeats only after it changes or after a moment with no name, whichever voice carries it
+            // A written name repeats only after it changes or after a moment with no name
             val mine = name?.takeIf { it != lastName || misnamed }?.let { ChordText.shown(it, score.keyAt(c.time)) ?: (it to "") }
             if (c.time in struck) lastName = name
             val cx = c.x + Smufl.HEAD_W / 2
@@ -432,7 +428,7 @@ object Engraver {
                 if (text.isEmpty()) return
                 marks += TextMark(text, cx, y, size, style)
                 val w = max(2.6f, labelWidth(text, size) + 0.6f)
-                nameBoxes += NameBox(ref!!, cx - w / 2, y - size - 0.5f, cx + w / 2, y + 0.8f)
+                nameBoxes += NameBox(c.time, cx - w / 2, y - size - 0.5f, cx + w / 2, y + 0.8f)
             }
             if (mine != null && !misnamed) {
                 if (mine.first.isNotEmpty()) named(mine.first, labelTop - row(mine.first, 1.3f, symRight) * 1.4f, 1.3f, TextStyle.NAME)

@@ -66,6 +66,7 @@ import com.nefelion.fourpartwriting.engrave.TextMark
 import com.nefelion.fourpartwriting.engrave.TextStyle
 import com.nefelion.fourpartwriting.engrave.TieMark
 import com.nefelion.fourpartwriting.engrave.chordLabels
+import com.nefelion.fourpartwriting.model.Fraction
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Severity
 import kotlin.math.abs
@@ -99,7 +100,7 @@ fun ScoreCanvas(
     /** A key/time signature change was tapped: its bar index. */
     onChangeTap: (Int) -> Unit = {},
     /** A chord the user named was tapped: the note that carries the name. Null: names are plain text. */
-    onNameTap: ((NoteRef) -> Unit)? = null,
+    onNameTap: ((Fraction) -> Unit)? = null,
     /** Finger held and moved to a hit: show the note a release there would add. False if none can go there. */
     onAim: (Hit) -> Int? = { null },
     /** The caret stands on the selected note (while naming its chord or figures) instead of after the voice. */
@@ -427,7 +428,7 @@ fun ScoreCanvas(
                         val hb = currentLayout.headerBox
                         // Tempo, clef, key or time signature: opens the score settings
                         val changeBar = currentLayout.changeBoxes.entries.firstOrNull { (_, b) -> dx in b[0]..b[2] && dy in b[1]..b[3] }?.key
-                        val named = if (nameTap == null) null else currentLayout.nameBoxes.firstOrNull { dx in it.x0..it.x1 && dy in it.y0..it.y1 }?.ref
+                        val named = if (nameTap == null) null else currentLayout.nameBoxes.firstOrNull { dx in it.x0..it.x1 && dy in it.y0..it.y1 }?.at
                         val onTempo = (dx in tb[0]..tb[2] && dy in tb[1]..tb[3]) || (dx in hb[0]..hb[2] && dy in hb[1]..hb[3]) || changeBar != null || named != null
                         val downHit = if (onTempo) null else currentLayout.hitTest(dx, dy)
                         // The note a tap would add is shown and heard only once the touch can't be a pan or pinch

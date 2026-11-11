@@ -5,13 +5,11 @@ package com.nefelion.fourpartwriting.model
  * split at barlines and beats) is decided by the engraver, not stored here. Only [tuplet] keeps
  * the ratio the user picked, since the length alone cannot tell 5:4 from 5:2.
  * [figures]: figured-bass lines, top to bottom ("6", "#", "b7"; see FiguredBass); used on bass notes only.
- * [chord]: the chord the user named at this note ("G7/B", "V65"; see ChordText), shown above the score.
  * [fermata]: held longer in playback; drawn over the note's last head.
  */
 data class Event(
     val length: Fraction, val pitch: Pitch?, val tuplet: Tuplet? = null,
-    val figures: List<String> = emptyList(), val chord: String? = null,
-    val fermata: Boolean = false,
+    val figures: List<String> = emptyList(), val fermata: Boolean = false,
 ) {
     constructor(d: Duration, pitch: Pitch?) : this(d.value, pitch)
 }
@@ -100,6 +98,8 @@ data class Score(
     val changes: Map<Int, Change> = emptyMap(),
     /** A lesson's exercise or passage (index into Lessons.ALL): checked with that lesson's rules. */
     val lesson: Int? = null,
+    /** Chords the user named ("G7/B", "V65"; see ChordText) by time, belonging to no voice; shown above and below the score. */
+    val chords: Map<Fraction, String> = emptyMap(),
 ) : Meter {
     init {
         require(clefs.size == arrangement.staves)
@@ -159,11 +159,13 @@ data class Score(
         return if (i >= 0 && t < on[i] + voice(v)[i].length) i else -1
     }
 
-    /** The chord name on a note starting at [t], in any voice (one name per moment). */
-    fun chordAt(t: Fraction): String? = Voice.entries.firstNotNullOfOrNull { v ->
-        val j = eventAt(v, t)
-        voice(v).getOrNull(j)?.takeIf { onsets(v)[j] == t }?.chord
-    }
+    fun chordAt(t: Fraction): String? = chords[t]
+
+    /** Times where some voice starts a note: the only places a chord name can sit. */
+    fun noteStarts(): Set<Fraction> = Voice.entries.flatMap { v -> onsets(v).filterIndexed { i, _ -> voice(v)[i].pitch != null } }.toSet()
+
+    /** Without chord names that no longer have a note starting at their time. */
+    fun withoutStrayChords(): Score = noteStarts().let { at -> if (chords.keys.all { it in at }) this else copy(chords = chords.filterKeys { it in at }) }
 
     /** Vertical sonorities: one per distinct onset in any voice. */
     fun slices(): List<Slice> {

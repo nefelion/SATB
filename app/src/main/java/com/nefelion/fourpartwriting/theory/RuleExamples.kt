@@ -28,13 +28,17 @@ object RuleExamples {
         val (p, d) = tok.split(":").let { it[0] to (it.getOrNull(1) ?: "4") }
         // Written values are doubled (a quarter shows as a half) so the chords spread out on a small card
         Event(Duration(d.toInt() / 2).value, if (p == "r") null else Pitch.parse(p),
-            figures = token.substringAfter('@', "").split(",").filter { it.isNotEmpty() }, chord = full.substringAfter('!', "").ifEmpty { null })
+            figures = token.substringAfter('@', "").split(",").filter { it.isNotEmpty() }) to full.substringAfter('!', "").ifEmpty { null }
     }
 
     private fun score(v: List<String>, time: TimeSig?): Score {
-        val voices = v.map(::line)
+        val named = v.map(::line)
+        val voices = named.map { l -> l.map { it.first } }
+        // A name written on a note goes to the note's start
+        val chords = HashMap<Fraction, String>()
+        for (l in named) { var at = Fraction.ZERO; for ((e, name) in l) { name?.let { chords[at] = it }; at += e.length } }
         val q = voices[0].fold(Fraction.ZERO) { a, e -> a + e.length } / Fraction.of(1, 2)
-        return Score(time = time ?: TimeSig((q.num / q.den).toInt(), 2), voices = voices)
+        return Score(time = time ?: TimeSig((q.num / q.den).toInt(), 2), voices = voices, chords = chords)
     }
 
     private fun voices(show: String) = show.map { c -> Voice.entries.first { it.label == "$c" } }.toSet()

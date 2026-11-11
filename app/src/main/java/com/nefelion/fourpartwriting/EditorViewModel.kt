@@ -373,11 +373,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     ): Boolean {
         if (s.study != null) { msg("This score is read-only."); return false }
         // An exercise's given voices stay as they are (naming their chords and fermatas is fine)
-        s.score.given.firstOrNull { v -> v in edited.given && edited.voice(v).map { it.copy(chord = null, fermata = false) } != s.score.voice(v).map { it.copy(chord = null, fermata = false) } }?.let { v ->
+        s.score.given.firstOrNull { v -> v in edited.given && edited.voice(v).map { it.copy(fermata = false) } != s.score.voice(v).map { it.copy(fermata = false) } }?.let { v ->
             msg("The ${v.name.lowercase()} is given in this exercise.")
             return false
         }
-        val new = if (dragBase != null) edited else VoiceLeading.pruneMutes(edited)
+        // A chord name goes with its moment once no note starts there
+        val new = (if (dragBase != null) edited else VoiceLeading.pruneMutes(edited)).withoutStrayChords()
         val placed = s.placed && selected == s.selected
         if (new == s.score) { _state.update { it.copy(selected = selected, selectedAt = selectedAt, voice = voice, placed = placed) }; return true }
         val dragging = dragBase != null
@@ -483,7 +484,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(ghost = null) }
         if (s.quiz?.revealed == false) { (hit.exact ?: hit.near)?.let(::toggleMark); return false }
         // Naming chords: a tap picks the chord there, it never writes a note
-        if (naming) { if (!hit.afterLast) chordNote(hit.time)?.let { pickChord(it, hit.time) }; return false }
+        if (naming) { if (!hit.afterLast) pickChord(hit.time); return false }
         if (s.moving) {
             if (hit.near != null) select(hit.near, hit.nearAt) else if (hit.exact != null) select(hit.exact, hit.exactAt)
             else if (hit.rest != null) select(hit.rest, hit.restAt)
@@ -616,55 +617,56 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             field = v
         }
 
-    /** Picks the chord at [ref]'s time to name. The chord belongs to no voice: the input voice and modes stay as they are. */
-    fun pickChord(ref: NoteRef, at: Fraction? = null) {
-        _state.update { it.copy(selected = ref, selectedAt = at, placed = false, followTick = it.followTick + 1) }
+    /**
+     * Picks the chord at [t] to name: the moment where a note there starts. The chord belongs to no voice: the input voice and modes stay;
+     * a note starting there is only the selection's anchor, never drawn as selected.
+     */
+    fun pickChord(t: Fraction) {
+        val ref = chordNote(t) ?: return
+        _state.update { it.copy(selected = ref, selectedAt = onsetOf(ref), placed = false, followTick = it.followTick + 1) }
     }
 
     /** Picks the previous (-1) or next (+1) chord: the next time any voice starts a note. */
     private fun stepChord(dir: Int) {
         val sc = s.score
-        val times = Voice.entries.flatMap { v -> sc.onsets(v).filterIndexed { i, _ -> sc.voice(v)[i].pitch != null } }.distinct().sorted()
+        val times = sc.noteStarts().sorted()
         val now = s.selectedTime
         val t = when {
             now == null -> if (dir > 0) times.firstOrNull() else times.lastOrNull()
             dir > 0 -> times.firstOrNull { it > now }
             else -> times.lastOrNull { it < now }
         } ?: return
-        chordNote(t)?.let { pickChord(it, t) }
+        pickChord(t)
     }
 
-    /** The note a chord name at [t] sits on: the one named there, else the highest starting there, else the highest sounding. */
+    /** A note for the chord at [t]: the highest starting there, else the highest sounding. */
     private fun chordNote(t: Fraction): NoteRef? {
         val sc = s.score
         val at = Voice.entries.mapNotNull { v -> refAt(sc, v, t)?.takeIf { sc.voice(v)[it.index].pitch != null } }
-        return at.firstOrNull { onsetOf(it) == t && sc.voice(it.voice)[it.index].chord != null } ?: at.firstOrNull { onsetOf(it) == t } ?: at.firstOrNull()
+        return at.firstOrNull { onsetOf(it) == t } ?: at.firstOrNull()
     }
 
     /** Onset of the issue picked in the check, if any. */
     private fun issueTime(): Fraction? = s.analysis?.let { a -> s.focusedIssue?.let { a.issues.getOrNull(it) }?.let { a.slices.getOrNull(it.slice)?.time } }
 
-    /** Selects a note to name a chord on: the one selected, else the chord of the picked issue or at the selected time, else the first. False if the score is empty. */
+    /** Picks the chord to name: the picked issue's or the selected note's, else the first. False if the score is empty. */
     fun startChords(): Boolean {
-        if (s.selectedEvent?.pitch != null) return true
-        val ref = (issueTime() ?: s.selectedTime)?.let(::chordNote)
-            ?: Voice.entries.firstNotNullOfOrNull { v -> s.score.voice(v).indexOfFirst { it.pitch != null }.takeIf { it >= 0 }?.let { NoteRef(v, it) } }
-            ?: run { msg("Write some notes first."); return false }
-        pickChord(ref)
+        val t = issueTime() ?: s.selected?.takeIf { s.selectedEvent?.pitch != null }?.let(::onsetOf)
+            ?: s.score.noteStarts().minOrNull() ?: run { msg("Write some notes first."); return false }
+        pickChord(t)
         return true
     }
 
-    /** Chord name on the selected note (blank clears it); checked by the Named chords rule. */
+    /** Name of the picked chord (blank clears it); checked by the Named chords rule. */
     fun setChord(name: String) {
         val r = s.selected ?: return
-        val evs = s.score.voice(r.voice)
-        val e = evs.getOrNull(r.index)?.takeIf { it.pitch != null } ?: return
+        if (s.score.voice(r.voice).getOrNull(r.index)?.pitch == null) return
+        val t = onsetOf(r)
         val clean = name.filter { !it.isWhitespace() && it !in ":@!," }.ifEmpty { null }
-        val spec = clean?.let { com.nefelion.fourpartwriting.theory.ChordText.parse(it, s.score.keyAt(s.score.onsets(r.voice)[r.index])) }
+        val spec = clean?.let { com.nefelion.fourpartwriting.theory.ChordText.parse(it, s.score.keyAt(t)) }
         if (clean != null && spec == null) return msg("\"$clean\" is not a chord. Try C, F#m, G7/B, Bm7b5, V65, ii6 or V7/V.")
         // Over a given (locked) bass the figures fix the chord: only a name with exactly its notes and bass fits
         if (spec != null && Voice.BASS in s.score.given) {
-            val t = s.score.onsets(r.voice)[r.index]
             val b = s.score.eventAt(Voice.BASS, t).takeIf { it >= 0 }?.let { s.score.voice(Voice.BASS)[it] }
             val bp = b?.pitch
             if (bp != null) {
@@ -673,15 +675,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     return msg("$clean doesn't fit the bass ${bp.pc.name}${if (b.figures.isEmpty()) "" else " with figures " + FiguredBass.display(b.figures)}. Read the figures again.")
             }
         }
-        // One name per moment: naming this note replaces a name on another voice's note starting at the same time
-        val t = s.score.onsets(r.voice)[r.index]
-        var sc = s.score.withVoice(r.voice, evs.toMutableList().also { it[r.index] = e.copy(chord = clean) })
-        for (v in Voice.entries) if (v != r.voice) {
-            val j = sc.eventAt(v, t)
-            val o = sc.voice(v).getOrNull(j)?.takeIf { it.chord != null && sc.onsets(v)[j] == t } ?: continue
-            sc = sc.withVoice(v, sc.voice(v).toMutableList().also { it[j] = o.copy(chord = null) })
-        }
-        edit(sc)
+        val cs = s.score.chords
+        edit(s.score.copy(chords = if (clean == null) cs - t else cs + (t to clean)))
     }
 
     /** A hint for the open score, worked out when the menu opens (null: none; the Hint item stays hidden). */
@@ -1432,7 +1427,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun checked(st: UiState, new: Score): UiState {
         if (st.analysis == null && st.quiz == null) return st
-        fun music(sc: Score) = sc.copy(ignored = emptySet(), rulesOff = emptySet(), voices = sc.voices.map { v -> v.map { it.copy(chord = null) } })
+        fun music(sc: Score) = sc.copy(ignored = emptySet(), rulesOff = emptySet(), chords = emptyMap())
         if (music(new) == music(st.score)) {
             val a = checkWritten(new, st.checkRules)
             // A self-check still running keeps its marks; what was shown of the old results is counted anew
@@ -1452,7 +1447,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         nameIssueChord()
     }
     /** While naming chords, the picked issue's chord is the one to name. */
-    private fun nameIssueChord() { if (naming) issueTime()?.let { t -> chordNote(t)?.let { pickChord(it, t) } } }
+    private fun nameIssueChord() { if (naming) issueTime()?.let(::pickChord) }
 
     /** Long-press menu on an issue: hide just this one. */
     fun ignoreIssue(i: Int) {

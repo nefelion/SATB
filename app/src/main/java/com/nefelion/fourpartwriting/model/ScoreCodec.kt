@@ -1,7 +1,7 @@
 package com.nefelion.fourpartwriting.model
 
-/** Plain-text score file. One setting per line ("pickup 1/4"; "change <bar> key <fifths> <MODE>", "change <bar> time <beats> <unit> <SYMBOL>"); one line per voice: "S E4:1/4 r:1/2 ...". A tuplet adds ":n:m:unit" ("E4:1/20:5:4:1/16"),
- * a fermata "^" ("E4:1/2^"), bass figures "@lines" ("E3:1/4@6,4"), a chord name "!name" last ("E4:1/4!C/E"). */
+/** Plain-text score file. One setting per line ("pickup 1/4"; "change <bar> key <fifths> <MODE>", "change <bar> time <beats> <unit> <SYMBOL>"; "chord <time> <name>"); one line per voice: "S E4:1/4 r:1/2 ...". A tuplet adds ":n:m:unit" ("E4:1/20:5:4:1/16"),
+ * a fermata "^" ("E4:1/2^"), bass figures "@lines" ("E3:1/4@6,4"). Older files put a chord name on its note, "!name" last ("E4:1/4!C/E"). */
 object ScoreCodec {
 
     /** [title]: the score's name, kept in files saved for sharing so an import gets it back. */
@@ -22,6 +22,7 @@ object ScoreCodec {
         if (s.given.isNotEmpty()) appendLine("given " + s.given.joinToString(" ") { it.label })
         s.lesson?.let { appendLine("lesson $it") }
         for (k in s.ignored) appendLine("ignore " + k.replace('\n', ' '))
+        for ((t, name) in s.chords.toSortedMap()) appendLine("chord ${t.num}/${t.den} " + name.filter { !it.isWhitespace() })
         for (v in Voice.entries) {
             append(v.label)
             for (e in s.voice(v)) {
@@ -31,7 +32,6 @@ object ScoreCodec {
                 e.tuplet?.let { append(":${it.n}:${it.m}:${it.unit.num}/${it.unit.den}") }
                 if (e.fermata) append('^')
                 if (e.figures.isNotEmpty()) append('@').append(e.figures.joinToString(","))
-                e.chord?.let { append('!').append(it.filter { c -> !c.isWhitespace() }) }
             }
             appendLine()
         }
@@ -102,7 +102,7 @@ object ScoreCodec {
         val legacy = mapOf("ONE" to Arrangement.ONE, "CLOSED" to Arrangement.CLOSED, "THREE" to Arrangement.THREE, "OPEN" to Arrangement.OPEN)
         val arr = legacy[arrText] ?: Arrangement(arrText.split(" ").map { it.toInt() })
         val clefs = map.getValue("clefs").trim().split(" ").map { Clef.valueOf(it) }
-        val voices = Voice.entries.map { v ->
+        val named = Voice.entries.map { v ->
             map[v.label].orEmpty().trim().split(" ").filter { it.isNotEmpty() }.map { full ->
                 val chord = full.substringAfter('!', "").ifEmpty { null }
                 val token = full.substringBefore('!')
@@ -113,8 +113,17 @@ object ScoreCodec {
                 val parts = tok.split(":")
                 fun frac(x: String) = x.split("/").map { it.toLong() }.let { (n, d) -> require(n > 0 && d > 0); Fraction.of(n, d) }
                 val tup = if (parts.size >= 5) Tuplet(parts[2].toInt(), parts[3].toInt(), frac(parts[4])) else null
-                Event(frac(parts[1]), if (parts[0] == "r") null else Pitch.parse(parts[0]), tup, figs, chord, fermata)
+                Event(frac(parts[1]), if (parts[0] == "r") null else Pitch.parse(parts[0]), tup, figs, fermata) to chord
             }
+        }
+        val voices = named.map { l -> l.map { it.first } }
+        // Older files: a name sits on its note and goes to the note's start
+        val chords = HashMap<Fraction, String>()
+        for (l in named) { var at = Fraction.ZERO; for ((e, name) in l) { name?.let { chords[at] = it }; at += e.length } }
+        for (l in lines.filter { it.startsWith("chord ") }) {
+            val w = l.trim().split(" ")
+            val (n, d) = w[1].split("/").map { it.toLong() }
+            if (w.size >= 3) chords[Fraction.of(n, d)] = w[2]
         }
         val time = TimeSig(t[0].toInt(), t[1].toInt(), TimeSig.Symbol.valueOf(t[2]))
         val tempo = map.getValue("tempo").trim().toInt()
@@ -132,6 +141,7 @@ object ScoreCodec {
             pickup = map["pickup"]?.trim()?.split("/")?.map { it.toLong() }?.let { (n, d) -> Fraction.of(n, d) },
             changes = changes,
             lesson = map["lesson"]?.trim()?.toIntOrNull(),
+            chords = chords,
         )
     }.getOrNull()
 }

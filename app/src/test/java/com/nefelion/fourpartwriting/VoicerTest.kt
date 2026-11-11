@@ -51,9 +51,10 @@ class VoicerTest {
         assertNull(names("V99"))
     }
 
-    private fun q(p: String?, chord: String? = null) = Event(Fraction.of(1, 4), p?.let(Pitch::parse), chord = chord)
-    private fun melody(notes: String, chords: List<String?> = emptyList()) = Score(voices = listOf(
-        notes.split(" ").mapIndexed { i, n -> q(n, chords.getOrNull(i)) }, emptyList(), emptyList(), emptyList()))
+    private fun q(p: String?) = Event(Fraction.of(1, 4), p?.let(Pitch::parse))
+    private fun melody(notes: String, chords: List<String?> = emptyList()) = Score(
+        voices = listOf(notes.split(" ").map { q(it) }, emptyList(), emptyList(), emptyList()),
+        chords = chords.withIndex().filter { it.value != null }.associate { Fraction.of(it.index.toLong(), 4) to it.value!! })
 
     private fun assertClean(sc: Score) {
         val errors = VoiceLeading.check(sc).issues.filter { it.severity == Severity.ERROR }
@@ -119,7 +120,7 @@ class VoicerTest {
     }
 
     @Test fun slashBassOutsideTheChordIsNotFlagged() {
-        val sc = Score(voices = listOf(listOf(q("A4")), listOf(q("F4")), listOf(q("D4")), listOf(q("G3", "Dm/G"))))
+        val sc = Score(voices = listOf(listOf(q("A4")), listOf(q("F4")), listOf(q("D4")), listOf(q("G3"))), chords = mapOf(Fraction.ZERO to "Dm/G"))
         val issues = VoiceLeading.check(sc, setOf(com.nefelion.fourpartwriting.theory.Rule.NAMED_CHORD)).issues
         assertTrue(issues.map { it.message }.toString(), issues.isEmpty())
     }
@@ -133,7 +134,7 @@ class VoicerTest {
         assertNull(ChordText.shown("xyz", C))
         // C major named I, then G major named ii: the first shows once, as named; the second shows the check's reading and the name
         fun line(n: String) = n.split(" ").map { q(it) }
-        val sc = Score(voices = listOf(listOf(q("E5", "I"), q("D5", "ii")), line("G4 B4"), line("C4 G3"), line("C3 G2")))
+        val sc = Score(voices = listOf(line("E5 D5"), line("G4 B4"), line("C4 G3"), line("C3 G2")), chords = mapOf(Fraction.ZERO to "I", Fraction.of(1, 4) to "ii"))
         fun texts(l: com.nefelion.fourpartwriting.engrave.ScoreLayout, vararg st: com.nefelion.fourpartwriting.engrave.TextStyle) =
             l.marks.filterIsInstance<com.nefelion.fourpartwriting.engrave.TextMark>().filter { it.style in st }.map { it.text }
         val NAME = com.nefelion.fourpartwriting.engrave.TextStyle.NAME; val NAME_ROMAN = com.nefelion.fourpartwriting.engrave.TextStyle.NAME_ROMAN

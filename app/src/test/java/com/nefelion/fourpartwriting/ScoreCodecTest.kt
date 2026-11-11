@@ -10,6 +10,7 @@ import com.nefelion.fourpartwriting.model.Pitch
 import com.nefelion.fourpartwriting.model.Score
 import com.nefelion.fourpartwriting.model.ScoreCodec
 import com.nefelion.fourpartwriting.model.TimeSig
+import com.nefelion.fourpartwriting.model.Voice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -24,15 +25,33 @@ class ScoreCodecTest {
                 listOf(Event(Fraction.of(5, 8), Pitch.parse("Bbb4")), Event(Fraction.of(1, 8), null)),
                 listOf(Event(Fraction.of(3, 16), Pitch.parse("Fx4"))),
                 listOf(Event(Fraction.of(1, 20), Pitch.parse("C4"), com.nefelion.fourpartwriting.model.Tuplet(5, 2, Fraction.of(1, 8))), Event(Fraction.of(1, 20), null)),
-                listOf(Event(Fraction.of(7, 4), Pitch.parse("C#2"), figures = listOf("6"), chord = "V", fermata = true),
+                listOf(Event(Fraction.of(7, 4), Pitch.parse("C#2"), figures = listOf("6"), fermata = true),
                     Event(Fraction.of(1, 20), Pitch.parse("D2"), com.nefelion.fourpartwriting.model.Tuplet(5, 2, Fraction.of(1, 8)), fermata = true)),
             ),
+            chords = mapOf(Fraction.ZERO to "V", Fraction.of(7, 4) to "I"),
         )
         assertEquals(odd, ScoreCodec.decode(ScoreCodec.encode(odd)))
         val kb = EXAMPLE.withArrangement(Arrangement.KEYBOARD)
         assertEquals(kb, ScoreCodec.decode(ScoreCodec.encode(kb)))
         // Older files name a preset
         assertEquals(EXAMPLE, ScoreCodec.decode(ScoreCodec.encode(EXAMPLE).replace("arr 0 0 1 1", "arr CLOSED")))
+    }
+
+    @Test fun oldFilesNameChordsOnNotes() {
+        val e = Event(Fraction.of(1, 4), Pitch.parse("E4"))
+        val s = Score(voices = listOf(emptyList(), listOf(e, e.copy(pitch = Pitch.parse("F4"))), emptyList(), emptyList()), chords = mapOf(Fraction.of(1, 4) to "IV"))
+        val old = ScoreCodec.encode(s).lines().filterNot { it.startsWith("chord ") }.joinToString("\n").replace("F4:1/4", "F4:1/4!IV")
+        assertEquals(s, ScoreCodec.decode(old))
+    }
+
+    @Test fun chordNamesStayAtTheirTimeUntilNothingStartsThere() {
+        val q = Event(Fraction.of(1, 4), Pitch.parse("C4"))
+        val s = Score(voices = listOf(listOf(q, q), listOf(q.copy(length = Fraction.of(1, 2))), emptyList(), emptyList()),
+            chords = mapOf(Fraction.ZERO to "I", Fraction.of(1, 4) to "V"))
+        assertEquals(s, s.withoutStrayChords())
+        // The soprano's second note gone: nothing starts at 1/4 any more
+        val cut = s.withVoice(Voice.SOPRANO, listOf(q))
+        assertEquals(mapOf(Fraction.ZERO to "I"), cut.withoutStrayChords().chords)
     }
 
     @Test fun oldFilesStoredQuarterTempo() {

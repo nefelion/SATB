@@ -487,10 +487,9 @@ object VoiceLeading {
                 add(Severity.WARNING, i, Rule.FIGURES, "$fig over ${b.pc.name} also asks for ${missing.joinToString(", ") { it.name }}.", i to Voice.BASS)
         }
 
-        // Named chords: the notes at a named note against the chord's notes (non-chord tones excepted)
-        for (v0 in V) for ((idx, e) in score.voice(v0).withIndex()) {
-            val name = e.chord ?: continue
-            val i = slices.indexOfFirst { it.eventIndex[v0.ordinal] == idx && it.attacked[v0.ordinal] }
+        // Named chords: the notes at a named moment against the chord's notes (non-chord tones excepted)
+        for ((t, name) in score.chords) {
+            val i = slices.indexOfFirst { s -> s.time == t && V.any { s.attacked[it.ordinal] && s.notes[it.ordinal] != null } }
             if (i < 0) continue
             val spec = ChordText.parse(name, score.keyAt(slices[i].time))
             if (spec == null) { add(Severity.WARNING, i, Rule.NAMED_CHORD, "\"$name\" is not a chord name I can read (try C, Am7, G7/B, V65, ii6)."); continue }
