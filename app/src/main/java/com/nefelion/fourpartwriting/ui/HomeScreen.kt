@@ -62,6 +62,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
@@ -102,7 +103,9 @@ private fun opening(score: Score): Score {
     // Free meter: the first eight beats
     val end = if (score.time.isFree) score.time.beatLength * Fraction.of(8, 1) else score.bar(if (score.pickup != null) 2 else 1).end
 
-    return score.copy(voices = Voice.entries.map { v -> score.voice(v).zip(score.onsets(v)).filter { it.second < end }.map { it.first } })
+    // Clip notes that run past the cut, so a long rest does not add a bar of its own
+    return score.copy(voices = Voice.entries.map { v -> score.voice(v).zip(score.onsets(v)).filter { it.second < end }
+        .map { (e, t) -> if (t + e.length > end) e.copy(length = end - t) else e } })
 }
 
 /** The cards rise in once per app start, not every time the menu comes back. */
@@ -126,7 +129,7 @@ internal fun HomeScreen(st: State<UiState>, vm: EditorViewModel, onLessons: () -
 
     @Composable fun LessonsCard(m: Modifier) = MenuCard("Lessons", "Learn to write for four voices.",
         cs.primaryContainer, m.entrance(1, play), onLessons) { BookArt() }
-    @Composable fun FreeCard(m: Modifier) = MenuCard("Free Mode", "Write your own SATB. Check it against the rules whenever you like.",
+    @Composable fun FreeCard(m: Modifier) = MenuCard("Free Mode", "Write SATB and check it against the rules.",
         cs.surfaceVariant, m.entrance(2, play), { vm.openFree(); onFree() }) { free?.let { MiniScore(it, numerals = false) } }
 
     Surface(Modifier.fillMaxSize(), color = cs.surface) {
@@ -225,22 +228,23 @@ private fun BookArt() {
             }
             drawPath(page, paper)
             drawPath(page, edge, style = stroke)
-            // Two staves per page, and a few noteheads on them
+            // Two staves per page, four chords: two voices on each staff, so four voices like SATB
             val gap = h * 0.032f
-            for (staff in 0..1) {
-                val y0 = top + h * (0.14f + staff * 0.34f)
-                for (l in 0..4) {
-                    val line = Path().apply {
-                        moveTo(x(0.14f), sag(y0 + l * gap, 0.14f))
-                        for (k in 1..10) { val u = 0.14f + 0.72f * k / 10; lineTo(x(u), sag(y0 + l * gap, u)) }
-                    }
-                    drawPath(line, ink.copy(alpha = 0.35f), style = Stroke(w * 0.005f))
-                }
-                for ((n, u) in listOf(0.26f, 0.42f, 0.58f, 0.74f).withIndex()) {
-                    val step = ((n + staff + if (side > 0) 1 else 0) % 3) + 1
-                    val cy = sag(y0 + gap * (4 - step), u)
-                    drawOval(ink.copy(alpha = 0.7f), Offset(x(u) - gap * 0.65f, cy - gap * 0.45f), Size(gap * 1.3f, gap * 0.9f))
-                }
+            val ys = listOf(top + h * 0.14f, top + h * 0.48f)
+            for (y0 in ys) for (l in 0..4) {
+                drawPath(Path().apply {
+                    moveTo(x(0.14f), sag(y0 + l * gap, 0.14f))
+                    for (k in 1..10) { val u = 0.14f + 0.72f * k / 10; lineTo(x(u), sag(y0 + l * gap, u)) }
+                }, ink.copy(alpha = 0.35f), style = Stroke(w * 0.005f))
+            }
+            // Half-gap steps below each staff's top line, per voice S, A, T, B. Over both pages the soprano
+            // arches up and back down while the bass mirrors it; each staff's pair keeps an even spacing.
+            val voices = if (side < 0) listOf(listOf(4, 3, 2, 3), listOf(7, 6, 5, 6), listOf(1, 2, 3, 2), listOf(5, 6, 7, 6))
+            else listOf(listOf(3, 2, 3, 4), listOf(6, 5, 6, 7), listOf(2, 3, 2, 1), listOf(6, 7, 6, 5))
+            for ((v, steps) in voices.withIndex()) for ((n, st) in steps.withIndex()) {
+                val u = if (side < 0) 0.74f - 0.16f * n else 0.26f + 0.16f * n // u runs from the spine: read left to right
+                val cy = sag(ys[v / 2] + gap * st / 2f, u)
+                drawOval(ink.copy(alpha = 0.7f).compositeOver(paper), Offset(x(u) - gap * 0.65f, cy - gap * 0.45f), Size(gap * 1.3f, gap * 0.9f))
             }
         }
         // The spine
