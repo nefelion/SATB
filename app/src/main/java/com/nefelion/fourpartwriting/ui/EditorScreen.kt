@@ -115,7 +115,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -283,7 +282,7 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
                 // Clip: zoomed-in music must stay under the toolbars, not paint over them
                 Box(Modifier.weight(1f).fillMaxWidth()
                     .then(if (wide) Modifier.windowInsetsPadding(safe.only(WindowInsetsSides.Top)) else Modifier).clipToBounds()) {
-                    val haptic = LocalHapticFeedback.current
+                    val haptic = haptics()
                     ScoreCanvas(
                         st, { if (vm.tap(it)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, vm::press, vm::nudge, vm::dragPitch,
                         onAim = vm::aim,
@@ -417,7 +416,7 @@ internal fun TempoEditor(tempo: Int, time: TimeSig, onChange: (Int) -> Unit, onC
     var text by remember(tempo) { mutableStateOf(tempo.toString()) }
     fun commit(v: Int) { onChange(v); onCommit() }
     val focus = LocalFocusManager.current
-    val haptic = LocalHapticFeedback.current
+    val haptic = haptics()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GlyphIcon(Smufl.beatMark(time), 36, MaterialTheme.colorScheme.onSurface)
@@ -611,7 +610,7 @@ private fun RowScope.Tool(
     enabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val haptic = LocalHapticFeedback.current
+    val haptic = haptics()
     var shown by remember { mutableStateOf(false) }
     var over by remember { mutableStateOf(false) }
     val click by rememberUpdatedState(onClick)
@@ -720,7 +719,7 @@ private class HoldTarget(val label: String, val below: Boolean, val danger: Bool
 
 @Composable
 private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, more: @Composable RowScope.() -> Unit, leading: Boolean, below: Boolean = false) {
-    val haptic = LocalHapticFeedback.current
+    val haptic = haptics()
     val ink = MaterialTheme.colorScheme.onSurface
     if (leading) {
         Tool(st.playing, vm::togglePlay, if (st.playing) "Stop" else "Play") { Ico(if (st.playing) Icons.Rounded.Stop else Icons.Rounded.PlayArrow, ink, 28.dp) }
@@ -898,7 +897,7 @@ private fun RowScope.PickTool(
     holdItem: Int = -1, onHold: () -> Unit = {},
     icon: @Composable () -> Unit, item: @Composable (Int) -> Unit,
 ) {
-    val haptic = LocalHapticFeedback.current
+    val haptic = haptics()
     var open by rememberSaveable { mutableStateOf(false) }
     var hover by remember { mutableIntStateOf(-1) }
     fun hold() { haptic.performHapticFeedback(HapticFeedbackType.LongPress); open = false; onHold() }
@@ -1285,7 +1284,7 @@ private val RULE_GROUPS = listOf(
 /** Rule name and description, an ⓘ button for the animated example, and its switch. */
 @Composable
 internal fun RuleRow(r: Rule, checked: Boolean, onInfo: () -> Unit, locked: Boolean = false, onToggle: () -> Unit) {
-    val haptic = LocalHapticFeedback.current
+    val haptic = haptics()
     Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(enabled = !locked) { haptic.toggle(!checked); onToggle() }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(r.label)
@@ -1303,7 +1302,7 @@ internal fun HapticFeedback.toggle(on: Boolean) = performHapticFeedback(if (on) 
 /** A [Switch] with an on/off haptic. */
 @Composable
 internal fun TickSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, enabled: Boolean = true) {
-    val haptic = LocalHapticFeedback.current
+    val haptic = haptics()
     Switch(checked = checked, onCheckedChange = { haptic.toggle(it); onCheckedChange(it) }, enabled = enabled)
 }
 
@@ -1435,7 +1434,7 @@ internal fun Small(label: String, glyph: Char? = null, enabled: Boolean = true, 
 /** Compact connected toggle buttons; with [glyphs], each option is one SMuFL music symbol drawn in the music font. */
 @Composable
 internal fun Segmented(options: List<String>, selected: Int, itemWidth: Dp = 48.dp, glyphs: Boolean = false, onSelect: (Int) -> Unit) {
-    val haptic = LocalHapticFeedback.current
+    val haptic = haptics()
     val cs = MaterialTheme.colorScheme
     // The raised chip slides to the picked option
     val x by animateDpAsState(itemWidth * selected.coerceAtLeast(0), spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow), label = "segment")

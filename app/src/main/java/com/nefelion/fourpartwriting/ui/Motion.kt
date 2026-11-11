@@ -18,6 +18,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.dp
 import com.nefelion.fourpartwriting.ui.theme.LocalScoreColors
 import kotlin.math.PI
@@ -88,7 +90,7 @@ private const val HEADS = 18
 internal fun Burst(tick: Int, modifier: Modifier) {
     var seen by rememberSaveable { mutableIntStateOf(tick) }
     val t = remember { Animatable(1f) }
-    val haptic = LocalHapticFeedback.current
+    val haptic = haptics()
     LaunchedEffect(tick) {
         if (tick == seen) return@LaunchedEffect
         seen = tick
@@ -125,6 +127,17 @@ internal fun Burst(tick: Int, modifier: Modifier) {
 /** A light tick each time [pager] settles on another page. */
 @Composable
 internal fun PageTicks(pager: PagerState) {
-    val haptic = LocalHapticFeedback.current
+    val haptic = haptics()
     LaunchedEffect(pager) { snapshotFlow { pager.settledPage }.drop(1).collect { haptic.performHapticFeedback(HapticFeedbackType.SegmentTick) } }
 }
+
+/** The Vibration setting. Provided at the root; unlike [LocalHapticFeedback], it reaches into dialogs, which get their own. */
+val LocalVibration = staticCompositionLocalOf { true }
+
+private object NoHaptics : HapticFeedback {
+    override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) = Unit
+}
+
+/** Haptic feedback that stays silent when Vibration is off in Settings; use instead of [LocalHapticFeedback]. */
+@Composable
+fun haptics(): HapticFeedback = if (LocalVibration.current) LocalHapticFeedback.current else NoHaptics

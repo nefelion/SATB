@@ -1,7 +1,6 @@
 package com.nefelion.fourpartwriting.ui
 
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
@@ -255,7 +254,7 @@ fun ScoreCanvas(
         val press by rememberUpdatedState(onPress)
         val aimTo by rememberUpdatedState(onAim)
         val nudge by rememberUpdatedState(onNudge)
-        val haptic = LocalHapticFeedback.current
+        val haptic = haptics()
         val drag by rememberUpdatedState(onDrag)
         val tempoTap by rememberUpdatedState(onTempoTap)
         val changeTap by rememberUpdatedState(onChangeTap)

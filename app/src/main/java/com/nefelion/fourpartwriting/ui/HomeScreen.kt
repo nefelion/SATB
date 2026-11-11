@@ -10,7 +10,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import android.content.res.Configuration
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -272,7 +271,7 @@ internal fun LessonsScreen(st: State<UiState>, shared: @Composable (String) -> M
     val all by remember { derivedStateOf { st.value.allUnlocked } }
     val cs = MaterialTheme.colorScheme
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val haptic = haptics()
     // Lessons finished since this list was last on screen flip to ✓ (and unlock the next) once it has slid back in
     var shown by rememberSaveable { mutableStateOf(done.toList()) }
     LaunchedEffect(done) { delay(450); shown = done.toList() }

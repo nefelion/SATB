@@ -24,9 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.Crossfade
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import com.nefelion.fourpartwriting.ui.LocalVibration
 import com.nefelion.fourpartwriting.audio.Synth
 import com.nefelion.fourpartwriting.ui.AppRoot
 import com.nefelion.fourpartwriting.ui.ThemePicker
@@ -76,17 +74,12 @@ class MainActivity : ComponentActivity() {
             Crossfade(if (picking) PICK else if (!seen) TOUR else APP, label = "start") { k ->
                 if (k == PICK) ThemePicker(st.value) { vm.setDark(it); picking = false; vm.finishTutorial() }
                 else MyApplicationTheme(dark) {
-                    // Vibration off: every haptic in the app goes to a no-op
-                    CompositionLocalProvider(LocalHapticFeedback provides if (vibration) LocalHapticFeedback.current else NoHaptics) {
+                    CompositionLocalProvider(LocalVibration provides vibration) {
                         if (k == TOUR) Tutorial(atEnd = back, onDone = { picking = true }) else AppRoot(vm)
                     }
                 }
             }
         }
-    }
-
-    private object NoHaptics : HapticFeedback {
-        override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) = Unit
     }
 
     private fun systemDark() = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES

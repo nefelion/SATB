@@ -3,7 +3,6 @@ package com.nefelion.fourpartwriting.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -103,7 +102,7 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
     }
 
     // One task: its passage with the note to pick, the options, and what the pick says
-    val haptic = LocalHapticFeedback.current
+    val haptic = haptics()
     val task: @Composable ColumnScope.(Int) -> Unit = { k ->
         val t = l.tasks[k]
         Text(t.prompt, style = body)

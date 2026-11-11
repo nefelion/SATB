@@ -449,7 +449,7 @@ private fun NameDialog(title: String, start: String, action: String, onDismiss: 
 @Composable
 internal fun ExerciseDialog(sopranoFirst: Boolean, onDismiss: () -> Unit, onPick: (Exercises.Level, Boolean) -> Unit) {
     var soprano by rememberSaveable { mutableStateOf(sopranoFirst) }
-    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val haptic = haptics()
     AlertDialog(
     onDismissRequest = onDismiss,
     title = { Text("New exercise") },
