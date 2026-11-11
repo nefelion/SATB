@@ -303,15 +303,19 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun shownKey() = s.slot?.let { "lesson:$it" } ?: s.scoreName
     /** SoundFont load started on app start, and a Play tap waiting for it. */
     private var loadJob: Job? = null
+    /** The check running off the main thread (see [checkAsync]). */
+    private var checkJob: Job? = null
     private var waitJob: Job? = null
     private var saveJob: Job? = null
     private var listJob: Job? = null
 
     /** MIDI keyboard: keys pressed together (held until all are released) arrive as one chord. */
-    private val midi = MidiIn(app, { n, vel -> midiKey(n, vel) }, Synth::sustain, { names ->
-        midiChord.reset() // a keyboard unplugged mid-chord never sends its key releases
-        _state.update { it.copy(midiDevices = names) }
-    })
+    private val midi by lazy {
+        MidiIn(app, { n, vel -> midiKey(n, vel) }, Synth::sustain, { names ->
+            midiChord.reset() // a keyboard unplugged mid-chord never sends its key releases
+            _state.update { it.copy(midiDevices = names) }
+        })
+    }
     private val btFound = mutableListOf<android.bluetooth.BluetoothDevice>()
     private val midiChord = ChordGather()
 
@@ -321,10 +325,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         refreshScores()
-        Synth.usePiano(s.piano)
-        reconnectMidi()
+        // MIDI, the native library and the SoundFont start off the main thread: together they cost a cold start ~150 ms
+        viewModelScope.launch(Dispatchers.Default) { midi; reconnectMidi() }
         val savedUri = prefs.getString("sf2Uri", null)?.let(Uri::parse)
-        if (savedUri != null || sf2.exists()) loadJob = viewModelScope.launch(Dispatchers.IO) {
+        val loading = savedUri != null || sf2.exists()
+        val job = viewModelScope.launch(Dispatchers.IO) {
+            Synth.usePiano(s.piano) // the first Synth call loads the native library
+            if (!loading) { if (!s.piano) setPiano(true); return@launch }
             _state.update { it.copy(soundLoading = true) }
             val ok = if (savedUri != null) loadSf2(savedUri) else Synth.load(sf2.path)
             _state.update {
@@ -333,7 +340,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             }
             // SoundFont is only on with a font loaded
             if (!ok && !_state.value.piano) setPiano(true)
-        } else if (!s.piano) setPiano(true)
+        }
+        if (loading) loadJob = job
         // Save the score shortly after it changes
         viewModelScope.launch {
             var last = s.score
@@ -397,7 +405,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 focusedIssue = if (dragging) it.focusedIssue else null,
             )
         }
-        if (!dragging) checkOrder() // a dragged pitch may pass through a crossing on its way
+        if (!dragging) { checkOrder(); recheck() } // a dragged pitch may pass through a crossing on its way
         return true
     }
 
@@ -862,13 +870,15 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     checked(it.copy(score = base), sc).copy(score = sc, undo = (it.undo + base).takeLast(200), redo = emptyList(), focusedIssue = null)
                 }
                 checkOrder()
+                recheck()
                 deselect() // dragged note is done: next touch enters notes again
             }
             false -> {
                 val base = dragBase ?: return
                 dragBase = null
-                _state.update { it.copy(score = base, dragging = false, analysis = it.analysis?.let { _ -> checkWritten(base, it.checkRules) }) }
+                _state.update { it.copy(score = base, dragging = false) }
                 checkOrder()
+                recheck()
             }
         }
     }
@@ -997,6 +1007,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 voice = changed ?: it.voice)
         }
         checkOrder()
+        recheck()
         Synth.setTempo(s.score.qpm) // undoing a tempo change applies to playback too
     }
 
@@ -1006,6 +1017,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             checked(it, next).copy(score = next, redo = it.redo.dropLast(1), undo = it.undo + it.score, selected = null, placed = false)
         }
         checkOrder()
+        recheck()
         Synth.setTempo(s.score.qpm) // undoing a tempo change applies to playback too
     }
 
@@ -1251,9 +1263,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (rule == null) return
         if (breaks) {
             // The rule is shown even if it is switched off in Settings
-            val a = VoiceLeading.check(sc, s.rules + rule)
-            val i = a.issues.indexOfFirst { it.rule == rule && sc.barNumber(a.slices[it.slice].time) == bar }
-            _state.update { it.copy(analysis = a, focusedIssue = i.takeIf { i >= 0 }) }
+            checkAsync(s.score, s.rules + rule) { a ->
+                val i = a.issues.indexOfFirst { it.rule == rule && sc.barNumber(a.slices[it.slice].time) == bar }
+                _state.update { it.copy(analysis = a, focusedIssue = i.takeIf { i >= 0 }) }
+            }
         } else {
             // The comment on the spot names where in the bar
             val (key, text) = study.why.entries.firstOrNull { (k, _) -> k.split(" ").let { it[0] == "$bar" && it[2] == rule.name } }?.toPair() ?: ("" to null)
@@ -1380,15 +1393,40 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         return a.copy(issues = a.issues.filter { it.rule != Rule.STRUCTURE && (a.slices.getOrNull(it.slice)?.time ?: Fraction.ZERO) < end })
     }
 
-    /** ✓ button: check (the user finds the rule breaks first), or close the results. */
-    fun check() {
+    /**
+     * Runs [checkWritten] of [sc] off the main thread (a long chorale takes a few frames), replacing a check still running;
+     * [done] gets the result on the main thread, unless the score changed meanwhile.
+     */
+    private fun checkAsync(sc: Score, rules: Set<Rule> = s.checkRules, done: (Analysis) -> Unit) {
+        checkJob?.cancel()
+        checkJob = viewModelScope.launch {
+            val a = withContext(Dispatchers.Default) { checkWritten(sc, rules) }
+            if (s.score == sc) done(a)
+        }
+    }
+
+    /** Redoes an open check after mutes, chord names or rules changed (the music did not; see [checked]). */
+    private fun recheck() {
+        if (s.analysis == null && s.quiz == null) return
+        checkAsync(s.score) { a ->
+            // A self-check still running keeps its marks; what was shown of the old results is counted anew
+            _state.update { st -> st.copy(analysis = st.analysis?.let { a }, quiz = st.quiz?.let { if (it.revealed) it else it.copy(analysis = a, shown = emptyList()) }) }
+        }
+    }
+
+    /** ✓ button: check (the user finds the rule breaks first; [onBreaks] runs then), or close the results. */
+    fun check(onBreaks: () -> Unit = {}) {
         if (s.analysis != null || s.quiz != null) return closeAnalysis()
         toMovement()
-        val a = checkWritten(s.score, s.checkRules)
-        if (a.issues.any { it.severity == Severity.ERROR }) return _state.update { it.copy(quiz = Quiz(a), focusedIssue = null) }
-        val win = solved(a)
-        _state.update { it.copy(analysis = a, focusedIssue = null, celebrate = if (win != null || a.issues.isEmpty()) it.celebrate + 1 else it.celebrate) }
-        win?.let { msg(it); chime() }
+        checkAsync(s.score) { a ->
+            if (a.issues.any { it.severity == Severity.ERROR }) {
+                _state.update { it.copy(quiz = Quiz(a), focusedIssue = null) }
+                return@checkAsync onBreaks()
+            }
+            val win = solved(a)
+            _state.update { it.copy(analysis = a, focusedIssue = null, celebrate = if (win != null || a.issues.isEmpty()) it.celebrate + 1 else it.celebrate) }
+            win?.let { msg(it); chime() }
+        }
     }
 
     /** A soft rising tonic chord for a solved exercise; always major, like the last chord of Bach's minor chorales. */
@@ -1455,11 +1493,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun checked(st: UiState, new: Score): UiState {
         if (st.analysis == null && st.quiz == null) return st
         fun music(sc: Score) = sc.copy(ignored = emptySet(), rulesOff = emptySet(), chords = emptyMap())
-        if (music(new) == music(st.score)) {
-            val a = checkWritten(new, st.checkRules)
-            // A self-check still running keeps its marks; what was shown of the old results is counted anew
-            return st.copy(analysis = st.analysis?.let { a }, quiz = st.quiz?.takeIf { !it.revealed }?.copy(analysis = a, shown = emptyList()), focusedIssue = null)
-        }
+        // Only mutes or chord names changed: the results stay open and the caller rechecks them (recheck)
+        if (music(new) == music(st.score)) return st.copy(quiz = st.quiz?.takeIf { !it.revealed }, focusedIssue = null)
         return st.copy(analysis = null, quiz = null, focusedIssue = null, message = "Score changed. Press ✓ to check again.")
     }
 
@@ -1498,7 +1533,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setAllRules(on: Boolean) = setRules(if (on) Rule.entries.toSet() else emptySet())
 
     private fun setRules(rules: Set<Rule>) {
-        _state.update { it.copy(rules = rules).let { st -> st.copy(analysis = st.analysis?.let { checkWritten(st.score, st.checkRules) }, focusedIssue = null) } }
+        _state.update { it.copy(rules = rules, focusedIssue = null) }
+        recheck()
         prefs.edit().putStringSet("rulesOff", (Rule.entries - rules).map { it.name }.toSet()).apply()
     }
 

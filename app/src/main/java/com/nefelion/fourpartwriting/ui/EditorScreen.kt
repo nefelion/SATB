@@ -723,12 +723,8 @@ private fun RowScope.ActionButtons(st: UiState, vm: EditorViewModel, more: @Comp
     val ink = MaterialTheme.colorScheme.onSurface
     if (leading) {
         Tool(st.playing, vm::togglePlay, if (st.playing) "Stop" else "Play") { Ico(if (st.playing) Icons.Rounded.Stop else Icons.Rounded.PlayArrow, ink, 28.dp) }
-        Tool(st.analysis != null || st.quiz != null, {
-            val opening = st.analysis == null && st.quiz == null
-            vm.check()
-            // Rule breaks found: a short "no" buzz as the self-check starts
-            if (opening && vm.state.value.quiz != null) haptic.performHapticFeedback(HapticFeedbackType.Reject)
-        }, "Check harmony") { Ico(Icons.Rounded.Check, ink, 28.dp) }
+        // Rule breaks found: a short "no" buzz as the self-check starts
+        Tool(st.analysis != null || st.quiz != null, { vm.check { haptic.performHapticFeedback(HapticFeedbackType.Reject) } }, "Check harmony") { Ico(Icons.Rounded.Check, ink, 28.dp) }
         Pill {
             Tool(onClick = { vm.step(-1) }, label = "Previous note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, ink, 30.dp) }
             Tool(onClick = { vm.step(1) }, label = "Next note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowRight, ink, 30.dp) }

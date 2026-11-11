@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.baselineprofile)
 }
 
 android {
@@ -65,7 +66,24 @@ android {
     }
 }
 
+// Startup profile from the :baselineprofile journey, kept in src/release/generated; regenerate with
+// ./gradlew :app:generateBaselineProfile -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
+baselineProfile {
+    dexLayoutOptimization = true
+}
+
+// The profile build types install over the debug app: the debug key keeps its data on the test device
+androidComponents {
+    finalizeDsl { ext ->
+        ext.buildTypes.filter { it.name.startsWith("nonMinified") || it.name.startsWith("benchmark") }
+            .forEach { it.signingConfig = ext.signingConfigs.getByName("debug") }
+        // The plugin turns off isMinifyEnabled, not this newer switch: the profile must name the classes unobfuscated
+        ext.buildTypes.filter { it.name.startsWith("nonMinified") }.forEach { it.optimization.enable = false }
+    }
+}
+
 dependencies {
+    "baselineProfile"(project(":baselineprofile"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

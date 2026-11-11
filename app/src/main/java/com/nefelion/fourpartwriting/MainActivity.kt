@@ -30,10 +30,14 @@ import com.nefelion.fourpartwriting.ui.AppRoot
 import com.nefelion.fourpartwriting.ui.ThemePicker
 import com.nefelion.fourpartwriting.ui.Tutorial
 import com.nefelion.fourpartwriting.ui.theme.MyApplicationTheme
+import java.util.concurrent.Executors
 
 private const val TOUR = 0
 private const val PICK = 1
 private const val APP = 2
+
+/** Opens and closes the audio stream off the main thread, in order (opening takes ~100 ms); one for the app, across rotations. */
+private val audio = Executors.newSingleThreadExecutor()
 
 class MainActivity : ComponentActivity() {
     private val vm: EditorViewModel by viewModels()
@@ -93,10 +97,10 @@ class MainActivity : ComponentActivity() {
     }
 
     // The audio stream only runs while the app is visible; a rotation keeps it, so playback goes on.
-    override fun onStart() { super.onStart(); Synth.start() }
+    override fun onStart() { super.onStart(); audio.execute { Synth.start() } }
     override fun onStop() {
         vm.saveNow()
-        if (!isChangingConfigurations) { vm.stop(); Synth.close() }
+        if (!isChangingConfigurations) { vm.stop(); audio.execute(Synth::close) }
         super.onStop()
     }
 }
