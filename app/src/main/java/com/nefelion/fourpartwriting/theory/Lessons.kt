@@ -73,7 +73,7 @@ object Lessons {
             title = "The sound inside a note",
             idea = "What you really hear when one note plays.",
             hear = null, why = null, watch = null,
-            rules = listOf(Rule.DOUBLING, Rule.SPACING),
+            rules = listOf(Rule.DOUBLING, Rule.SPACING, Rule.LOW_SPACING),
             // One per card of Overtones.COMPARE, in its order: each card's page ends with its task
             tasks = listOf(
                 Task("C major, bass C3. Which alto note?", chords("E5 C5 G4 C3"), Voice.ALTO, listOf(
@@ -87,8 +87,8 @@ object Lessons {
                     opt("C3", Verdict.WRONG, "Over an octave under the alto: a hole in the middle."),
                 )),
             ),
-            find = chords("E5 G4 E4 C3", "F5 A4 C4 F3", "D5 B4 G4 G3", "C5 A4 E3 A2"),
-            findNote = "Two chords go against the overtones. Tap a note in each, then Reveal.",
+            find = chords("E5 G4 E4 C3", "F5 A4 C4 F3", "E4 A3 C3 A2", "D5 B4 G3 G2"),
+            findNote = "Three chords go against the overtones. Tap a note in each, then Reveal.",
             apply = "Add soprano, alto and tenor over I, IV and V: root doubled, wide at the bottom, close at the top.",
             chords = setOf("I", "IV", "V"),
             lab = true,

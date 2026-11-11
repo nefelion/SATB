@@ -58,6 +58,7 @@ object RuleExamples {
         Rule.MISSING_THIRD to chords(listOf("G5 C5 G4 C4"), listOf("G5 C5 E4 C4"), "SATB", roman = true),
         Rule.DOUBLING to chords(listOf("B4 G4 D4 B3"), listOf("B4 G4 D4 G3"), "SATB", roman = true),
         Rule.SPACING to chords(listOf("E5 C4 G3 C3"), listOf("E5 G4 C4 C3"), "SA"),
+        Rule.LOW_SPACING to chords(listOf("D5 G4 B2 G2"), listOf("D5 G4 B3 G2"), "TB"),
         Rule.MELODIC to chords(listOf("G4 E4 C4 C3", "F5 D4 B3 G2"), listOf("G4 E4 C4 C3", "F4 D4 B3 G2"), "S"),
         Rule.OVERLAP to chords(listOf("E4 C4 G3 C3", "G4 F4 B3 G2"), listOf("E4 C4 G3 C3", "G4 D4 B3 G2"), "SA"),
         Rule.DIRECT to chords(listOf("E4 C4 G3 C3", "G4 D4 B3 G3"), listOf("E4 C4 G3 C3", "G4 D4 B3 G2"), "SB"),

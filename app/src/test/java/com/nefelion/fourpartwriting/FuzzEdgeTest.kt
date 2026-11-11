@@ -121,8 +121,8 @@ class FuzzEdgeTest {
     @Test fun restrikingANoteInTripletsChangesNothing() {
         val r = Random(20261027)
         val fails = LinkedHashMap<String, String>()
-        // Range, spacing and crossing hold for every sonority, so a new one repeats them
-        val perSlice = setOf(Rule.RANGE, Rule.SPACING, Rule.CROSSING)
+        // Range, spacing, low intervals and crossing hold for every sonority, so a new one repeats them
+        val perSlice = setOf(Rule.RANGE, Rule.SPACING, Rule.LOW_SPACING, Rule.CROSSING)
         fun issues(a: com.nefelion.fourpartwriting.theory.Analysis) =
             a.issues.map { "${if (it.rule in perSlice) "-" else a.slices[it.slice].time} ${it.severity} ${it.rule} ${it.message}" }.toSet()
         fun romans(a: com.nefelion.fourpartwriting.theory.Analysis) = a.points.map { a.slices[it].time to a.chords[it].roman }

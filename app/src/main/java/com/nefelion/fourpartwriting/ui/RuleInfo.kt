@@ -91,7 +91,7 @@ import kotlin.math.sqrt
 import com.nefelion.fourpartwriting.model.Arrangement as Staves
 
 /** Rules whose marked pairs of notes are an interval worth naming ("P5"). */
-private val INTERVAL_RULES = setOf(Rule.PARALLEL_FIFTHS, Rule.PARALLEL_OCTAVES, Rule.DIRECT, Rule.UNEQUAL_FIFTHS, Rule.SPACING)
+private val INTERVAL_RULES = setOf(Rule.PARALLEL_FIFTHS, Rule.PARALLEL_OCTAVES, Rule.DIRECT, Rule.UNEQUAL_FIFTHS, Rule.SPACING, Rule.LOW_SPACING)
 
 /** Glyphs that belong to a notehead and travel with it: the head, its accidental and dots. */
 private val ATTACHED = setOf(Smufl.HEAD_BLACK, Smufl.HEAD_HALF, Smufl.HEAD_WHOLE, Smufl.DOT) + (-2..2).map(Smufl::accidental)

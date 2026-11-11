@@ -3,6 +3,7 @@ package com.nefelion.fourpartwriting
 import com.nefelion.fourpartwriting.model.Key
 import com.nefelion.fourpartwriting.model.Mode
 import com.nefelion.fourpartwriting.model.TimeSig
+import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Rule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -35,6 +36,13 @@ class VoiceLeadingEdgeTest {
         // Alto rests: soprano below tenor is still a crossing; soprano two octaves above tenor is still too wide
         assertTrue(Rule.CROSSING in c("C4 r E4 C3").rules())
         assertTrue(Rule.SPACING in c("E5 r G3 C3").rules())
+    }
+
+    @Test fun lowIntervalsInAnyVoices() {
+        // Soprano and alto pushed down to a muddy third, a second between crossed voices, then the same third an octave up
+        assertEquals(listOf(Voice.SOPRANO, Voice.ALTO), c("C3 A2 A1 A1").issues.single { it.rule == Rule.LOW_SPACING }.notes.map { it.second })
+        assertTrue(Rule.LOW_SPACING in c("C4 G3 D3 E3").rules())
+        assertTrue(Rule.LOW_SPACING !in c("C4 A3 C3 C2").rules())
     }
 
     @Test fun parallelsInDisguise() {

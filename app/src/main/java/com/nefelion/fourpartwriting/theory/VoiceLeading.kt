@@ -56,6 +56,9 @@ enum class Rule(val label: String, val desc: String, val why: String, val how: S
     SPACING("Spacing", "Keep upper neighboring voices within an octave; tenor and bass within a twelfth.",
         "Wide gaps in the upper voices make the chord sound hollow and split apart; the bass may sit further away, as the low overtones are spread wide too.",
         "Write the soprano and bass first, then keep alto and tenor close to the soprano."),
+    LOW_SPACING("Low intervals", "Close intervals sound muddy low down; spread the lowest notes wider.",
+        "Low down the ear cannot tell close notes apart: they rub and blur into one muddy sound, while the same interval higher up rings clear.",
+        "Keep thirds and closer intervals off the bottom of the chord; leave a fifth or an octave between the lowest notes."),
     RANGE("Range", "Keep each voice inside its usual range.",
         "Real singers have limits; notes outside them strain the voice or vanish in the texture.",
         "Start each voice in the middle of its range and leave room above and below."),
@@ -135,6 +138,9 @@ object VoiceLeading {
     )
 
     private val V = Voice.entries
+
+    /** Low interval limits (MIDI) for 1 to 11 semitones: below its limit the lower note makes the interval muddy. m2 E3, M2 E♭3, m3 C3, M3 and P4 B♭2, tritone B2, P5 B♭1, sixths and sevenths F2. */
+    private val LOW_LIMITS = listOf(52, 51, 48, 46, 46, 47, 34, 41, 41, 41, 41)
 
     /** Key for "ignore here": changes when the notes it names change, so an edited spot is checked again. */
     fun ignoreKey(issue: Issue, slices: List<Slice>) =
@@ -373,6 +379,18 @@ object VoiceLeading {
                     add(Severity.ERROR, i, Rule.SPACING, "More than an octave between ${vu.label} and ${vl.label}.", i to vu, i to vl)
                 else if (vl == Voice.BASS && Interval.between(lo, up).number > 12)
                     add(Severity.WARNING, i, Rule.SPACING, "More than a twelfth between ${vu.label} and B.", i to vu, i to vl)
+            }
+
+            // Low intervals, between any two sounding chord tones whatever their voices (a passing rub is too short to blur); once, where one is struck
+            val sounding = V.filter { n[it.ordinal] != null && !isNct(s, it) }.sortedBy { n[it.ordinal]!!.midi }
+            muddy@ for ((k, vl) in sounding.withIndex()) for (vu in sounding.drop(k + 1)) {
+                val lo = n[vl.ordinal]!!
+                val hi = n[vu.ordinal]!!
+                val limit = LOW_LIMITS.getOrNull(hi.midi - lo.midi - 1) ?: continue
+                if (lo.midi < limit && (s.attacked[vl.ordinal] || s.attacked[vu.ordinal])) {
+                    add(Severity.WARNING, i, Rule.LOW_SPACING, "${vu.label} and ${vl.label} are too close this low (${hi.name} over ${lo.name}): it sounds muddy.", i to vu, i to vl)
+                    break@muddy
+                }
             }
 
             if (i > 0 && !phraseStart[i]) motionRules(i, slices[i - 1], s, chords[i - 1], chords[i], inSeq(i - 1, i), bassSeq(i - 1, i), ::add)

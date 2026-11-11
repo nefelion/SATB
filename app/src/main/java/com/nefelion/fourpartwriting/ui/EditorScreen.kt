@@ -1218,7 +1218,7 @@ private val RULE_GROUPS = listOf(
     "Motion between voices" to listOf(Rule.PARALLEL_OCTAVES, Rule.PARALLEL_FIFTHS, Rule.DIRECT, Rule.UNEQUAL_FIFTHS, Rule.SIMILAR_MOTION,
         Rule.CROSSING, Rule.OVERLAP, Rule.CROSS_RELATION),
     "Each voice's line" to listOf(Rule.MELODIC, Rule.LEAPS, Rule.RANGE, Rule.LEADING_TONE, Rule.SEVENTH, Rule.TENDENCY, Rule.UNRESOLVED_NCT),
-    "Chords" to listOf(Rule.UNRECOGNIZED, Rule.MISSING_THIRD, Rule.MISSING_VOICE, Rule.DOUBLING, Rule.SPACING, Rule.SIX_FOUR,
+    "Chords" to listOf(Rule.UNRECOGNIZED, Rule.MISSING_THIRD, Rule.MISSING_VOICE, Rule.DOUBLING, Rule.SPACING, Rule.LOW_SPACING, Rule.SIX_FOUR,
         Rule.NAMED_CHORD, Rule.FIGURES),
     "Progression and form" to listOf(Rule.PROGRESSION, Rule.CADENCE, Rule.HARMONIC_RHYTHM, Rule.STRUCTURE),
 ).also { g -> check(g.flatMap { it.second }.sorted() == Rule.entries) { "every rule in one group" } }

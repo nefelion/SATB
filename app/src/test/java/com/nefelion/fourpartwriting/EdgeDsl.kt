@@ -71,7 +71,8 @@ fun Score.transposedTo(target: Key): Score? {
 }
 
 fun Analysis.fingerprint() = Triple(
-    issues.filter { it.rule != Rule.RANGE }.map { "${it.severity} ${it.slice} ${it.rule}" }.sorted(),
+    // Range and low intervals depend on the actual pitch, which moves with transposition and octave shifts
+    issues.filter { it.rule != Rule.RANGE && it.rule != Rule.LOW_SPACING }.map { "${it.severity} ${it.slice} ${it.rule}" }.sorted(),
     // "Fr⁺⁶ (on G)" names a real note, which moves with the key
     romans().map { it.replace(Regex(" \\(on [^)]*\\)"), "(on)") },
     ncts.toSortedMap(compareBy({ it.voice }, { it.index })).toString(),
