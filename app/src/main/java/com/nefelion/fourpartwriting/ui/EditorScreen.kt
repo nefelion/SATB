@@ -990,7 +990,8 @@ private fun IssuesStrip(st: UiState, vm: EditorViewModel, insets: WindowInsets, 
             if (why != null) Column(pad) {
                 Text(head, style = MaterialTheme.typography.labelLarge)
                 Text(issue.message, style = MaterialTheme.typography.bodySmall, color = muted)
-                Text(why, Modifier.padding(top = 2.dp), style = MaterialTheme.typography.bodySmall)
+                Text("Why it works here", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text(why, style = MaterialTheme.typography.bodySmall)
             } else if (oneLine) Row(pad, verticalAlignment = Alignment.CenterVertically) {
                 Text(head, style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.width(10.dp))
