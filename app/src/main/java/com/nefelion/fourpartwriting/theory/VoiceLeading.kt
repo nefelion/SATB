@@ -65,7 +65,7 @@ enum class Rule(val label: String, val desc: String, val why: String, val how: S
     MELODIC("Melodic interval", "No augmented intervals, sevenths or leaps beyond an octave within a voice.",
         "Every part must be singable; awkward intervals are hard to pitch and break the line.",
         "Move each voice to the nearest chord tone; replace an awkward leap by a step or a common tone."),
-    OVERLAP("Voice overlap", "A voice must not move past the previous note of its neighbor.",
+    OVERLAP("Voice overlap", "A voice should not move past the previous note of its neighbor.",
         "When a voice passes its neighbor's previous note, the ear hears the line jump into the other voice, almost like crossing.",
         "Move the voices one at a time to their nearest notes and check that none passes its neighbor's last note."),
     DIRECT("Direct fifths/octaves", "Outer voices may not leap in similar motion into a fifth or octave.",
@@ -92,7 +92,7 @@ enum class Rule(val label: String, val desc: String, val why: String, val how: S
     CROSS_RELATION("Cross relation", "A note and its chromatic version should not appear in different voices in a row.",
         "A note clashing with its chromatic version in another voice sounds like a wrong note and blurs the key.",
         "Keep a note and its chromatic version in the same voice, moving by a half step."),
-    UNEQUAL_FIFTHS("Unequal fifths", "A diminished fifth over the bass should not move to a perfect fifth.",
+    UNEQUAL_FIFTHS("Unequal fifths", "A diminished fifth over the bass must not move to a perfect fifth.",
         "The diminished fifth wants to close to a third; turning it into a perfect fifth skips that resolution and sounds like parallel fifths.",
         "Resolve the diminished fifth inward to a third, or move the bass the other way."),
     HARMONIC_RHYTHM("Harmonic rhythm", "Do not repeat a chord from a weak beat to the downbeat.",
@@ -104,6 +104,15 @@ enum class Rule(val label: String, val desc: String, val why: String, val how: S
     STRUCTURE("Structure", "All voices equal in length; the last bar complete.",
         "Unequal voices or an incomplete bar leave the piece unfinished and chords cannot line up between the parts.",
         "Write all four voices to the same length and complete the last bar."),
+    ;
+
+    /** What the rule raises: rule breaks, warnings or both (RuleExamplesTest keeps it in step with [VoiceLeading.check]). */
+    val severities: Set<Severity> get() = when (this) {
+        MISSING_THIRD, CROSSING, MELODIC, SEVENTH, DIRECT, UNEQUAL_FIFTHS -> setOf(Severity.ERROR)
+        PARALLEL_OCTAVES, PARALLEL_FIFTHS, FIGURES, NAMED_CHORD, DOUBLING, LEADING_TONE, SPACING, TENDENCY, UNRESOLVED_NCT, SIX_FOUR ->
+            Severity.entries.toSet()
+        else -> setOf(Severity.WARNING)
+    }
 }
 
 /** A rule violation. [notes] are (slice index, voice) pairs to highlight. */
@@ -294,7 +303,7 @@ object VoiceLeading {
                 fun same(o: Chord?) = o != null && o.root == chord.root && o.quality == q
                 val next = nextI?.let { chords[it] }
                 if (!passing && !pedal && !settles(i, nextI) && !same(prev) && !same(next))
-                    add(Severity.WARNING, i, Rule.SIX_FOUR, "${chord.roman}: use a ⁶₄ chord only as a cadential, passing, pedal or arpeggiated ⁶₄.", i to low(i))
+                    add(Severity.ERROR, i, Rule.SIX_FOUR, "${chord.roman}: use a ⁶₄ chord only as a cadential, passing, pedal or arpeggiated ⁶₄.", i to low(i))
             }
             // The cadential ⁶₄ (from where it starts sounding) falls on a stronger beat than its V
             // (over a bass already sounding it is a neighbor chord, on any beat)
@@ -652,9 +661,9 @@ object VoiceLeading {
             // The bass leaping onto the tenor's new note (root to root, F♯–B under A♯–B) is still heard as the bass
             if (lo == Voice.BASS && upB.midi == loB.midi) continue
             if (loB.midi > upA.midi && moved(lo))
-                add(Severity.ERROR, i, Rule.OVERLAP, "${lo.label} moves above the previous ${up.label} note.", arrayOf(h to up, i to lo))
+                add(Severity.WARNING, i, Rule.OVERLAP, "${lo.label} moves above the previous ${up.label} note.", arrayOf(h to up, i to lo))
             if (upB.midi < loA.midi && moved(up))
-                add(Severity.ERROR, i, Rule.OVERLAP, "${up.label} moves below the previous ${lo.label} note.", arrayOf(h to lo, i to up))
+                add(Severity.WARNING, i, Rule.OVERLAP, "${up.label} moves below the previous ${lo.label} note.", arrayOf(h to lo, i to up))
         }
 
         // Parallels and direct perfect intervals
@@ -668,17 +677,19 @@ object VoiceLeading {
             val same = (bx.midi - ax.midi).sign == (by.midi - ay.midi).sign
             val names = "${vx.label}–${vy.label}"
             val hl = arrayOf(h to vx, h to vy, i to vx, i to vy)
+            // Contrary motion keeps the voices apart, so it is a lesser fault (Bach's cadences use it)
+            val byMotion = if (same) Severity.ERROR else Severity.WARNING
             when {
-                isP5(ia) && isP5(ib) -> add(Severity.ERROR, i, Rule.PARALLEL_FIFTHS,
+                isP5(ia) && isP5(ib) -> add(byMotion, i, Rule.PARALLEL_FIFTHS,
                     if (same) "Parallel fifths between $names." else "Consecutive fifths by contrary motion between $names.", hl)
-                isP8(ia) && isP8(ib) -> add(Severity.ERROR, i, Rule.PARALLEL_OCTAVES,
+                isP8(ia) && isP8(ib) -> add(byMotion, i, Rule.PARALLEL_OCTAVES,
                     if (same) "Parallel ${if (ib.number == 1) "unisons" else "octaves"} between $names."
                     else "Consecutive octaves by contrary motion between $names.", hl)
                 vy == Voice.BASS && isD5(ia) && isP5(ib) && same ->
-                    add(Severity.WARNING, i, Rule.UNEQUAL_FIFTHS, "d5 → P5 between $names.", hl)
+                    add(Severity.ERROR, i, Rule.UNEQUAL_FIFTHS, "d5 → P5 between $names.", hl)
                 x == 0 && vy == Voice.BASS && same && (isP5(ib) || isP8(ib)) &&
                     abs(bx.diatonic - ax.diatonic) > 1 ->
-                    add(Severity.WARNING, i, Rule.DIRECT,
+                    add(Severity.ERROR, i, Rule.DIRECT,
                         "Outer voices move in similar motion into a perfect ${if (isP5(ib)) "fifth" else "octave"} with a leap in the soprano.", hl)
             }
         }
@@ -707,7 +718,7 @@ object VoiceLeading {
                 else -> continue
             }
             val same = (bx.midi - ax.midi).sign == (by.midi - ay.midi).sign
-            add(Severity.ERROR, i, rule, "${if (same) "Parallel" else "Consecutive"} $name between ${vx.label}–${vy.label} (notes in between do not hide them).",
+            add(if (same) Severity.ERROR else Severity.WARNING, i, rule, "${if (same) "Parallel" else "Consecutive"} $name between ${vx.label}–${vy.label} (notes in between do not hide them).",
                 arrayOf(h to vx, h to vy, i to vx, i to vy))
         }
     }

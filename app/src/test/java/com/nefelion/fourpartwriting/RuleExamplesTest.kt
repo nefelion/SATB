@@ -24,6 +24,15 @@ class RuleExamplesTest {
         assertTrue(failures.joinToString("\n"), failures.isEmpty())
     }
 
+    /** The Rules list tags each rule by what it raises: every issue in the examples and study chorales matches its tag. */
+    @Test fun severitiesMatchTheRulesList() {
+        val scores = RuleExamples.ALL.values.flatMap { listOf(it.bad, it.good) } +
+            java.io.File("src/main/assets/study").listFiles()!!.map { com.nefelion.fourpartwriting.model.ScoreCodec.decode(it.readText())!! }
+        val wrong = scores.flatMap { VoiceLeading.check(it).issues }.filter { it.severity !in it.rule.severities }
+            .map { "${it.rule} ${it.severity}: ${it.message}" }.distinct()
+        assertTrue(wrong.joinToString("\n"), wrong.isEmpty())
+    }
+
     @Test fun ignoredIssuesAreHidden() {
         val ex = RuleExamples.ALL.getValue(Rule.PARALLEL_OCTAVES).bad
         val a = VoiceLeading.check(ex)

@@ -89,7 +89,8 @@ class MoreEdgeTest {
     @Test fun minorKeyCadentialPhrase() {
         // i – iv⁶ – V – i in A minor
         val a = chordsScore(Am, "C5 A4 E4 A3", "D5 A4 D4 F3", "B4 G#4 E4 E3", "C5 A4 E4 A2").analysis()
-        assertTrue(a.errorRules().toString(), a.errorRules().isEmpty())
+        // Only the direct fifth D5–B4 over F3–E3 (soprano leaps into a fifth with the bass)
+        assertEquals(listOf(Rule.DIRECT), a.errorRules())
     }
 
     @Test fun compoundMeterSuspension() {

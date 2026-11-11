@@ -135,7 +135,8 @@ class PolyphonicEdgeTest {
         assertEquals(listOf("I", "IV⁶", "V", "I"), a.romans())
         assertEquals(NctType.PT, a.nct(A, 3)?.type)
         assertEquals(NctType.PT, a.nct(B, 1)?.type)
-        a.noErrors()
+        // Only the direct fifth F5–D5 over A2–G2 (soprano leaps into a fifth with the bass)
+        assertEquals(a.issues.toString(), listOf(Rule.DIRECT), a.errorRules())
     }
 
     /** V on beat 4 held into the downbeat is still a weak-to-strong repetition, ornaments or not. */

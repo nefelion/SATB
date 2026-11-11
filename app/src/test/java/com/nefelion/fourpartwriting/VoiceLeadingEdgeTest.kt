@@ -48,8 +48,8 @@ class VoiceLeadingEdgeTest {
     @Test fun parallelsInDisguise() {
         // Alto and tenor crossed, still a fifth apart, moving in parallel
         assertTrue(Rule.PARALLEL_FIFTHS in c("E5 C4 G4 C3", "F5 D4 A4 D3").errorRules())
-        // Unison to octave by contrary motion
-        assertTrue(Rule.PARALLEL_OCTAVES in c("G4 G4 C4 C3", "A4 A3 D4 F3").errorRules())
+        // Unison to octave by contrary motion: a warning
+        c("G4 G4 C4 C3", "A4 A3 D4 F3").let { assertTrue(Rule.PARALLEL_OCTAVES in it.rules() && Rule.PARALLEL_OCTAVES !in it.errorRules()) }
         // Compound fifth (12th) to fifth
         assertTrue(Rule.PARALLEL_FIFTHS in c("G4 E4 C4 C3", "A4 F4 A3 D3").errorRules())
         // A held voice (oblique motion) makes no parallel
