@@ -1,58 +1,94 @@
-<p align="center"><img src="docs/images/logo.svg" width="128" alt="SATB logo: a treble staff with four colored notes rising"></p>
+<div align="center">
 
-# SATB - Voice Leading
+<img src="docs/images/logo.svg" width="112" alt="SATB logo: a treble staff with four colored notes rising">
 
-An Android app for writing four-part (SATB) harmony and checking it against common-practice voice-leading rules.
+# SATB
+
+Write four-part harmony on Android and check it against the rules of voice leading.
+
+[![Release](https://img.shields.io/github/v/release/nefelion/SATB?style=flat-square&color=E0605A)](../../releases/latest)
+![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-E8923A?style=flat-square)
+[![License: GPLv3](https://img.shields.io/badge/license-GPLv3-5DB062?style=flat-square)](LICENSE)
+![Ads and tracking: none](https://img.shields.io/badge/ads_%26_tracking-none-5E92E6?style=flat-square)
+
+</div>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.png">
-  <img alt="A seven-bar chorale in G major with chord symbols above and Roman numerals below" src="docs/images/hero-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/demo-dark.gif">
+  <img alt="Demo: Check counts one rule break, a tap on the right note finds the parallel octaves, the rule card explains them, the note is dragged down and the next check says all rules kept" src="docs/images/demo-light.gif">
 </picture>
 
-## Features
+## Check
 
-- Write four voices by tapping notes onto the staff, or play them on a USB or Bluetooth MIDI keyboard.
-- Harmony check against 25 voice-leading rules (parallel fifths and octaves, leading tone, doubling, spacing …), each explained with an example.
-- Find the rule breaks yourself: the check first shows only how many there are, then reveals what you found and missed.
-- 84 Bach chorales to study, with rule cards that point to where Bach keeps or breaks each rule.
-- Figured bass and given soprano exercises: write the other voices around a given bass or melody, check them, or ask for a hint or a full solution.
+One tap checks the score against 28 rules of common-practice harmony. Find the rule breaks yourself, or have them shown. The ⓘ button explains each rule: an example, why it exists, how to avoid breaking it, and where Bach keeps or breaks it.
+
+<details>
+<summary><b>The 28 rules</b></summary>
+<br>
+
+**Motion between voices**<br>
+Parallel octaves · Parallel fifths · Direct fifths/octaves · Unequal fifths · All voices in one direction · Voice crossing · Voice overlap · Cross relation
+
+**Each voice's line**<br>
+Melodic interval · Leap handling · Range · Leading tone · Seventh · Tendency tones · Non-chord tones
+
+**Chords**<br>
+Recognizable chord · Missing third · Missing voice · Doubling · Spacing · Low intervals · Six-four chords · Named chords · Figured bass
+
+**Progression and form**<br>
+Chord progression · Final cadence · Harmonic rhythm · Structure
+
+Each rule can be switched off, or ignored for one spot or one score.
+
+</details>
+
+## Study
+
+84 Bach chorales to play and check. Every rule break in them comes with a note on why Bach wrote it that way.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/chorale-dark.png">
+  <img alt="Bach chorale BWV 6.6 after a check: chord symbols, Roman numerals, and a spacing rule break with a note on why it works here" src="docs/images/chorale-light.png">
+</picture>
+
+## Practice
+
+Figured bass and given soprano exercises at three levels, with hints and full solutions.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/phones-dark.png">
+  <img alt="Phone screens: the new exercise dialog, the parallel fifths rule card with spots in Bach's chorales, and the list of rules" src="docs/images/phones-light.png">
+</picture>
+
+## Also
+
+- Write by tapping notes onto the staff, or play them on a USB or Bluetooth MIDI keyboard.
 - Chord symbols, Roman numerals and named non-chord tones.
-- Built-in basic piano, modeled from strings, hammers and soundboard: plays right away, no SoundFont needed; velocity and sustain pedal from a MIDI keyboard. A SoundFont still sounds better and is preferred.
-- Playback with any SoundFont (`.sf2`) too, and export to MusicXML.
-
-<img alt="Harmony check: parallel octaves highlighted in the score, with the list of rule breaks and warnings below" src="docs/images/check.png">
-
-Tap a rule break to see the notes involved. The ⓘ button explains the rule with an example.
-
-<img alt="Phone screens: harmony check, a rule explanation, and the list of rules" src="docs/images/phone.png">
+- Built-in piano, or any SoundFont (`.sf2`).
+- Opens MusicXML; saves MusicXML and MIDI.
+- Light and dark mode. No internet permission.
 
 ## Install
 
-Download the APK from the [Releases](../../releases) page, or build it yourself (see below). Requires Android 8.0 (API 26) or newer.
+Download the APK from [Releases](../../releases/latest). Requires Android 8.0 or newer.
 
-Playback uses the built-in basic piano. A SoundFont (`.sf2`) still sounds better and is preferred: pick one in Settings → Playback; none is bundled.
+The built-in piano plays right away. A SoundFont sounds better: pick one in Settings → Playback (none is bundled).
 
 ## Build
 
-Requirements: JDK 17+, Android SDK 37, NDK `27.0.12077973`, CMake `3.22.1`. Android Studio is optional; the command line is enough.
+JDK 17+, Android SDK 37, NDK `27.0.12077973`, CMake `3.22.1`. Android Studio is optional.
 
 ```sh
-./gradlew assembleDebug            # APK in app/build/outputs/apk/debug/
-./gradlew testDebugUnitTest        # unit tests
+./gradlew assembleDebug        # APK in app/build/outputs/apk/debug/
+./gradlew testDebugUnitTest    # unit tests
 ```
-
-## License
-
-Copyright © 2026 Nefelion
-
-SATB is free software: you can redistribute it and/or modify it under the terms of the
-[GNU General Public License v3.0](LICENSE) as published by the Free Software Foundation.
-It comes with no warranty.
 
 ## Credits
 
-Music font: [Bravura](https://github.com/steinbergmedia/bravura) by Steinberg, under the SIL Open Font License (`app/src/main/assets/Bravura-OFL.txt`).
+- Music font: [Bravura](https://github.com/steinbergmedia/bravura) by Steinberg, SIL Open Font License (`app/src/main/assets/Bravura-OFL.txt`).
+- Chorales: the [Bach Chorales Figured Bass dataset](https://github.com/juyaolongpaul/Bach_chorale_FB) by Yaolong Ju et al., based on the Neue Bach-Ausgabe, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Converted to the app's format: continuo part left out, old modal key signatures written as modern ones (`app/src/main/assets/study/`).
+- SoundFont synthesis: [TinySoundFont](https://github.com/schellingb/TinySoundFont) by Bernhard Schelling, MIT License (`app/src/main/cpp/tsf.h`).
 
-Bach chorales: the [Bach Chorales Figured Bass dataset](https://github.com/juyaolongpaul/Bach_chorale_FB) by Yaolong Ju et al., based on the Neue Bach-Ausgabe, under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Converted to the app's format: continuo part left out, old modal key signatures written as modern ones (`app/src/main/assets/study/`).
+## License
 
-SoundFont synthesis: [TinySoundFont](https://github.com/schellingb/TinySoundFont) by Bernhard Schelling, under the MIT License (`app/src/main/cpp/tsf.h`).
+Copyright © 2026 Nefelion. Free software under the [GNU General Public License v3.0](LICENSE); it comes with no warranty.
