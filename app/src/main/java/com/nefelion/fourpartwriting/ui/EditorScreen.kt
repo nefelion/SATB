@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.nefelion.fourpartwriting.BuildConfig
 import com.nefelion.fourpartwriting.R
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.requiredSize
@@ -1183,7 +1184,7 @@ internal fun SettingsDialog(st: UiState, vm: EditorViewModel, onDismiss: () -> U
                 }
             }
         }
-        item {
+        if (BuildConfig.DEBUG) item {
             Group("Lessons") {
                 if (st.allUnlocked) Text("All lessons are unlocked.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else OutlinedButton(onClick = { unlocking = true }, shape = SHAPE) { Text("Unlock all lessons") }

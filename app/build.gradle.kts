@@ -58,6 +58,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     // F-Droid: no Google-signed dependency metadata blob in the APK/AAB
     dependenciesInfo {

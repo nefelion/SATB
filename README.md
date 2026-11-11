@@ -12,7 +12,6 @@ An Android app for writing four-part (SATB) harmony and checking it against comm
 ## Features
 
 - Write four voices by tapping notes onto the staff, or play them on a USB or Bluetooth MIDI keyboard.
-- Guided lessons that teach why the voice-leading rules exist: hear it, watch it done, try it, find it, see it in Bach, use it.
 - Harmony check against 25 voice-leading rules (parallel fifths and octaves, leading tone, doubling, spacing …), each explained with an example.
 - Find the rule breaks yourself: the check first shows only how many there are, then reveals what you found and missed.
 - 84 Bach chorales to study, with rule cards that point to where Bach keeps or breaks each rule.

@@ -1,7 +1,5 @@
 package com.nefelion.fourpartwriting.theory
 
-import com.nefelion.fourpartwriting.model.Pitch
-import com.nefelion.fourpartwriting.model.PitchClass
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.log2
@@ -9,8 +7,7 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
- * The harmonic series and what it says about a voicing. A note of pitch f also sounds 2f, 3f, 4f…
- * (its partials, the n-th about 1/n as strong); how the partials of four voices line up shapes the chord's sound.
+ * The harmonic series. A note of pitch f also sounds 2f, 3f, 4f… (its partials, the n-th about 1/n as strong).
  */
 object Overtones {
     /** Partials per note, as drawn on the bass and played in pure tones. */
@@ -31,16 +28,6 @@ object Overtones {
 
     /** Name of the piano key nearest partial [n] of [midi], such as "B♭4". */
     fun name(midi: Int, n: Int) = partial(midi, n).roundToInt().let { NAMES[Math.floorMod(it, 12)] + (Math.floorDiv(it, 12) - 1) }
-
-    /** Share of the sound on each of [tones] (root, third, fifth): the strength of every partial of [notes] that lands on it. */
-    fun shares(notes: List<Pitch>, tones: List<PitchClass>): List<Double> {
-        val w = DoubleArray(tones.size)
-        for (p in notes) for (n in 1..PARTIALS) if (!outOfTune(n)) {
-            val k = tones.indexOfFirst { it.semis == Math.floorMod(partial(p.midi, n).roundToInt(), 12) }
-            if (k >= 0) w[k] += 1.0 / n
-        }
-        return w.map { it / w.sum() }
-    }
 
     /** Partial [n] of a piano string: [hz], amplitude [amp] at the hammer blow (as the piano outputs it), and how fast it fades (per second). */
     class Partial(val n: Int, val hz: Double, val amp: Double, val fast: Double, val slow: Double) {
@@ -69,21 +56,5 @@ object Overtones {
         Partial(12, 5583.8, 1.951e-04, fast = 26.20, slow = 1.30),
         Partial(13, 6107.2, 1.057e-04, fast = 39.90, slow = 1.10),
         Partial(14, 6640.2, 5.277e-05, fast = 39.90, slow = 0.80),
-    )
-
-    fun parse(voicing: String) = voicing.split(" ").map { Pitch.parse(it) }
-
-    /** A voicing habit the series explains: [good] and [bad] voicings ("S A T B") of C major, differing in one voice. */
-    class Compare(val rule: Rule, val title: String, val head: String, val text: String, val good: String, val bad: String)
-
-    val COMPARE = listOf(
-        Compare(Rule.DOUBLING, "Doubling", "Double the root, not the major third.",
-            "The root is overtones 1, 2, 4 and 8. The third is already overtone 5, so a second one takes over. " +
-                "A minor third is not in the series: doubling it is fine.",
-            good = "C5 G4 E4 C3", bad = "E5 G4 E4 C3"),
-        Compare(Rule.SPACING, "Spacing", "Wide at the bottom, close at the top.",
-            "Overtones lie far apart low down and close together higher up. Space a chord the same way: " +
-                "the bass may lie far below, but keep soprano, alto and tenor within an octave of each other.",
-            good = "E5 C5 G4 C3", bad = "E5 C5 G3 C3"),
     )
 }

@@ -67,7 +67,6 @@ import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.IN_BACH
 import com.nefelion.fourpartwriting.theory.Lesson
 import com.nefelion.fourpartwriting.theory.Lessons
-import com.nefelion.fourpartwriting.theory.Overtones
 import com.nefelion.fourpartwriting.theory.Rule
 import com.nefelion.fourpartwriting.theory.Verdict
 import com.nefelion.fourpartwriting.theory.VoiceLeading
@@ -147,13 +146,8 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
         if (l.lab) {
             add("A note is many notes" to { NoteBuilder(st, vm) })
             add("Piano into guitar" to { TimbreMorph(st, vm) })
-            Overtones.COMPARE.forEachIndexed { k, c -> add(c.title to {
-                if (k == 0) Text("Four voices sing each chord: soprano, alto, tenor and bass, from high to low. " +
-                    "In C3 or E5, the number is the octave; C4 is middle C.", style = MaterialTheme.typography.bodySmall, color = muted)
-                SeriesCard(c, vm) { info = it }
-                Text("Try it", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                task(k)
-            }) }
+            // shortcut: a lab lesson is only these two pages for now, so it has no practice and can't be finished
+            return@buildList
         }
 
         l.hear?.let { h -> add("Hear it" to {
@@ -205,8 +199,8 @@ internal fun LessonPage(i: Int, st: UiState, vm: EditorViewModel, header: @Compo
             Progress(st, now)
         }) }
 
-        // One step per task; a lab lesson puts each task under its card instead
-        if (!l.lab) l.tasks.forEachIndexed { k, _ -> add((if (l.tasks.size > 1) "Try it (${k + 1} of ${l.tasks.size})" else "Try it") to { task(k) }) }
+        // One step per task
+        l.tasks.forEachIndexed { k, _ -> add((if (l.tasks.size > 1) "Try it (${k + 1} of ${l.tasks.size})" else "Try it") to { task(k) }) }
 
         if (spots.isNotEmpty()) add("In Bach's chorales" to {
             Text("Where Bach keeps or bends these rules. Tap to open.", style = body)

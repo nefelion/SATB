@@ -8,8 +8,8 @@ import com.nefelion.fourpartwriting.model.Voice
 
 /**
  * A guided lesson on one idea of voice leading: hear it, why, watch it done, try it, see it in Bach,
- * then practice (find it in a passage, apply it in an exercise). A [lab] lesson instead starts with a note
- * built from its partials, the piano turned into a guitar, then one page per overtone card with its task. LessonsTest checks every passage against the checker.
+ * then practice (find it in a passage, apply it in an exercise). A [lab] lesson instead only builds a note
+ * from its partials, then turns the piano into a guitar. LessonsTest checks every passage against the checker.
  */
 class Lesson(
     val title: String,
@@ -25,7 +25,7 @@ class Lesson(
     val find: Score, val findNote: String,
     /** What the exercise asks for, and its chords (names as in [Exercises]). */
     val apply: String, val chords: Set<String>,
-    /** Shows the overtone cards (a note built from its partials, then what that means for voicing), task k under card k. */
+    /** Shows only the overtone pages: a note built from its partials, then the piano turned into a guitar. */
     val lab: Boolean = false,
 )
 
@@ -74,19 +74,7 @@ object Lessons {
             idea = "What you really hear when one note plays.",
             hear = null, why = null, watch = null,
             rules = listOf(Rule.DOUBLING, Rule.SPACING, Rule.LOW_SPACING),
-            // One per card of Overtones.COMPARE, in its order: each card's page ends with its task
-            tasks = listOf(
-                Task("C major, bass C3. Which alto note?", chords("E5 C5 G4 C3"), Voice.ALTO, listOf(
-                    opt("C5", Verdict.BEST, "The root, overtone 4 of the bass."),
-                    opt("G4", Verdict.OK, "The fifth, overtone 3: fine."),
-                    opt("E5", Verdict.WRONG, "E is already overtone 5 of the bass: now it takes over."),
-                )),
-                Task("A minor, bass A2. Which tenor note?", chords("C5 E4 A3 A2"), Voice.TENOR, listOf(
-                    opt("A3", Verdict.BEST, "Close under the alto, far over the bass: spaced like the overtones."),
-                    opt("E3", Verdict.OK, "Just an octave under the alto: as wide as it may get."),
-                    opt("C3", Verdict.WRONG, "Over an octave under the alto: a hole in the middle."),
-                )),
-            ),
+            tasks = emptyList(),
             find = chords("E5 G4 E4 C3", "F5 A4 C4 F3", "E4 A3 C3 A2", "D5 B4 G3 G2"),
             findNote = "Three chords go against the overtones. Tap a note in each, then Reveal.",
             apply = "Add soprano, alto and tenor over I, IV and V: root doubled, wide at the bottom, close at the top.",

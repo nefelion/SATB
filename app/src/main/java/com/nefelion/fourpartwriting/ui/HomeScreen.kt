@@ -65,6 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -88,6 +89,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nefelion.fourpartwriting.BuildConfig
 import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.EditorViewModel
 import com.nefelion.fourpartwriting.UiState
@@ -137,8 +139,15 @@ internal fun HomeScreen(st: State<UiState>, vm: EditorViewModel, onLessons: () -
         (if (s.slot == null && s.study == null) s.score else s.scores.firstOrNull { it.first == s.freeName }?.second)?.let(::opening)
     } }
 
-    @Composable fun LessonsCard(m: Modifier) = MenuCard("Lessons", "Learn to write for four voices.",
-        cs.primaryContainer, m.entrance(1, play), onLessons) { BookArt() }
+    // Lessons are not ready: only debug builds open them
+    val ready = BuildConfig.DEBUG
+    @Composable fun LessonsCard(m: Modifier) = MenuCard("Lessons", if (ready) "Learn to write for four voices." else "Not ready yet: coming in a later version.",
+        if (ready) cs.primaryContainer else cs.surfaceVariant, m.entrance(1, play), onLessons.takeIf { ready }) {
+        BookArt()
+        if (!ready) Box(Modifier.size(56.dp).clip(CircleShape).background(cs.surface), contentAlignment = Alignment.Center) {
+            Ico(Icons.Outlined.Lock, cs.onSurfaceVariant, 32.dp)
+        }
+    }
     @Composable fun FreeCard(m: Modifier) = MenuCard("Free Mode", "Write SATB and check it against the rules.",
         cs.surfaceVariant, m.entrance(2, play), { vm.openFree(); onFree() }) { free?.let { MiniScore(it, numerals = false) } }
 
@@ -180,9 +189,15 @@ internal fun HomeScreen(st: State<UiState>, vm: EditorViewModel, onLessons: () -
     }
 }
 
-/** A big menu card: a picture ([art]) on top, then [title] and [text]. It sinks a little while pressed. */
+/** A big menu card: a picture ([art]) on top, then [title] and [text]. It sinks a little while pressed; grayed out and inert with no [onClick]. */
 @Composable
-private fun MenuCard(title: String, text: String, color: Color, modifier: Modifier, onClick: () -> Unit, art: @Composable () -> Unit) {
+private fun MenuCard(title: String, text: String, color: Color, modifier: Modifier, onClick: (() -> Unit)?, art: @Composable () -> Unit) {
+    if (onClick == null) {
+        Surface(modifier.alpha(0.6f).semantics { contentDescription = "$title, $text" }, shape = RoundedCornerShape(28.dp), color = color, contentColor = MaterialTheme.colorScheme.onSurface) {
+            MenuCardContent(title, text, art)
+        }
+        return
+    }
     val cs = MaterialTheme.colorScheme
     var pressed by remember { mutableStateOf(false) }
     val click by rememberUpdatedState(onClick)
@@ -205,15 +220,17 @@ private fun MenuCard(title: String, text: String, color: Color, modifier: Modifi
                 }
                 pressed = false
             }
-        }, shape = RoundedCornerShape(28.dp), color = color, contentColor = cs.onSurface) {
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Box(Modifier.weight(1f).fillMaxWidth().alpha(0.6f), contentAlignment = Alignment.Center) { art() }
-            Spacer(Modifier.height(10.dp))
-            Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text(text, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
-        }
-    }
+        }, shape = RoundedCornerShape(28.dp), color = color, contentColor = cs.onSurface) { MenuCardContent(title, text, art) }
 }
+
+@Composable
+private fun MenuCardContent(title: String, text: String, art: @Composable () -> Unit) =
+    Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.weight(1f).fillMaxWidth().alpha(0.6f), contentAlignment = Alignment.Center) { art() }
+        Spacer(Modifier.height(10.dp))
+        Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 
 /** An open book with staves and a few notes on its pages, for Lessons. Fits its box. */
 @Composable

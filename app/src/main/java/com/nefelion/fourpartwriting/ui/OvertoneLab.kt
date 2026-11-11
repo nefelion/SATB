@@ -10,7 +10,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,24 +20,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -61,21 +57,11 @@ import androidx.compose.ui.unit.sp
 import com.nefelion.fourpartwriting.EditorViewModel
 import com.nefelion.fourpartwriting.audio.Tones
 import com.nefelion.fourpartwriting.UiState
-import com.nefelion.fourpartwriting.engrave.NoteRef
 import com.nefelion.fourpartwriting.engrave.Smufl
-import com.nefelion.fourpartwriting.model.Event
-import com.nefelion.fourpartwriting.model.Fraction
-import com.nefelion.fourpartwriting.model.Interval
-import com.nefelion.fourpartwriting.model.Pitch
-import com.nefelion.fourpartwriting.model.Score
-import com.nefelion.fourpartwriting.model.Voice
 import com.nefelion.fourpartwriting.theory.Overtones
-import com.nefelion.fourpartwriting.theory.Rule
-import com.nefelion.fourpartwriting.ui.theme.LocalScoreColors
 import kotlin.math.exp
 import kotlin.math.log10
 import kotlin.math.pow
-import kotlin.math.roundToInt
 
 private val PIANO = Overtones.A4_PIANO
 /** The drawings put partial 1 at the top. */
@@ -174,11 +160,6 @@ private class Plan(val strikes: List<Pair<Double, Int>>, val length: Double, val
             .let { Plan(it, it.last().first + RING) }
     }
 }
-
-/** Whole-note chords, one per bar, from voicings "S A T B". */
-private fun chords(vararg voicings: String) = Score(voices = voicings.map(Overtones::parse).let { cs ->
-    List(4) { v -> cs.map { Event(Fraction.of(1, 1), it[v]) } }
-})
 
 /** 0 at −40 dB or below, 1 at full strength. */
 private fun loudness(level: Double) = ((20 * log10(level.coerceAtLeast(1e-6)) + 40) / 40).coerceIn(0.0, 1.0).toFloat()
@@ -408,40 +389,3 @@ private fun Spectrum(level: (Int) -> Double, hz: (Int) -> Double, w: Float = 0f)
         }
     }
 }
-
-/** One voicing habit the series explains: a good and a bad C major chord side by side, the note they differ in colored. */
-@Composable
-internal fun SeriesCard(c: Overtones.Compare, vm: EditorViewModel, onRule: (Rule) -> Unit) {
-    Text(c.head, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    Text(c.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    val differ = remember(c) { Overtones.parse(c.good).zip(Overtones.parse(c.bad)).withIndex().filter { it.value.first != it.value.second }.map { it.index } }
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Side(c.good, true, c.rule, differ, vm, Modifier.weight(1f))
-        Side(c.bad, false, c.rule, differ, vm, Modifier.weight(1f))
-    }
-    OutlinedButton({ vm.playPassage(chords(c.good, c.bad)) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) { Text("▶ Both: ✓, then ✗") }
-    TextButton({ onRule(c.rule) }) { Text("${c.rule.label} rule ›") }
-}
-
-/** One voicing card: verdict, chord with the [differ] voices colored, what tells the two apart, play. */
-@Composable
-private fun Side(voicing: String, good: Boolean, rule: Rule, differ: List<Int>, vm: EditorViewModel, modifier: Modifier) {
-    val sc = LocalScoreColors.current
-    val notes = remember(voicing) { Overtones.parse(voicing) }
-    val tint = if (good) sc.ok else sc.errorNote
-    val fact = remember(voicing, rule) {
-        if (rule == Rule.DOUBLING) "Third: ${(Overtones.shares(notes, listOf("C", "E", "G").map { Pitch.parse(it + "4").pc })[1] * 100).roundToInt()}% of the sound"
-        // Gaps between neighboring voices, from the bass up
-        else "Gaps: " + notes.reversed().zipWithNext { lo, up -> ordinal(Interval.between(lo, up).number) }.joinToString(" · ")
-    }
-    Surface(modifier, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.5.dp, tint.copy(alpha = 0.6f))) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(if (good) "✓ Like this" else "✗ Not this", style = MaterialTheme.typography.labelLarge, color = if (good) sc.ok else sc.errorText)
-            MiniScore(remember(voicing) { chords(voicing) }, differ.associate { NoteRef(Voice.entries[it], 0) to tint })
-            Text(fact, style = MaterialTheme.typography.bodySmall, minLines = 2)
-            OutlinedButton({ vm.playPassage(chords(voicing)) }, shape = SHAPE, modifier = Modifier.fillMaxWidth()) { Text("▶ Play") }
-        }
-    }
-}
-
-private fun ordinal(n: Int) = "$n" + when { n % 100 in 11..13 -> "th"; n % 10 == 1 -> "st"; n % 10 == 2 -> "nd"; n % 10 == 3 -> "rd"; else -> "th" }
