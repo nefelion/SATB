@@ -273,7 +273,7 @@ internal fun EditorScreen(vm: EditorViewModel, snack: SnackbarHostState, study: 
                         onTempoTap = { tempoDialog = true },
                         onChangeTap = { changeBar = it },
                         // A named chord opens the chord panel on itself
-                        onNameTap = if (st.study == null && st.quiz?.revealed != false) ({ vm.select(it); chords = true; figures = false }) else null,
+                        onNameTap = if (st.study == null && st.quiz?.revealed != false) ({ vm.pickChord(it); chords = true; figures = false }) else null,
                         savedViewport = vm.viewport, onViewport = vm::rememberViewport,
                         edges = edges,
                     )
@@ -531,13 +531,13 @@ private fun ChordPanel(st: UiState, vm: EditorViewModel, insets: WindowInsets, w
     }
     Column(Modifier.fillMaxWidth().windowInsetsPadding(insets).padding(horizontal = 4.dp)) {
         Row(Modifier.fillMaxWidth().height(if (wide) 64.dp else 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Tool(onClick = { apply(); vm.step(-1) }, label = "Previous note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, ink, 30.dp) }
+            Tool(onClick = { apply(); vm.step(-1) }, label = "Previous chord") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, ink, 30.dp) }
             if (e == null) Text("Select a note", Modifier.weight(6f), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
             else for (c in common) Tool(named == c,{ text = c; vm.setChord(c) }, "Chord $c") {
                 Text(c, fontSize = 17.sp, color = ink, fontFamily = FontFamily.Serif)
             }
             if (wide) field(Modifier.weight(5f))
-            Tool(onClick = { apply(); vm.step(1) }, label = "Next note") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowRight, ink, 30.dp) }
+            Tool(onClick = { apply(); vm.step(1) }, label = "Next chord") { Ico(Icons.AutoMirrored.Rounded.KeyboardArrowRight, ink, 30.dp) }
             TextButton(onClick = { apply(); onClose() }) { Text("Done") }
         }
         if (!wide) field(Modifier.fillMaxWidth())

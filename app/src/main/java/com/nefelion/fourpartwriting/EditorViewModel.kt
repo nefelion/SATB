@@ -483,7 +483,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(ghost = null) }
         if (s.quiz?.revealed == false) { (hit.exact ?: hit.near)?.let(::toggleMark); return false }
         // Naming chords: a tap picks the chord there, it never writes a note
-        if (naming) { if (!hit.afterLast) chordNote(hit.time)?.let { select(it, hit.time) }; return false }
+        if (naming) { if (!hit.afterLast) chordNote(hit.time)?.let { pickChord(it, hit.time) }; return false }
         if (s.moving) {
             if (hit.near != null) select(hit.near, hit.nearAt) else if (hit.exact != null) select(hit.exact, hit.exactAt)
             else if (hit.rest != null) select(hit.rest, hit.restAt)
@@ -560,6 +560,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Selects the previous (-1) or next (+1) event of the active voice and plays it. */
     fun step(dir: Int) {
+        if (naming) { stepChord(dir); return }
         val v = s.voice
         val n = s.score.voice(v).size
         if (n == 0) return
@@ -609,6 +610,29 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The chord panel is open (the screen says so): the check then keeps a chord picked for it instead of dropping the selection. */
     var naming = false
+        set(v) {
+            // Closing the panel drops the picked chord, so no note is left selected in a voice's color
+            if (field && !v) deselect()
+            field = v
+        }
+
+    /** Picks the chord at [ref]'s time to name. The chord belongs to no voice: the input voice and modes stay as they are. */
+    fun pickChord(ref: NoteRef, at: Fraction? = null) {
+        _state.update { it.copy(selected = ref, selectedAt = at, placed = false, followTick = it.followTick + 1) }
+    }
+
+    /** Picks the previous (-1) or next (+1) chord: the next time any voice starts a note. */
+    private fun stepChord(dir: Int) {
+        val sc = s.score
+        val times = Voice.entries.flatMap { v -> sc.onsets(v).filterIndexed { i, _ -> sc.voice(v)[i].pitch != null } }.distinct().sorted()
+        val now = s.selectedTime
+        val t = when {
+            now == null -> if (dir > 0) times.firstOrNull() else times.lastOrNull()
+            dir > 0 -> times.firstOrNull { it > now }
+            else -> times.lastOrNull { it < now }
+        } ?: return
+        chordNote(t)?.let { pickChord(it, t) }
+    }
 
     /** The note a chord name at [t] sits on: the one named there, else the highest starting there, else the highest sounding. */
     private fun chordNote(t: Fraction): NoteRef? {
@@ -626,8 +650,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val ref = (issueTime() ?: s.selectedTime)?.let(::chordNote)
             ?: Voice.entries.firstNotNullOfOrNull { v -> s.score.voice(v).indexOfFirst { it.pitch != null }.takeIf { it >= 0 }?.let { NoteRef(v, it) } }
             ?: run { msg("Write some notes first."); return false }
-        select(ref)
-        _state.update { it.copy(followTick = it.followTick + 1) }
+        pickChord(ref)
         return true
     }
 
@@ -1429,7 +1452,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         nameIssueChord()
     }
     /** While naming chords, the picked issue's chord is the one to name. */
-    private fun nameIssueChord() { if (naming) issueTime()?.let { t -> chordNote(t)?.let { select(it, t) } } }
+    private fun nameIssueChord() { if (naming) issueTime()?.let { t -> chordNote(t)?.let { pickChord(it, t) } } }
 
     /** Long-press menu on an issue: hide just this one. */
     fun ignoreIssue(i: Int) {
