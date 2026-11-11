@@ -282,23 +282,32 @@ fun RuleInfoDialog(
 ) {
     val demo = remember(rule) { RuleExamples.ALL[rule]?.let { Demo(rule, it) } }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    // Landscape: text on the left, the example and Bach on the right
+    // Landscape: text on the left, the example on the right
     val conf = androidx.compose.ui.platform.LocalConfiguration.current
     val wide = conf.screenWidthDp > conf.screenHeightDp && conf.screenWidthDp >= 600
     var more by rememberSaveable(rule) { mutableStateOf(false) }
+    var bach by rememberSaveable(rule) { mutableStateOf(false) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         KeepRefreshRate()
         Surface(Modifier.padding(horizontal = 24.dp, vertical = 16.dp).widthIn(max = if (wide) 760.dp else 420.dp),
             shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
+            // A heading that folds the text under it away, one tap to read
+            @Composable fun Fold(label: String, open: Boolean, onClick: () -> Unit) =
+                Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Ico(if (open) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, MaterialTheme.colorScheme.primary, 20.dp)
+                }
             @Composable fun Text1() {
                 Text(rule.label, style = MaterialTheme.typography.titleLarge)
                 Text(rule.desc, style = MaterialTheme.typography.bodyMedium, color = muted)
-                // Why and how: folded away, one tap to read
-                Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable { more = !more }.padding(vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text("Why, and how to avoid it", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Ico(if (more) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, MaterialTheme.colorScheme.primary, 20.dp)
-                }
+            }
+            @Composable fun Example() {
+                if (demo != null) DemoCanvas(demo)
+            }
+            // Below the switch: why, and Bach
+            @Composable fun Folds() {
+                Fold("Why, and how to avoid it", more) { more = !more }
                 if (more) {
                     Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Why: ") }; append(rule.why) }, style = MaterialTheme.typography.bodySmall, color = muted)
                     Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("How to avoid: ") }; append(rule.how) }, style = MaterialTheme.typography.bodySmall, color = muted)
@@ -312,14 +321,11 @@ fun RuleInfoDialog(
                         }
                     }, style = MaterialTheme.typography.bodySmall, color = muted)
                 }
-            }
-            @Composable fun Example() {
-                if (demo != null) DemoCanvas(demo)
                 // Where Bach keeps the rule first, then where he bends it; the chorale itself explains the spot
                 val spots = IN_BACH[rule].orEmpty().sortedBy { it.breaks }
                 if (onStudy != null && spots.isNotEmpty()) {
-                    Text("In Bach's chorales", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                    for (spot in spots) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onStudy(spot) }.padding(vertical = 6.dp),
+                    Fold("In Bach's chorales", bach) { bach = !bach }
+                    if (bach) for (spot in spots) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onStudy(spot) }.padding(vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Text("${spot.study}, bar ${spot.bar}", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
                         Text(if (spot.breaks) "breaks it" else "keeps it", style = MaterialTheme.typography.labelMedium,
@@ -343,9 +349,9 @@ fun RuleInfoDialog(
             val gap = Arrangement.spacedBy(8.dp)
             Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = gap) {
                 if (wide) Row(Modifier.weight(1f, fill = false), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = gap) { Text1(); Actions() }
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = gap) { Text1(); Actions(); Folds() }
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = gap) { Example() }
-                } else Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = gap) { Text1(); Example(); Actions() }
+                } else Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = gap) { Text1(); Example(); Actions(); Folds() }
                 TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Close") }
             }
         }

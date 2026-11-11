@@ -8,9 +8,6 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
@@ -1228,15 +1225,7 @@ private val RULE_GROUPS = listOf(
 internal fun RuleRow(r: Rule, checked: Boolean, onInfo: () -> Unit, locked: Boolean = false, onToggle: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(SHAPE).clickable(enabled = !locked, onClick = onToggle).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            val sc = LocalScoreColors.current
-            val tag = SpanStyle(fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Medium)
-            Text(buildAnnotatedString {
-                append(r.label + "  ")
-                // (non-breaking spaces keep the tag on one line)
-                if (Severity.ERROR in r.severities) withStyle(tag.copy(color = sc.errorText)) { append("Rule break") }
-                if (r.severities.size > 1) withStyle(tag.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)) { append(" or ") }
-                if (Severity.WARNING in r.severities) withStyle(tag.copy(color = sc.warnText)) { append(if (r.severities.size > 1) "warning" else "Warning") }
-            })
+            Text(r.label)
             Text(r.desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Box(Modifier.size(48.dp).clip(CircleShape).clickable(onClick = onInfo).semantics { contentDescription = "About ${r.label}" },
